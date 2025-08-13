@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciar Horários - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Início</a></li>
+                    <li class="breadcrumb-item active">Gerenciar Horários</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-calendar-alt me-2 text-primary"></i>Gerenciar Horários</h1>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
+                    <i class="fas fa-plus me-2"></i>Novo Horário
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schedule Overview -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Funcionamento da Escola</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Segunda a Sexta-feira</h6>
+                            <ul class="list-unstyled">
+                                <li><span class="badge bg-info me-2">Manhã</span>07:30 às 12:00</li>
+                                <li><span class="badge bg-warning me-2">Tarde</span>13:00 às 18:00</li>
+                                <li><span class="badge bg-success me-2">Integral</span>07:30 às 18:00</li>
+                                <li><span class="badge bg-dark me-2">Noite</span>19:00 às 22:30</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Sábado</h6>
+                            <ul class="list-unstyled">
+                                <li><span class="badge bg-info me-2">Manhã</span>08:00 às 12:00</li>
+                                <li><span class="badge bg-warning me-2">Tarde</span>13:00 às 18:00</li>
+                                <li><span class="badge bg-success me-2">Integral</span>08:00 às 18:00</li>
+                                <li><span class="badge bg-secondary me-2">Noite</span>Não funciona</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Schedules -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Horários Cadastrados</h5>
+                    <span class="badge bg-primary">{{ schedules|length }} horários</span>
+                </div>
+                <div class="card-body">
+                    {% if schedules %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Sala</th>
+                                    <th>Dia</th>
+                                    <th>Turno</th>
+                                    <th>Horário</th>
+                                    <th>Curso</th>
+                                    <th>Instrutor</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for schedule in schedules %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('classroom_detail', classroom_id=schedule.classroom.id) }}" class="text-decoration-none">
+                                            {{ schedule.classroom.name }}
+                                        </a>
+                                        <small class="text-muted d-block">{{ schedule.classroom.block }}{{ schedule.classroom.floor }}</small>
+                                    </td>
+                                    <td>{{ schedule.to_dict()['day_name'] }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if schedule.shift == 'morning' %}bg-info
+                                            {% elif schedule.shift == 'afternoon' %}bg-warning
+                                            {% elif schedule.shift == 'fullday' %}bg-success
+                                            {% elif schedule.shift == 'night' %}bg-dark
+                                            {% endif %}">
+                                            {% if schedule.shift == 'morning' %}Manhã
+                                            {% elif schedule.shift == 'afternoon' %}Tarde
+                                            {% elif schedule.shift == 'fullday' %}Integral
+                                            {% elif schedule.shift == 'night' %}Noite
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>{{ schedule.start_time }} - {{ schedule.end_time }}</td>
+                                    <td>{{ schedule.course_name }}</td>
+                                    <td>{{ schedule.instructor or 'Não informado' }}</td>
+                                    <td>
+                                        <a href="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" 
+                                           class="btn btn-outline-danger btn-sm"
+                                           onclick="return confirm('Tem certeza que deseja remover este horário?')">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <h4>Nenhum horário cadastrado</h4>
+                        <p class="text-muted">Adicione horários para as salas de aula.</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
+                            <i class="fas fa-plus me-2"></i>Cadastrar Primeiro Horário
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Schedule Modal -->
+<div class="modal fade" id="addScheduleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Novo Horário</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_schedule') }}">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="classroom_id" class="form-label">Sala *</label>
+                            <select class="form-select" id="classroom_id" name="classroom_id" required>
+                                <option value="">Selecione a sala</option>
+                                {% for classroom in classrooms %}
+                                <option value="{{ classroom.id }}">{{ classroom.name }} ({{ classroom.block }}{{ classroom.floor }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="day_of_week" class="form-label">Dia da Semana *</label>
+                            <select class="form-select" id="day_of_week" name="day_of_week" required>
+                                <option value="">Selecione o dia</option>
+                                <option value="0">Segunda-feira</option>
+                                <option value="1">Terça-feira</option>
+                                <option value="2">Quarta-feira</option>
+                                <option value="3">Quinta-feira</option>
+                                <option value="4">Sexta-feira</option>
+                                <option value="5">Sábado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="shift" class="form-label">Turno *</label>
+                            <select class="form-select" id="shift" name="shift" required>
+                                <option value="">Selecione o turno</option>
+                                <option value="morning">Manhã</option>
+                                <option value="afternoon">Tarde</option>
+                                <option value="fullday">Integral</option>
+                                <option value="night">Noite</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="start_time" class="form-label">Início *</label>
+                            <input type="time" class="form-control" id="start_time" name="start_time" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="end_time" class="form-label">Fim *</label>
+                            <input type="time" class="form-control" id="end_time" name="end_time" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="course_name" class="form-label">Nome do Curso *</label>
+                            <input type="text" class="form-control" id="course_name" name="course_name" 
+                                   placeholder="Ex: Técnico em Informática" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="instructor" class="form-label">Instrutor</label>
+                            <input type="text" class="form-control" id="instructor" name="instructor" 
+                                   placeholder="Nome do instrutor">
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Dica:</strong> O turno noite não está disponível aos sábados.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i>Cadastrar Horário
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-fill times based on shift selection
+document.getElementById('shift').addEventListener('change', function() {
+    const shift = this.value;
+    const dayOfWeek = document.getElementById('day_of_week').value;
+    const startTime = document.getElementById('start_time');
+    const endTime = document.getElementById('end_time');
+    
+    // Disable night shift for Saturday
+    if (dayOfWeek === '5' && shift === 'night') {
+        alert('O turno noite não está disponível aos sábados.');
+        this.value = '';
+        return;
+    }
+    
+    const isSaturday = dayOfWeek === '5';
+    
+    switch(shift) {
+        case 'morning':
+            startTime.value = isSaturday ? '08:00' : '07:30';
+            endTime.value = '12:00';
+            break;
+        case 'afternoon':
+            startTime.value = '13:00';
+            endTime.value = '18:00';
+            break;
+        case 'fullday':
+            startTime.value = isSaturday ? '08:00' : '07:30';
+            endTime.value = '18:00';
+            break;
+        case 'night':
+            if (!isSaturday) {
+                startTime.value = '19:00';
+                endTime.value = '22:30';
+            }
+            break;
+    }
+});
+
+// Disable night shift for Saturday
+document.getElementById('day_of_week').addEventListener('change', function() {
+    const dayOfWeek = this.value;
+    const shiftSelect = document.getElementById('shift');
+    const nightOption = shiftSelect.querySelector('option[value="night"]');
+    
+    if (dayOfWeek === '5') { // Saturday
+        nightOption.disabled = true;
+        if (shiftSelect.value === 'night') {
+            shiftSelect.value = '';
+        }
+    } else {
+        nightOption.disabled = false;
+    }
+});
+
+// Form validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const dayOfWeek = document.getElementById('day_of_week').value;
+    const shift = document.getElementById('shift').value;
+    
+    if (dayOfWeek === '5' && shift === 'night') {
+        e.preventDefault();
+        alert('O turno noite não está disponível aos sábados.');
+        return false;
+    }
+});
+</script>
+{% endblock %}

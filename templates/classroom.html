@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}{{ classroom.name }} - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Início</a></li>
+                    <li class="breadcrumb-item active">{{ classroom.name }}</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0"><i class="fas fa-door-open me-2 text-primary"></i>{{ classroom.name }}</h3>
+                    <span class="badge bg-primary fs-6">{{ classroom.block }}{{ classroom.floor }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-3">
+                                <i class="fas fa-users fa-2x text-info me-3"></i>
+                                <div>
+                                    <h5 class="mb-0">{{ classroom.capacity }}</h5>
+                                    <small class="text-muted">Capacidade (alunos)</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-3">
+                                {% if classroom.has_computers %}
+                                    <i class="fas fa-desktop fa-2x text-success me-3"></i>
+                                    <div>
+                                        <h5 class="mb-0 text-success">Sim</h5>
+                                        <small class="text-muted">Possui computadores</small>
+                                    </div>
+                                {% else %}
+                                    <i class="fas fa-times fa-2x text-danger me-3"></i>
+                                    <div>
+                                        <h5 class="mb-0 text-danger">Não</h5>
+                                        <small class="text-muted">Possui computadores</small>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if classroom.software %}
+                    <div class="mb-4">
+                        <h5><i class="fas fa-code me-2"></i>Softwares Instalados</h5>
+                        <div class="bg-light p-3 rounded">
+                            {{ classroom.software }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if classroom.description %}
+                    <div class="mb-4">
+                        <h5><i class="fas fa-info-circle me-2"></i>Descrição</h5>
+                        <div class="bg-light p-3 rounded">
+                            {{ classroom.description }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-building me-2"></i>Localização</h6>
+                            <p>Bloco {{ classroom.block }} - {{ classroom.floor }}º Andar</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-calendar me-2"></i>Última Atualização</h6>
+                            <p>{{ classroom.updated_at.strftime('%d/%m/%Y às %H:%M') if classroom.updated_at else 'Não informado' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedules -->
+            {% if schedules %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Horários de Aula</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Dia</th>
+                                    <th>Turno</th>
+                                    <th>Horário</th>
+                                    <th>Curso</th>
+                                    <th>Instrutor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for schedule in schedules %}
+                                <tr>
+                                    <td>{{ schedule.to_dict()['day_name'] }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {% if schedule.shift == 'morning' %}Manhã
+                                            {% elif schedule.shift == 'afternoon' %}Tarde
+                                            {% elif schedule.shift == 'fullday' %}Integral
+                                            {% elif schedule.shift == 'night' %}Noite
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>{{ schedule.start_time }} - {{ schedule.end_time }}</td>
+                                    <td>{{ schedule.course_name }}</td>
+                                    <td>{{ schedule.instructor or 'Não informado' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card mt-4">
+                <div class="card-body text-center">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                    <h5>Nenhum horário cadastrado</h5>
+                    <p class="text-muted">Esta sala não possui horários de aula cadastrados.</p>
+                    {% if session.admin_authenticated %}
+                    <a href="{{ url_for('schedule_management') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Cadastrar Horário
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Actions Sidebar -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Ações</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('generate_pdf', classroom_id=classroom.id) }}" class="btn btn-outline-primary">
+                            <i class="fas fa-file-pdf me-2"></i>Gerar PDF
+                        </a>
+                        <a href="{{ url_for('generate_qr', classroom_id=classroom.id) }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-qrcode me-2"></i>Gerar QR Code
+                        </a>
+                        {% if session.admin_authenticated %}
+                        <a href="{{ url_for('edit_classroom', classroom_id=classroom.id) }}" class="btn btn-outline-warning">
+                            <i class="fas fa-edit me-2"></i>Editar Sala
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-dark">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar ao Mapa
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Info -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Informações Rápidas</h6>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <strong>ID da Sala:</strong> {{ classroom.id }}
+                        </li>
+                        <li class="mb-2">
+                            <strong>Cadastrada em:</strong><br>
+                            {{ classroom.created_at.strftime('%d/%m/%Y às %H:%M') if classroom.created_at else 'Não informado' }}
+                        </li>
+                        <li class="mb-2">
+                            <strong>Total de Horários:</strong> {{ schedules|length }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,337 @@
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+import io
+from datetime import datetime
+
+def create_header_style():
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#2c3e50')
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#34495e')
+    )
+    
+    return title_style, subtitle_style
+
+def add_header(story, title, subtitle=None):
+    title_style, subtitle_style = create_header_style()
+    
+    # School Header
+    header_text = """
+    <para align="center">
+    <font size="20" color="#1e3a8a"><b>ESCOLA SENAI "MORVAN FIGUEIREDO"</b></font><br/>
+    <font size="12" color="#475569">Sistema de Gestão de Salas</font>
+    </para>
+    """
+    story.append(Paragraph(header_text, getSampleStyleSheet()['Normal']))
+    story.append(Spacer(1, 20))
+    
+    # Title
+    story.append(Paragraph(title, title_style))
+    
+    if subtitle:
+        story.append(Paragraph(subtitle, subtitle_style))
+    
+    story.append(Spacer(1, 20))
+
+def generate_classroom_pdf(classroom, schedules):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Header
+    add_header(story, f"Relatório da Sala: {classroom.name}")
+    
+    # Classroom Information
+    info_data = [
+        ['Campo', 'Informação'],
+        ['Nome da Sala', classroom.name],
+        ['Capacidade', f'{classroom.capacity} alunos'],
+        ['Bloco', classroom.block],
+        ['Andar', f'{classroom.floor}º andar'],
+        ['Possui Computadores', 'Sim' if classroom.has_computers else 'Não'],
+        ['Softwares Instalados', classroom.software or 'Nenhum'],
+        ['Descrição', classroom.description or 'Sem descrição']
+    ]
+    
+    info_table = Table(info_data, colWidths=[2*inch, 4*inch])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3b82f6')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+    ]))
+    
+    story.append(info_table)
+    story.append(Spacer(1, 30))
+    
+    # Schedule Information
+    if schedules:
+        story.append(Paragraph("<b>Horários de Aula</b>", styles['Heading3']))
+        story.append(Spacer(1, 12))
+        
+        days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+        
+        schedule_data = [['Dia', 'Turno', 'Horário', 'Curso', 'Instrutor']]
+        
+        for schedule in schedules:
+            schedule_data.append([
+                days[schedule.day_of_week],
+                schedule.shift.title(),
+                f'{schedule.start_time} - {schedule.end_time}',
+                schedule.course_name,
+                schedule.instructor or 'Não informado'
+            ])
+        
+        schedule_table = Table(schedule_data, colWidths=[1*inch, 1*inch, 1.2*inch, 2*inch, 1.3*inch])
+        schedule_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10b981')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f9ff')),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ]))
+        
+        story.append(schedule_table)
+    else:
+        story.append(Paragraph("<b>Horários de Aula</b>", styles['Heading3']))
+        story.append(Paragraph("Nenhum horário cadastrado para esta sala.", styles['Normal']))
+    
+    # Footer
+    story.append(Spacer(1, 50))
+    footer_text = f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y às %H:%M')}"
+    story.append(Paragraph(footer_text, styles['Normal']))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+def generate_general_report(classrooms, all_schedules):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Header
+    add_header(story, "Relatório Geral de Salas", f"Total de {len(classrooms)} salas cadastradas")
+    
+    # Summary table
+    data = [['Sala', 'Capacidade', 'Computadores', 'Status']]
+    
+    # Create schedule map for quick lookup
+    schedule_map = {}
+    for schedule in all_schedules:
+        if schedule.classroom_id not in schedule_map:
+            schedule_map[schedule.classroom_id] = []
+        schedule_map[schedule.classroom_id].append(schedule)
+    
+    for classroom in classrooms:
+        has_schedules = classroom.id in schedule_map and len(schedule_map[classroom.id]) > 0
+        status = "Em uso" if has_schedules else "Disponível"
+        
+        data.append([
+            f"{classroom.name} ({classroom.block}{classroom.floor})",
+            f"{classroom.capacity} alunos",
+            "Sim" if classroom.has_computers else "Não",
+            status
+        ])
+    
+    table = Table(data, colWidths=[2.5*inch, 1.2*inch, 1*inch, 1.3*inch])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8fafc')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f1f5f9')])
+    ]))
+    
+    story.append(table)
+    story.append(Spacer(1, 30))
+    
+    # Statistics
+    total_capacity = sum(classroom.capacity for classroom in classrooms)
+    computers_count = sum(1 for classroom in classrooms if classroom.has_computers)
+    occupied_count = len(set(schedule.classroom_id for schedule in all_schedules))
+    
+    stats_data = [
+        ['Estatística', 'Valor'],
+        ['Total de Salas', str(len(classrooms))],
+        ['Capacidade Total', f'{total_capacity} alunos'],
+        ['Salas com Computadores', str(computers_count)],
+        ['Salas em Uso', str(occupied_count)],
+        ['Salas Disponíveis', str(len(classrooms) - occupied_count)]
+    ]
+    
+    stats_table = Table(stats_data, colWidths=[2.5*inch, 1.5*inch])
+    stats_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#059669')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecfdf5')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+    ]))
+    
+    story.append(Paragraph("<b>Estatísticas Gerais</b>", styles['Heading3']))
+    story.append(Spacer(1, 12))
+    story.append(stats_table)
+    
+    # Footer
+    story.append(Spacer(1, 30))
+    footer_text = f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y às %H:%M')}"
+    story.append(Paragraph(footer_text, styles['Normal']))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+def generate_availability_report(classrooms, schedules):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+    
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Header
+    add_header(story, "Relatório de Disponibilidade de Salas")
+    
+    days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+    shifts = ['morning', 'afternoon', 'fullday', 'night']
+    shift_names = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
+    
+    # Create schedule map
+    schedule_map = {}
+    for schedule in schedules:
+        key = (schedule.classroom_id, schedule.day_of_week, schedule.shift)
+        schedule_map[key] = schedule
+    
+    for day_idx, day_name in enumerate(days):
+        story.append(Paragraph(f"<b>{day_name}</b>", styles['Heading3']))
+        story.append(Spacer(1, 12))
+        
+        # Create availability table for this day
+        data = [['Sala'] + [shift_names[shift] for shift in shifts]]
+        
+        for classroom in classrooms:
+            row = [f"{classroom.name} ({classroom.block}{classroom.floor})"]
+            
+            for shift in shifts:
+                # Skip night shift for Saturday
+                if day_idx == 5 and shift == 'night':
+                    row.append('N/A')
+                    continue
+                    
+                key = (classroom.id, day_idx, shift)
+                if key in schedule_map:
+                    schedule = schedule_map[key]
+                    row.append(f"OCUPADA\n{schedule.course_name}")
+                else:
+                    row.append("LIVRE")
+            
+            data.append(row)
+        
+        table = Table(data, colWidths=[2*inch, 1.2*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#7c3aed')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        
+        # Color coding for availability
+        for row_idx in range(1, len(data)):
+            for col_idx in range(1, len(data[row_idx])):
+                cell_value = data[row_idx][col_idx]
+                if 'LIVRE' in cell_value:
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (col_idx, row_idx), (col_idx, row_idx), colors.HexColor('#dcfce7'))
+                    ]))
+                elif 'OCUPADA' in cell_value:
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (col_idx, row_idx), (col_idx, row_idx), colors.HexColor('#fecaca'))
+                    ]))
+                elif 'N/A' in cell_value:
+                    table.setStyle(TableStyle([
+                        ('BACKGROUND', (col_idx, row_idx), (col_idx, row_idx), colors.HexColor('#f3f4f6'))
+                    ]))
+        
+        story.append(table)
+        story.append(Spacer(1, 20))
+    
+    # Legend
+    story.append(Paragraph("<b>Legenda:</b>", styles['Heading4']))
+    legend_data = [
+        ['Status', 'Cor', 'Significado'],
+        ['LIVRE', '', 'Sala disponível para uso'],
+        ['OCUPADA', '', 'Sala com aula agendada'],
+        ['N/A', '', 'Turno não disponível']
+    ]
+    
+    legend_table = Table(legend_data, colWidths=[1*inch, 0.8*inch, 2.5*inch])
+    legend_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (1, 1), (1, 1), colors.HexColor('#dcfce7')),
+        ('BACKGROUND', (1, 2), (1, 2), colors.HexColor('#fecaca')),
+        ('BACKGROUND', (1, 3), (1, 3), colors.HexColor('#f3f4f6')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+    ]))
+    
+    story.append(legend_table)
+    
+    # Footer
+    story.append(Spacer(1, 30))
+    footer_text = f"Relatório gerado em {datetime.now().strftime('%d/%m/%Y às %H:%M')}"
+    story.append(Paragraph(footer_text, styles['Normal']))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer

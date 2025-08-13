@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Disponibilidade de Salas - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Início</a></li>
+                    <li class="breadcrumb-item active">Disponibilidade</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-calendar-check me-2 text-primary"></i>Disponibilidade de Salas</h1>
+                <div>
+                    <a href="{{ url_for('generate_availability_report_route') }}" class="btn btn-outline-success">
+                        <i class="fas fa-file-pdf me-2"></i>Relatório PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Legenda</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="status-indicator bg-success me-2"></div>
+                                <span>Livre</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="status-indicator bg-danger me-2"></div>
+                                <span>Ocupada</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <div class="status-indicator bg-secondary me-2"></div>
+                                <span>Não disponível</span>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-clock me-2 text-info"></i>
+                                <span>Turnos disponíveis</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Availability Grid -->
+    {% set days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'] %}
+    {% set shifts = [
+        ('morning', 'Manhã', 'info'),
+        ('afternoon', 'Tarde', 'warning'),
+        ('fullday', 'Integral', 'success'),
+        ('night', 'Noite', 'dark')
+    ] %}
+
+    {% for day_idx, day_name in enumerate(days) %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-calendar-day me-2"></i>{{ day_name }}
+                        {% if day_idx == 5 %}<small class="text-muted ms-2">(08:00 - 18:00)</small>{% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th style="width: 250px;">Sala</th>
+                                    {% for shift_key, shift_name, shift_color in shifts %}
+                                        {% if not (day_idx == 5 and shift_key == 'night') %}
+                                        <th class="text-center">
+                                            <span class="badge bg-{{ shift_color }}">{{ shift_name }}</span>
+                                        </th>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for classroom in classrooms %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}" class="text-decoration-none">
+                                            <strong>{{ classroom.name }}</strong>
+                                        </a>
+                                        <br>
+                                        <small class="text-muted">
+                                            {{ classroom.block }}{{ classroom.floor }} • 
+                                            {{ classroom.capacity }} alunos
+                                            {% if classroom.has_computers %}
+                                            • <i class="fas fa-desktop text-success"></i>
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    {% for shift_key, shift_name, shift_color in shifts %}
+                                        {% if not (day_idx == 5 and shift_key == 'night') %}
+                                        <td class="text-center">
+                                            {% set has_schedule = schedule_map.get(classroom.id, {}).get(day_idx, {}).get(shift_key) %}
+                                            {% if has_schedule %}
+                                                <div class="availability-cell occupied">
+                                                    <i class="fas fa-times text-white"></i>
+                                                    <div class="small text-white mt-1">{{ has_schedule.course_name }}</div>
+                                                    {% if has_schedule.instructor %}
+                                                    <div class="small text-white-50">{{ has_schedule.instructor }}</div>
+                                                    {% endif %}
+                                                </div>
+                                            {% elif day_idx == 5 and shift_key == 'night' %}
+                                                <div class="availability-cell unavailable">
+                                                    <i class="fas fa-ban text-white"></i>
+                                                    <div class="small text-white mt-1">N/A</div>
+                                                </div>
+                                            {% else %}
+                                                <div class="availability-cell free">
+                                                    <i class="fas fa-check text-white"></i>
+                                                    <div class="small text-white mt-1">Livre</div>
+                                                </div>
+                                            {% endif %}
+                                        </td>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Summary Statistics -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Estatísticas de Ocupação</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        {% set total_slots = classrooms|length * 23 %}  {# 6 days * 4 shifts - 1 (no Saturday night) #}
+                        {% set occupied_slots = schedule_map.values() | map('values') | list | map('values') | list | length %}
+                        {% set free_slots = total_slots - occupied_slots %}
+                        {% set occupancy_rate = (occupied_slots / total_slots * 100) if total_slots > 0 else 0 %}
+                        
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h3>{{ classrooms|length }}</h3>
+                                    <p class="mb-0">Total de Salas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h3>{{ free_slots }}</h3>
+                                    <p class="mb-0">Horários Livres</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <h3>{{ occupied_slots }}</h3>
+                                    <p class="mb-0">Horários Ocupados</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h3>{{ "%.1f"|format(occupancy_rate) }}%</h3>
+                                    <p class="mb-0">Taxa de Ocupação</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Add tooltips for better UX
+document.addEventListener('DOMContentLoaded', function() {
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}
