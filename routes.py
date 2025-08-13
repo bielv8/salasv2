@@ -372,37 +372,69 @@ def available_now():
     # Get current day and time
     current_day = datetime.now().weekday()  # 0=Monday, 6=Sunday
     current_hour = datetime.now().hour
+    current_minute = datetime.now().minute
+    current_time_minutes = current_hour * 60 + current_minute
     
-    # Determine current shift
-    current_shift = None
-    if 7 <= current_hour < 12:
-        current_shift = 'morning'
-    elif 13 <= current_hour < 18:
-        current_shift = 'afternoon'  
-    elif 19 <= current_hour < 23:
-        current_shift = 'night'
-    elif 7 <= current_hour < 18:  # Full day overlaps with morning and afternoon
-        current_shift = 'fullday'
+    print(f"DEBUG: Current day: {current_day}, current hour: {current_hour}:{current_minute:02d}")
     
     classrooms = Classroom.query.all()
     
-    if current_day == 6 or current_shift is None:  # Sunday or outside operating hours
+    # Check if it's outside operating hours or Sunday
+    if current_day == 6:  # Sunday
+        available_rooms = classrooms
+        current_period = "Domingo - Escola fechada"
+    elif current_hour < 7 or current_hour >= 23:  # Before 7 AM or after 11 PM
         available_rooms = classrooms
         current_period = "Fora do horário de funcionamento"
     else:
-        # Find occupied classrooms for current time slot
-        occupied_schedules = Schedule.query.filter_by(
-            day_of_week=current_day,
-            shift=current_shift,
-            is_active=True
-        ).all()
+        # Find ALL occupied classrooms considering all overlapping shifts
+        occupied_classroom_ids = set()
         
-        occupied_classroom_ids = [s.classroom_id for s in occupied_schedules]
+        # Check all possible shifts that could be active at current time
+        active_shifts = []
+        
+        # Morning: 7:30-12:00 (450-720 minutes)
+        if 450 <= current_time_minutes < 720:
+            active_shifts.append('morning')
+            
+        # Afternoon: 13:00-18:00 (780-1080 minutes)
+        if 780 <= current_time_minutes < 1080:
+            active_shifts.append('afternoon')
+            
+        # Night: 19:00-22:30 (1140-1350 minutes)
+        if 1140 <= current_time_minutes < 1350:
+            active_shifts.append('night')
+            
+        # Fullday: 7:30-18:00 (overlaps with morning and afternoon)
+        if 450 <= current_time_minutes < 1080:
+            active_shifts.append('fullday')
+        
+        print(f"DEBUG: Active shifts at {current_hour}:{current_minute:02d}: {active_shifts}")
+        
+        # Find occupied classrooms for ALL active shifts
+        for shift in active_shifts:
+            occupied_schedules = Schedule.query.filter_by(
+                day_of_week=current_day,
+                shift=shift,
+                is_active=True
+            ).all()
+            
+            for schedule in occupied_schedules:
+                occupied_classroom_ids.add(schedule.classroom_id)
+                print(f"DEBUG: Classroom {schedule.classroom_id} occupied by {shift} - {schedule.course_name}")
+        
         available_rooms = [room for room in classrooms if room.id not in occupied_classroom_ids]
         
+        # Determine current period description
         days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
-        shifts = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
-        current_period = f"{days[current_day]} - {shifts.get(current_shift, 'N/A')}"
+        if active_shifts:
+            shift_names = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
+            active_shift_names = [shift_names.get(shift, shift) for shift in active_shifts]
+            current_period = f"{days[current_day]} - {', '.join(set(active_shift_names))}"
+        else:
+            current_period = f"{days[current_day]} - Intervalo"
+    
+    print(f"DEBUG: Available rooms: {len(available_rooms)}/{len(classrooms)}")
     
     return render_template('available_now.html', 
                          available_rooms=available_rooms,
