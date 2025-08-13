@@ -1,5 +1,5 @@
 import os
-from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file
+from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app import app, db
 from models import Classroom, Schedule, AdminSession
 from datetime import datetime, timedelta
@@ -7,6 +7,8 @@ from pdf_generator import generate_classroom_pdf, generate_general_report, gener
 from qr_generator import generate_qr_code
 import io
 from urllib.parse import urljoin
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill
 
 ADMIN_PASSWORD = "senai103103"
 
@@ -210,8 +212,46 @@ def delete_schedule(schedule_id):
 
 @app.route('/dashboard')
 def dashboard():
-    classrooms = Classroom.query.all()
-    schedules = Schedule.query.filter_by(is_active=True).all()
+    # Get filter parameters
+    block_filter = request.args.get('block', '')
+    floor_filter = request.args.get('floor', '')
+    has_computers_filter = request.args.get('has_computers', '')
+    capacity_filter = request.args.get('capacity', '')
+    day_filter = request.args.get('day', '')
+    shift_filter = request.args.get('shift', '')
+    
+    # Build classroom query with filters
+    classroom_query = Classroom.query
+    if block_filter:
+        classroom_query = classroom_query.filter(Classroom.block == block_filter)
+    if floor_filter:
+        classroom_query = classroom_query.filter(Classroom.floor == int(floor_filter))
+    if has_computers_filter:
+        has_computers_bool = has_computers_filter.lower() == 'true'
+        classroom_query = classroom_query.filter(Classroom.has_computers == has_computers_bool)
+    if capacity_filter:
+        capacity_ranges = {
+            'small': (0, 20),
+            'medium': (21, 35),
+            'large': (36, 100)
+        }
+        if capacity_filter in capacity_ranges:
+            min_cap, max_cap = capacity_ranges[capacity_filter]
+            classroom_query = classroom_query.filter(
+                Classroom.capacity >= min_cap,
+                Classroom.capacity <= max_cap
+            )
+    
+    classrooms = classroom_query.all()
+    
+    # Build schedule query with filters
+    schedule_query = Schedule.query.filter_by(is_active=True)
+    if day_filter:
+        schedule_query = schedule_query.filter(Schedule.day_of_week == int(day_filter))
+    if shift_filter:
+        schedule_query = schedule_query.filter(Schedule.shift == shift_filter)
+    
+    schedules = schedule_query.all()
     
     # Organize schedules by classroom and day
     schedule_map = {}
@@ -224,16 +264,31 @@ def dashboard():
     
     # Calculate statistics
     total_slots = len(classrooms) * 23  # 6 days * 4 shifts - 1 (no Saturday night)
-    occupied_slots = len(schedules)
+    occupied_slots = len([s for s in schedules if s.classroom_id in [c.id for c in classrooms]])
     free_slots = total_slots - occupied_slots
     occupancy_rate = (occupied_slots / total_slots * 100) if total_slots > 0 else 0
+    
+    # Get unique filter options
+    all_classrooms = Classroom.query.all()
+    blocks = sorted(list(set(c.block for c in all_classrooms if c.block)))
+    floors = sorted(list(set(c.floor for c in all_classrooms)))
     
     return render_template('dashboard.html', 
                          classrooms=classrooms, 
                          schedule_map=schedule_map,
                          free_slots=free_slots,
                          occupied_slots=occupied_slots,
-                         occupancy_rate=occupancy_rate)
+                         occupancy_rate=occupancy_rate,
+                         blocks=blocks,
+                         floors=floors,
+                         current_filters={
+                             'block': block_filter,
+                             'floor': floor_filter,
+                             'has_computers': has_computers_filter,
+                             'capacity': capacity_filter,
+                             'day': day_filter,
+                             'shift': shift_filter
+                         })
 
 @app.route('/availability')
 def availability():
@@ -298,7 +353,7 @@ def generate_pdf(classroom_id):
     )
 
 @app.route('/generate_general_report')  
-def generate_general_report():
+def generate_general_report_route():
     classrooms = Classroom.query.all()
     all_schedules = Schedule.query.filter_by(is_active=True).all()
     
@@ -340,3 +395,241 @@ def generate_qr(classroom_id):
         as_attachment=True,
         download_name=f'qr_sala_{classroom.name.replace(" ", "_")}.png'
     )
+
+# Exportação para Excel
+@app.route('/export_excel')
+def export_excel():
+    # Create workbook and worksheet
+    wb = openpyxl.Workbook()
+    
+    # Sheet 1: Classrooms
+    ws1 = wb.active
+    ws1.title = "Salas de Aula"
+    
+    # Headers for classrooms
+    headers1 = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Andar', 'Tem Computadores', 'Softwares', 'Descrição']
+    for col, header in enumerate(headers1, 1):
+        cell = ws1.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.font = Font(color='FFFFFF', bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data for classrooms
+    classrooms = Classroom.query.all()
+    for row, classroom in enumerate(classrooms, 2):
+        ws1.cell(row=row, column=1, value=classroom.id)
+        ws1.cell(row=row, column=2, value=classroom.name)
+        ws1.cell(row=row, column=3, value=classroom.capacity)
+        ws1.cell(row=row, column=4, value=classroom.block)
+        ws1.cell(row=row, column=5, value=classroom.floor)
+        ws1.cell(row=row, column=6, value='Sim' if classroom.has_computers else 'Não')
+        ws1.cell(row=row, column=7, value=classroom.software)
+        ws1.cell(row=row, column=8, value=classroom.description)
+    
+    # Auto-fit columns
+    for column in ws1.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws1.column_dimensions[column_letter].width = adjusted_width
+    
+    # Sheet 2: Schedules
+    ws2 = wb.create_sheet(title="Horários")
+    
+    # Headers for schedules
+    headers2 = ['ID', 'Sala', 'Dia da Semana', 'Turno', 'Curso', 'Professor', 'Início', 'Fim', 'Ativo']
+    for col, header in enumerate(headers2, 1):
+        cell = ws2.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.font = Font(color='FFFFFF', bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data for schedules
+    schedules = Schedule.query.all()
+    days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+    shifts = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
+    
+    for row, schedule in enumerate(schedules, 2):
+        classroom = Classroom.query.get(schedule.classroom_id)
+        ws2.cell(row=row, column=1, value=schedule.id)
+        ws2.cell(row=row, column=2, value=classroom.name if classroom else 'N/A')
+        ws2.cell(row=row, column=3, value=days[schedule.day_of_week])
+        ws2.cell(row=row, column=4, value=shifts.get(schedule.shift, schedule.shift))
+        ws2.cell(row=row, column=5, value=schedule.course_name)
+        ws2.cell(row=row, column=6, value=schedule.instructor)
+        ws2.cell(row=row, column=7, value=schedule.start_time)
+        ws2.cell(row=row, column=8, value=schedule.end_time)
+        ws2.cell(row=row, column=9, value='Sim' if schedule.is_active else 'Não')
+    
+    # Auto-fit columns
+    for column in ws2.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws2.column_dimensions[column_letter].width = adjusted_width
+    
+    # Sheet 3: Statistics
+    ws3 = wb.create_sheet(title="Estatísticas")
+    
+    # Statistics data
+    total_classrooms = len(classrooms)
+    total_schedules = len([s for s in schedules if s.is_active])
+    total_slots = total_classrooms * 23  # 6 days * 4 shifts - 1 (no Saturday night)
+    occupancy_rate = (total_schedules / total_slots * 100) if total_slots > 0 else 0
+    
+    stats_data = [
+        ['Estatística', 'Valor'],
+        ['Total de Salas', total_classrooms],
+        ['Total de Horários Ativos', total_schedules],
+        ['Total de Slots Possíveis', total_slots],
+        ['Taxa de Ocupação (%)', f'{occupancy_rate:.1f}%'],
+        ['Salas com Computadores', len([c for c in classrooms if c.has_computers])],
+        ['Salas sem Computadores', len([c for c in classrooms if not c.has_computers])],
+    ]
+    
+    for row, data in enumerate(stats_data, 1):
+        for col, value in enumerate(data, 1):
+            cell = ws3.cell(row=row, column=col, value=value)
+            if row == 1:
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+                cell.font = Font(color='FFFFFF', bold=True)
+                cell.alignment = Alignment(horizontal='center')
+    
+    # Auto-fit columns
+    for column in ws3.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 30)
+        ws3.column_dimensions[column_letter].width = adjusted_width
+    
+    # Save to BytesIO
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f'relatorio_senai_{timestamp}.xlsx'
+    
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    
+    return response
+
+@app.route('/export_filtered_excel')
+def export_filtered_excel():
+    # Get the same filters as dashboard
+    block_filter = request.args.get('block', '')
+    floor_filter = request.args.get('floor', '')
+    has_computers_filter = request.args.get('has_computers', '')
+    capacity_filter = request.args.get('capacity', '')
+    day_filter = request.args.get('day', '')
+    shift_filter = request.args.get('shift', '')
+    
+    # Build filtered queries
+    classroom_query = Classroom.query
+    if block_filter:
+        classroom_query = classroom_query.filter(Classroom.block == block_filter)
+    if floor_filter:
+        classroom_query = classroom_query.filter(Classroom.floor == int(floor_filter))
+    if has_computers_filter:
+        has_computers_bool = has_computers_filter.lower() == 'true'
+        classroom_query = classroom_query.filter(Classroom.has_computers == has_computers_bool)
+    if capacity_filter:
+        capacity_ranges = {
+            'small': (0, 20),
+            'medium': (21, 35),
+            'large': (36, 100)
+        }
+        if capacity_filter in capacity_ranges:
+            min_cap, max_cap = capacity_ranges[capacity_filter]
+            classroom_query = classroom_query.filter(
+                Classroom.capacity >= min_cap,
+                Classroom.capacity <= max_cap
+            )
+    
+    filtered_classrooms = classroom_query.all()
+    
+    # Build schedule query with filters
+    schedule_query = Schedule.query.filter_by(is_active=True)
+    if day_filter:
+        schedule_query = schedule_query.filter(Schedule.day_of_week == int(day_filter))
+    if shift_filter:
+        schedule_query = schedule_query.filter(Schedule.shift == shift_filter)
+    
+    filtered_schedules = schedule_query.all()
+    
+    # Create Excel file similar to export_excel but with filtered data
+    wb = openpyxl.Workbook()
+    ws1 = wb.active
+    ws1.title = "Salas Filtradas"
+    
+    # Headers
+    headers1 = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Andar', 'Tem Computadores', 'Softwares', 'Descrição']
+    for col, header in enumerate(headers1, 1):
+        cell = ws1.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+        cell.font = Font(color='FFFFFF', bold=True)
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Data
+    for row, classroom in enumerate(filtered_classrooms, 2):
+        ws1.cell(row=row, column=1, value=classroom.id)
+        ws1.cell(row=row, column=2, value=classroom.name)
+        ws1.cell(row=row, column=3, value=classroom.capacity)
+        ws1.cell(row=row, column=4, value=classroom.block)
+        ws1.cell(row=row, column=5, value=classroom.floor)
+        ws1.cell(row=row, column=6, value='Sim' if classroom.has_computers else 'Não')
+        ws1.cell(row=row, column=7, value=classroom.software)
+        ws1.cell(row=row, column=8, value=classroom.description)
+    
+    # Auto-fit columns
+    for column in ws1.columns:
+        max_length = 0
+        column_letter = column[0].column_letter
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws1.column_dimensions[column_letter].width = adjusted_width
+    
+    # Save to BytesIO
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Generate filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f'relatorio_filtrado_{timestamp}.xlsx'
+    
+    response = make_response(output.getvalue())
+    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    
+    return response

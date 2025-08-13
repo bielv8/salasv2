@@ -1,6 +1,13 @@
 # Overview
 
-This is a classroom management system for SENAI "Morvan Figueiredo" school built with Flask. The system provides a digital map of classrooms showing their details, equipment, capacity, and availability. It includes features for viewing classroom information, managing schedules, generating reports, and QR code generation for easy access to classroom details.
+This is a classroom management system for SENAI "Morvan Figueiredo" school built with Flask. The system provides a digital map of classrooms showing their details, equipment, capacity, and availability. It includes features for viewing classroom information, managing schedules, generating reports, QR code generation for easy access to classroom details, advanced dashboard with filters, and Excel export functionality.
+
+## Recent Updates (December 2024)
+- **Migration to Replit Environment**: Successfully migrated from Replit Agent to standard Replit environment with improved security and Flask best practices
+- **Enhanced Dashboard**: Added advanced filtering system with search by block, floor, capacity, computers, day, and shift
+- **Excel Export**: Implemented comprehensive Excel export with multiple sheets (classrooms, schedules, statistics) and filtered export options
+- **Improved PDF Generation**: Enhanced PDF reports with better formatting and error handling
+- **PostgreSQL Integration**: Migrated from SQLite to PostgreSQL for better production capability
 
 # User Preferences
 
