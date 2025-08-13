@@ -8,19 +8,17 @@ class Classroom(db.Model):
     has_computers = db.Column(db.Boolean, default=False)
     software = db.Column(db.Text, default='')
     description = db.Column(db.Text, default='')
-    floor = db.Column(db.Integer, nullable=False)
-    block = db.Column(db.String(10), nullable=False)
+    block = db.Column(db.String(50), nullable=False)
     image_filename = db.Column(db.String(255), default='')  # Store filename instead of URL
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    def __init__(self, name='', capacity=0, has_computers=False, software='', description='', floor=1, block='', image_filename=''):
+    def __init__(self, name='', capacity=0, has_computers=False, software='', description='', block='', image_filename=''):
         self.name = name
         self.capacity = capacity
         self.has_computers = has_computers
         self.software = software
         self.description = description
-        self.floor = floor
         self.block = block
         self.image_filename = image_filename
     
@@ -38,7 +36,7 @@ class Classroom(db.Model):
             'has_computers': self.has_computers,
             'software': self.software,
             'description': self.description,
-            'floor': self.floor,
+
             'block': self.block
         }
 

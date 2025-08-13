@@ -36,21 +36,15 @@
                     <div class="row g-3">
                         <div class="col-md-3">
                             <label class="form-label">Bloco</label>
-                            <select class="form-select" id="filterBlock">
-                                <option value="">Todos os blocos</option>
-                                <option value="A">Bloco A</option>
-                                <option value="B">Bloco B</option>
-                                <option value="C">Bloco C</option>
-                            </select>
+                            <input type="text" class="form-control" id="filterBlock" placeholder="Digite o bloco (ex: A, B1, Lab)">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label">Andar</label>
-                            <select class="form-select" id="filterFloor">
-                                <option value="">Todos os andares</option>
-                                <option value="1">1º Andar</option>
-                                <option value="2">2º Andar</option>
-                                <option value="3">3º Andar</option>
-                            </select>
+                            <label class="form-label">Professor</label>
+                            <input type="text" class="form-control" id="filterInstructor" placeholder="Nome do professor">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Software</label>
+                            <input type="text" class="form-control" id="filterSoftware" placeholder="Software instalado">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Computadores</label>
@@ -60,7 +54,9 @@
                                 <option value="false">Sem computadores</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-4">
                             <label class="form-label">Capacidade</label>
                             <select class="form-select" id="filterCapacity">
                                 <option value="">Qualquer capacidade</option>
@@ -68,6 +64,16 @@
                                 <option value="medium">21-30 alunos</option>
                                 <option value="large">Mais de 30 alunos</option>
                             </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-primary mt-4" id="applyFilters">
+                                <i class="fas fa-search me-2"></i>Aplicar Filtros
+                            </button>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" class="btn btn-outline-secondary mt-4" id="clearFilters">
+                                <i class="fas fa-eraser me-2"></i>Limpar
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -79,10 +85,11 @@
     <div class="row" id="classroomsGrid">
         {% for classroom in classrooms %}
         <div class="col-lg-4 col-md-6 mb-4 classroom-card" 
-             data-block="{{ classroom.block }}" 
-             data-floor="{{ classroom.floor }}" 
+             data-block="{{ classroom.block|lower }}" 
              data-computers="{{ classroom.has_computers|lower }}"
-             data-capacity="{{ classroom.capacity }}">
+             data-capacity="{{ classroom.capacity }}"
+             data-software="{{ classroom.software|lower }}"
+             data-instructors="{% for schedule in classroom.schedules %}{{ schedule.instructor|lower }} {% endfor %}">
             <div class="card h-100 clean-card">
                 {% if classroom.image_filename %}
                 <img src="{{ url_for('static', filename='uploads/' + classroom.image_filename) }}" class="classroom-image" alt="{{ classroom.name }}">
@@ -95,7 +102,7 @@
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div>
                             <h5 class="card-title mb-1">{{ classroom.name }}</h5>
-                            <small class="text-muted">{{ classroom.block }}{{ classroom.floor }} • {{ classroom.capacity }} alunos</small>
+                            <small class="text-muted">{{ classroom.block }} • {{ classroom.capacity }} alunos</small>
                         </div>
                         {% if classroom.has_computers %}
                         <i class="fas fa-desktop text-success" title="Com computadores"></i>
@@ -155,23 +162,30 @@
 <script>
 // Filter functionality
 function filterClassrooms() {
-    const filterBlock = document.getElementById('filterBlock').value;
-    const filterFloor = document.getElementById('filterFloor').value;
+    const filterBlock = document.getElementById('filterBlock').value.toLowerCase();
+    const filterInstructor = document.getElementById('filterInstructor').value.toLowerCase();
+    const filterSoftware = document.getElementById('filterSoftware').value.toLowerCase();
     const filterComputers = document.getElementById('filterComputers').value;
     const filterCapacity = document.getElementById('filterCapacity').value;
     
     const cards = document.querySelectorAll('.classroom-card');
+    let visibleCount = 0;
     
     cards.forEach(card => {
         let show = true;
         
-        // Block filter
-        if (filterBlock && card.dataset.block !== filterBlock) {
+        // Block filter (partial match)
+        if (filterBlock && !card.dataset.block.includes(filterBlock)) {
             show = false;
         }
         
-        // Floor filter
-        if (filterFloor && card.dataset.floor !== filterFloor) {
+        // Instructor filter (partial match)
+        if (filterInstructor && !card.dataset.instructors.includes(filterInstructor)) {
+            show = false;
+        }
+        
+        // Software filter (partial match)
+        if (filterSoftware && !card.dataset.software.includes(filterSoftware)) {
             show = false;
         }
         
@@ -189,12 +203,28 @@ function filterClassrooms() {
         }
         
         card.style.display = show ? 'block' : 'none';
+        if (show) visibleCount++;
     });
+    
+    // Show results count
+    console.log(`Showing ${visibleCount} of ${cards.length} classrooms`);
+}
+
+function clearFilters() {
+    document.getElementById('filterBlock').value = '';
+    document.getElementById('filterInstructor').value = '';
+    document.getElementById('filterSoftware').value = '';
+    document.getElementById('filterComputers').value = '';
+    document.getElementById('filterCapacity').value = '';
+    filterClassrooms();
 }
 
 // Add event listeners to filters
-document.getElementById('filterBlock').addEventListener('change', filterClassrooms);
-document.getElementById('filterFloor').addEventListener('change', filterClassrooms);
+document.getElementById('applyFilters').addEventListener('click', filterClassrooms);
+document.getElementById('clearFilters').addEventListener('click', clearFilters);
+document.getElementById('filterBlock').addEventListener('input', filterClassrooms);
+document.getElementById('filterInstructor').addEventListener('input', filterClassrooms);
+document.getElementById('filterSoftware').addEventListener('input', filterClassrooms);
 document.getElementById('filterComputers').addEventListener('change', filterClassrooms);
 document.getElementById('filterCapacity').addEventListener('change', filterClassrooms);
 </script>

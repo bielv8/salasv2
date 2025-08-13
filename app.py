@@ -44,8 +44,7 @@ with app.app_context():
                 'has_computers': True,
                 'software': 'Windows 10, Office 365, AutoCAD, SolidWorks',
                 'description': 'Laboratório equipado com computadores de última geração para cursos técnicos.',
-                'floor': 1,
-                'block': 'A',
+                'block': 'A1',
                 'image_filename': ''
             },
             {
@@ -54,8 +53,7 @@ with app.app_context():
                 'has_computers': False,
                 'software': '',
                 'description': 'Sala de aula tradicional com projetor e ar condicionado.',
-                'floor': 1,
-                'block': 'A',
+                'block': 'A1',
                 'image_filename': ''
             },
             {
@@ -64,8 +62,7 @@ with app.app_context():
                 'has_computers': True,
                 'software': 'Proteus, Multisim, LabVIEW',
                 'description': 'Laboratório especializado em eletrônica com bancadas e equipamentos.',
-                'floor': 2,
-                'block': 'B',
+                'block': 'B2',
                 'image_filename': ''
             },
             {
@@ -74,8 +71,7 @@ with app.app_context():
                 'has_computers': False,
                 'software': '',
                 'description': 'Sala ampla para aulas teóricas com sistema de som.',
-                'floor': 2,
-                'block': 'B',
+                'block': 'B2',
                 'image_filename': ''
             },
             {
@@ -84,8 +80,7 @@ with app.app_context():
                 'has_computers': True,
                 'software': 'AutoCAD Mechanical, Inventor, ANSYS',
                 'description': 'Laboratório para cursos de mecânica com simuladores.',
-                'floor': 1,
-                'block': 'C',
+                'block': 'C1',
                 'image_filename': ''
             }
         ]

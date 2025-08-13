@@ -53,29 +53,12 @@ Nova Sala - SENAI Morvan Figueiredo
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="block" class="form-label">Bloco *</label>
-                                <select class="form-select" id="block" name="block" required>
-                                    <option value="">Selecione o bloco</option>
-                                    <option value="A" {{ 'selected' if classroom and classroom.block == 'A' else '' }}>Bloco A</option>
-                                    <option value="B" {{ 'selected' if classroom and classroom.block == 'B' else '' }}>Bloco B</option>
-                                    <option value="C" {{ 'selected' if classroom and classroom.block == 'C' else '' }}>Bloco C</option>
-                                    <option value="D" {{ 'selected' if classroom and classroom.block == 'D' else '' }}>Bloco D</option>
-                                    <option value="Oficina 1" {{ 'selected' if classroom and classroom.block == 'Oficina 1' else '' }}>Oficina 1</option>
-                                    <option value="Oficina 2" {{ 'selected' if classroom and classroom.block == 'Oficina 2' else '' }}>Oficina 2</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="floor" class="form-label">Andar *</label>
-                                <select class="form-select" id="floor" name="floor" required>
-                                    <option value="">Selecione o andar</option>
-                                    <option value="1" {{ 'selected' if classroom and classroom.floor == 1 else '' }}>1º Andar</option>
-                                    <option value="2" {{ 'selected' if classroom and classroom.floor == 2 else '' }}>2º Andar</option>
-                                    <option value="3" {{ 'selected' if classroom and classroom.floor == 3 else '' }}>3º Andar</option>
-                                    <option value="4" {{ 'selected' if classroom and classroom.floor == 4 else '' }}>4º Andar</option>
-                                </select>
-                            </div>
+                        <div class="mb-3">
+                            <label for="block" class="form-label">Bloco *</label>
+                            <input type="text" class="form-control" id="block" name="block" 
+                                   value="{{ classroom.block if classroom else '' }}" 
+                                   placeholder="Ex: A1, B2, Lab1, Oficina" required>
+                            <div class="form-text">Digite a identificação do bloco/localização da sala.</div>
                         </div>
 
                         <div class="mb-3">

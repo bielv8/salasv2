@@ -76,7 +76,7 @@ def edit_classroom(classroom_id):
             classroom.has_computers = 'has_computers' in request.form
             classroom.software = request.form.get('software', '')
             classroom.description = request.form.get('description', '')
-            classroom.floor = int(request.form.get('floor', 1))
+
             classroom.block = request.form.get('block', '')
             
             # Handle image upload with proper null checking
@@ -127,7 +127,7 @@ def add_classroom():
                 has_computers='has_computers' in request.form,
                 software=request.form.get('software', ''),
                 description=request.form.get('description', ''),
-                floor=int(request.form.get('floor', 1)),
+
                 block=request.form.get('block', ''),
                 image_filename=image_filename
             )
@@ -295,7 +295,8 @@ def delete_classroom(classroom_id):
 def dashboard():
     # Get filter parameters
     block_filter = request.args.get('block', '')
-    floor_filter = request.args.get('floor', '')
+    instructor_filter = request.args.get('instructor', '')
+    software_filter = request.args.get('software', '')
     has_computers_filter = request.args.get('has_computers', '')
     capacity_filter = request.args.get('capacity', '')
     day_filter = request.args.get('day', '')
@@ -304,9 +305,9 @@ def dashboard():
     # Build classroom query with filters
     classroom_query = Classroom.query
     if block_filter:
-        classroom_query = classroom_query.filter(Classroom.block == block_filter)
-    if floor_filter:
-        classroom_query = classroom_query.filter(Classroom.floor == int(floor_filter))
+        classroom_query = classroom_query.filter(Classroom.block.ilike(f'%{block_filter}%'))
+    if software_filter:
+        classroom_query = classroom_query.filter(Classroom.software.ilike(f'%{software_filter}%'))
     if has_computers_filter:
         has_computers_bool = has_computers_filter.lower() == 'true'
         classroom_query = classroom_query.filter(Classroom.has_computers.is_(has_computers_bool))
@@ -331,8 +332,15 @@ def dashboard():
         schedule_query = schedule_query.filter(Schedule.day_of_week == int(day_filter))
     if shift_filter:
         schedule_query = schedule_query.filter(Schedule.shift == shift_filter)
+    if instructor_filter:
+        schedule_query = schedule_query.filter(Schedule.instructor.ilike(f'%{instructor_filter}%'))
     
     schedules = schedule_query.all()
+    
+    # Filter classrooms by instructor if specified
+    if instructor_filter:
+        classroom_ids_with_instructor = set(s.classroom_id for s in schedules)
+        classroom_query = classroom_query.filter(Classroom.id.in_(classroom_ids_with_instructor))
     
     # Organize schedules by classroom and day
     schedule_map = {}
@@ -352,7 +360,9 @@ def dashboard():
     # Get unique filter options
     all_classrooms = Classroom.query.all()
     blocks = sorted(list(set(c.block for c in all_classrooms if c.block)))
-    floors = sorted(list(set(c.floor for c in all_classrooms)))
+    all_schedules = Schedule.query.filter_by(is_active=True).all()
+    instructors = sorted(list(set(s.instructor for s in all_schedules if s.instructor and s.instructor.strip())))
+    software_list = sorted(list(set(software.strip() for c in all_classrooms if c.software for software in c.software.split(',') if software.strip())))
     
     return render_template('dashboard.html', 
                          classrooms=classrooms, 
@@ -361,10 +371,12 @@ def dashboard():
                          occupied_slots=occupied_slots,
                          occupancy_rate=occupancy_rate,
                          blocks=blocks,
-                         floors=floors,
+                         instructors=instructors,
+                         software_list=software_list,
                          current_filters={
                              'block': block_filter,
-                             'floor': floor_filter,
+                             'instructor': instructor_filter,
+                             'software': software_filter,
                              'has_computers': has_computers_filter,
                              'capacity': capacity_filter,
                              'day': day_filter,
@@ -385,9 +397,9 @@ def available_now():
     current_minute = datetime.now().minute
     current_time_minutes = current_hour * 60 + current_minute
     
-    # FOR TESTING: Uncomment line below to simulate time during class hours
-    current_time_minutes = 14 * 60 + 30  # 14:30 (2:30 PM) - during fullday/afternoon
-    current_hour, current_minute = 14, 30
+    # FOR TESTING: Uncomment line below to simulate time during class hours  
+    # current_time_minutes = 14 * 60 + 30  # 14:30 (2:30 PM) - during fullday/afternoon
+    # current_hour, current_minute = 14, 30
     
     print(f"DEBUG: Current day: {current_day}, current hour: {current_hour}:{current_minute:02d}")
     
