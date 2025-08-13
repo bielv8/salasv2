@@ -10,6 +10,7 @@ class Classroom(db.Model):
     description = db.Column(db.Text, default='')
     floor = db.Column(db.Integer, nullable=False)
     block = db.Column(db.String(10), nullable=False)
+    image_url = db.Column(db.String(255), default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

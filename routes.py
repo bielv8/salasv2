@@ -68,6 +68,7 @@ def edit_classroom(classroom_id):
         classroom.description = request.form.get('description', '')
         classroom.floor = int(request.form.get('floor', 1))
         classroom.block = request.form.get('block', '')
+        classroom.image_url = request.form.get('image_url', '')
         classroom.updated_at = datetime.utcnow()
         
         db.session.commit()
@@ -87,7 +88,8 @@ def add_classroom():
             software=request.form.get('software', ''),
             description=request.form.get('description', ''),
             floor=int(request.form.get('floor', 1)),
-            block=request.form.get('block', '')
+            block=request.form.get('block', ''),
+            image_url=request.form.get('image_url', '')
         )
         
         db.session.add(classroom)
@@ -120,6 +122,58 @@ def add_schedule():
     db.session.add(schedule)
     db.session.commit()
     flash('Horário adicionado com sucesso!', 'success')
+    return redirect(url_for('schedule_management'))
+
+@app.route('/batch_schedule', methods=['POST'])
+@require_admin_auth
+def batch_schedule():
+    classroom_id = int(request.form.get('classroom_id', 0))
+    course_name = request.form.get('course_name', '')
+    instructor = request.form.get('instructor', '')
+    shift = request.form.get('shift', '')
+    start_time = request.form.get('start_time', '')
+    end_time = request.form.get('end_time', '')
+    
+    # Get selected days
+    selected_days = []
+    for i in range(6):  # Monday to Saturday
+        if request.form.get(f'day_{i}'):
+            selected_days.append(i)
+    
+    if not selected_days:
+        flash('Selecione pelo menos um dia da semana!', 'error')
+        return redirect(url_for('schedule_management'))
+    
+    # Create schedules for selected days
+    created_count = 0
+    for day in selected_days:
+        # Check if schedule already exists
+        existing = Schedule.query.filter_by(
+            classroom_id=classroom_id,
+            day_of_week=day,
+            shift=shift,
+            is_active=True
+        ).first()
+        
+        if not existing:
+            schedule = Schedule(
+                classroom_id=classroom_id,
+                day_of_week=day,
+                shift=shift,
+                course_name=course_name,
+                instructor=instructor,
+                start_time=start_time,
+                end_time=end_time
+            )
+            db.session.add(schedule)
+            created_count += 1
+    
+    if created_count > 0:
+        db.session.commit()
+        flash(f'{created_count} horários adicionados com sucesso!', 'success')
+    else:
+        flash('Todos os horários selecionados já existem!', 'warning')
+    
     return redirect(url_for('schedule_management'))
 
 @app.route('/delete_schedule/<int:schedule_id>')

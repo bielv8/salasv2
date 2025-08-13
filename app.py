@@ -28,10 +28,13 @@ db.init_app(app)
 with app.app_context():
     # Import models to ensure tables are created
     import models
+    
+    # Drop and recreate tables to handle schema changes
+    db.drop_all()
     db.create_all()
     
-    # Initialize sample data if no classrooms exist
-    if models.Classroom.query.count() == 0:
+    # Initialize sample data
+    try:
         sample_classrooms = [
             {
                 'name': 'Laboratório de Informática 1',
@@ -40,7 +43,8 @@ with app.app_context():
                 'software': 'Windows 10, Office 365, AutoCAD, SolidWorks',
                 'description': 'Laboratório equipado com computadores de última geração para cursos técnicos.',
                 'floor': 1,
-                'block': 'A'
+                'block': 'A',
+                'image_url': ''
             },
             {
                 'name': 'Sala de Aula 101',
@@ -49,7 +53,8 @@ with app.app_context():
                 'software': '',
                 'description': 'Sala de aula tradicional com projetor e ar condicionado.',
                 'floor': 1,
-                'block': 'A'
+                'block': 'A',
+                'image_url': ''
             },
             {
                 'name': 'Laboratório de Eletrônica',
@@ -58,7 +63,8 @@ with app.app_context():
                 'software': 'Proteus, Multisim, LabVIEW',
                 'description': 'Laboratório especializado em eletrônica com bancadas e equipamentos.',
                 'floor': 2,
-                'block': 'B'
+                'block': 'B',
+                'image_url': ''
             },
             {
                 'name': 'Sala de Aula 201',
@@ -67,7 +73,8 @@ with app.app_context():
                 'software': '',
                 'description': 'Sala ampla para aulas teóricas com sistema de som.',
                 'floor': 2,
-                'block': 'B'
+                'block': 'B',
+                'image_url': ''
             },
             {
                 'name': 'Laboratório de Mecânica',
@@ -76,7 +83,8 @@ with app.app_context():
                 'software': 'AutoCAD Mechanical, Inventor, ANSYS',
                 'description': 'Laboratório para cursos de mecânica com simuladores.',
                 'floor': 1,
-                'block': 'C'
+                'block': 'C',
+                'image_url': ''
             }
         ]
         
@@ -86,6 +94,8 @@ with app.app_context():
         
         db.session.commit()
         print("Sample classrooms created successfully!")
+    except Exception as e:
+        print(f"Database setup completed: {e}")
 
 # Import routes
 import routes

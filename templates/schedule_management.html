@@ -19,9 +19,14 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="fas fa-calendar-alt me-2 text-primary"></i>Gerenciar Horários</h1>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
-                    <i class="fas fa-plus me-2"></i>Novo Horário
-                </button>
+                <div class="btn-group">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
+                        <i class="fas fa-plus me-2"></i>Novo Horário
+                    </button>
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#batchScheduleModal">
+                        <i class="fas fa-calendar-plus me-2"></i>Vários Horários
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -126,9 +131,14 @@
                         <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
                         <h4>Nenhum horário cadastrado</h4>
                         <p class="text-muted">Adicione horários para as salas de aula.</p>
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
-                            <i class="fas fa-plus me-2"></i>Cadastrar Primeiro Horário
-                        </button>
+                        <div class="btn-group">
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
+                                <i class="fas fa-plus me-2"></i>Cadastrar Primeiro Horário
+                            </button>
+                            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#batchScheduleModal">
+                                <i class="fas fa-calendar-plus me-2"></i>Vários Horários
+                            </button>
+                        </div>
                     </div>
                     {% endif %}
                 </div>
@@ -289,5 +299,146 @@ document.querySelector('form').addEventListener('submit', function(e) {
         return false;
     }
 });
+
+// Batch schedule form auto-fill times
+document.getElementById('batch_shift').addEventListener('change', function() {
+    const shift = this.value;
+    const startTime = document.getElementById('batch_start_time');
+    const endTime = document.getElementById('batch_end_time');
+    
+    switch(shift) {
+        case 'morning':
+            startTime.value = '07:30';
+            endTime.value = '12:00';
+            break;
+        case 'afternoon':
+            startTime.value = '13:00';
+            endTime.value = '18:00';
+            break;
+        case 'fullday':
+            startTime.value = '07:30';
+            endTime.value = '18:00';
+            break;
+        case 'night':
+            startTime.value = '19:00';
+            endTime.value = '22:30';
+            break;
+    }
+});
 </script>
+
+<!-- Batch Schedule Modal -->
+<div class="modal fade" id="batchScheduleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-calendar-plus me-2"></i>Cadastrar Vários Horários</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('batch_schedule') }}">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="batch_classroom_id" class="form-label">Sala *</label>
+                            <select class="form-select" id="batch_classroom_id" name="classroom_id" required>
+                                <option value="">Selecione a sala</option>
+                                {% for classroom in classrooms %}
+                                <option value="{{ classroom.id }}">{{ classroom.name }} ({{ classroom.block }}{{ classroom.floor }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="batch_shift" class="form-label">Turno *</label>
+                            <select class="form-select" id="batch_shift" name="shift" required>
+                                <option value="">Selecione o turno</option>
+                                <option value="morning">Manhã</option>
+                                <option value="afternoon">Tarde</option>
+                                <option value="fullday">Integral</option>
+                                <option value="night">Noite</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="batch_start_time" class="form-label">Início *</label>
+                            <input type="time" class="form-control" id="batch_start_time" name="start_time" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="batch_end_time" class="form-label">Fim *</label>
+                            <input type="time" class="form-control" id="batch_end_time" name="end_time" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="batch_instructor" class="form-label">Instrutor</label>
+                            <input type="text" class="form-control" id="batch_instructor" name="instructor" 
+                                   placeholder="Nome do instrutor">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="batch_course_name" class="form-label">Nome do Curso *</label>
+                        <input type="text" class="form-control" id="batch_course_name" name="course_name" 
+                               placeholder="Ex: Técnico em Informática" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Dias da Semana *</label>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="day_0" name="day_0" value="1">
+                                    <label class="form-check-label" for="day_0">Segunda-feira</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="day_1" name="day_1" value="1">
+                                    <label class="form-check-label" for="day_1">Terça-feira</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="day_2" name="day_2" value="1">
+                                    <label class="form-check-label" for="day_2">Quarta-feira</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="day_3" name="day_3" value="1">
+                                    <label class="form-check-label" for="day_3">Quinta-feira</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="day_4" name="day_4" value="1">
+                                    <label class="form-check-label" for="day_4">Sexta-feira</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="day_5" name="day_5" value="1">
+                                    <label class="form-check-label" for="day_5">Sábado</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Dica:</strong> Selecione vários dias para criar múltiplos horários de uma vez. O turno noite não está disponível aos sábados.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save me-2"></i>Cadastrar Horários
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

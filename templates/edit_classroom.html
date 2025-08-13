@@ -77,6 +77,14 @@ Nova Sala - SENAI Morvan Figueiredo
                         </div>
 
                         <div class="mb-3">
+                            <label for="image_url" class="form-label">URL da Imagem</label>
+                            <input type="url" class="form-control" id="image_url" name="image_url" 
+                                   value="{{ classroom.image_url if classroom else '' }}"
+                                   placeholder="https://exemplo.com/imagem-da-sala.jpg">
+                            <div class="form-text">URL de uma imagem que representa esta sala.</div>
+                        </div>
+
+                        <div class="mb-3">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="has_computers" name="has_computers"
                                        {{ 'checked' if classroom and classroom.has_computers else '' }}>
