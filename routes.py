@@ -387,6 +387,34 @@ def dashboard():
 def availability():
     return redirect(url_for('dashboard'))
 
+def get_current_shift():
+    """Get the current shift based on time"""
+    from datetime import datetime
+    
+    now = datetime.now()
+    current_hour = now.hour
+    current_minute = now.minute
+    current_time_minutes = current_hour * 60 + current_minute
+    
+    # Define shift time ranges in minutes
+    # Morning: 7:30-12:00 (450-720 minutes)
+    # Afternoon: 13:00-18:00 (780-1080 minutes)  
+    # Night: 18:30-22:30 (1110-1350 minutes)
+    # Fullday: 7:30-18:00 (overlaps with morning and afternoon)
+    
+    current_shifts = []
+    
+    if 450 <= current_time_minutes <= 720:  # Morning
+        current_shifts.append('morning')
+    if 780 <= current_time_minutes <= 1080:  # Afternoon
+        current_shifts.append('afternoon')
+    if 1110 <= current_time_minutes <= 1350:  # Night
+        current_shifts.append('night')
+    if 450 <= current_time_minutes <= 1080:  # Fullday (overlaps morning and afternoon)
+        current_shifts.append('fullday')
+        
+    return current_shifts
+
 def get_availability_for_date(target_date=None, shift_filter=None):
     """Helper function to get room availability for a specific date and optional shift"""
     from datetime import datetime
@@ -399,7 +427,7 @@ def get_availability_for_date(target_date=None, shift_filter=None):
     
     classrooms = Classroom.query.all()
     
-    # Check if it's Sunday or outside operating hours
+    # Check if it's Sunday
     if target_day == 6:  # Sunday
         return {
             'available_rooms': classrooms,
@@ -408,14 +436,39 @@ def get_availability_for_date(target_date=None, shift_filter=None):
             'total_rooms': len(classrooms)
         }
     
-    # Get all schedules for the target day
-    query = Schedule.query.filter_by(day_of_week=target_day, is_active=True)
+    # If no shift filter is provided and we're checking current time, get current shifts
+    if shift_filter is None or shift_filter == 'all':
+        # If checking current date, only show rooms occupied RIGHT NOW
+        if target_date.date() == datetime.now().date():
+            current_shifts = get_current_shift()
+            if not current_shifts:  # Outside operating hours
+                return {
+                    'available_rooms': classrooms,
+                    'occupied_rooms': [],
+                    'period_description': "Fora do horário de funcionamento",
+                    'total_rooms': len(classrooms)
+                }
+            
+            # Get schedules for current active shifts only
+            occupied_schedules = []
+            for shift in current_shifts:
+                schedules = Schedule.query.filter_by(
+                    day_of_week=target_day,
+                    shift=shift,
+                    is_active=True
+                ).all()
+                occupied_schedules.extend(schedules)
+        else:
+            # For other dates, show all scheduled classes
+            occupied_schedules = Schedule.query.filter_by(day_of_week=target_day, is_active=True).all()
+    else:
+        # Apply specific shift filter
+        occupied_schedules = Schedule.query.filter_by(
+            day_of_week=target_day,
+            shift=shift_filter,
+            is_active=True
+        ).all()
     
-    # Apply shift filter if provided
-    if shift_filter and shift_filter != 'all':
-        query = query.filter_by(shift=shift_filter)
-    
-    occupied_schedules = query.all()
     occupied_classroom_ids = set(schedule.classroom_id for schedule in occupied_schedules)
     
     available_rooms = [room for room in classrooms if room.id not in occupied_classroom_ids]
@@ -428,6 +481,15 @@ def get_availability_for_date(target_date=None, shift_filter=None):
     if shift_filter and shift_filter != 'all':
         shift_names = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
         period_description = f"{day_name} - {shift_names.get(shift_filter, shift_filter)}"
+    elif target_date.date() == datetime.now().date() and (shift_filter is None or shift_filter == 'all'):
+        # Show current period
+        current_shifts = get_current_shift()
+        if current_shifts:
+            shift_names = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
+            active_shift_names = [shift_names.get(shift, shift) for shift in current_shifts]
+            period_description = f"{day_name} - {', '.join(set(active_shift_names))} (Agora)"
+        else:
+            period_description = f"{day_name} - Fora do horário"
     else:
         period_description = f"{day_name} - Todos os turnos"
     

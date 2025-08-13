@@ -40,48 +40,39 @@ with app.app_context():
         try:
             sample_classrooms = [
             {
-                'name': 'Laboratório de Informática 1',
-                'capacity': 30,
+                'name': 'Laboratório de Jogos Digitais',
+                'capacity': 34,
                 'has_computers': True,
-                'software': 'Windows 10, Office 365, AutoCAD, SolidWorks',
-                'description': 'Laboratório equipado com computadores de última geração para cursos técnicos.',
-                'block': 'A1',
+                'software': 'Unity, Unreal Engine, Blender',
+                'description': 'Laboratório especializado para desenvolvimento de jogos digitais.',
+                'block': 'Oficina 1',
                 'image_filename': ''
             },
             {
-                'name': 'Sala de Aula 101',
-                'capacity': 25,
-                'has_computers': False,
-                'software': '',
-                'description': 'Sala de aula tradicional com projetor e ar condicionado.',
-                'block': 'A1',
+                'name': 'SALA DEV',
+                'capacity': 34,
+                'has_computers': True,
+                'software': 'Visual Studio, Git, Docker',
+                'description': 'Sala de desenvolvimento de sistemas.',
+                'block': 'Oficina 2',
                 'image_filename': ''
             },
             {
-                'name': 'Laboratório de Eletrônica',
+                'name': 'Sala 208',
+                'capacity': 34,
+                'has_computers': True,
+                'software': 'IDE, Banco de dados',
+                'description': 'Sala para desenvolvimento e banco de dados.',
+                'block': 'Bloco A',
+                'image_filename': ''
+            },
+            {
+                'name': 'Sala 202',
                 'capacity': 20,
                 'has_computers': True,
-                'software': 'Proteus, Multisim, LabVIEW',
-                'description': 'Laboratório especializado em eletrônica com bancadas e equipamentos.',
-                'block': 'B2',
-                'image_filename': ''
-            },
-            {
-                'name': 'Sala de Aula 201',
-                'capacity': 35,
-                'has_computers': False,
-                'software': '',
-                'description': 'Sala ampla para aulas teóricas com sistema de som.',
-                'block': 'B2',
-                'image_filename': ''
-            },
-            {
-                'name': 'Laboratório de Mecânica',
-                'capacity': 15,
-                'has_computers': True,
-                'software': 'AutoCAD Mechanical, Inventor, ANSYS',
-                'description': 'Laboratório para cursos de mecânica com simuladores.',
-                'block': 'C1',
+                'software': 'Office, Visual Studio',
+                'description': 'Sala para cursos FIC e desenvolvimento.',
+                'block': 'Bloco A',
                 'image_filename': ''
             }
         ]
