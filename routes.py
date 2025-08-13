@@ -191,6 +191,12 @@ def add_schedule():
     try:
         classroom_id = int(request.form.get('classroom_id'))
         days = request.form.getlist('days')
+        
+        # Handle single day submissions from first modal
+        single_day = request.form.get('day_of_week')
+        if single_day is not None and single_day != '':
+            days = [single_day]
+        
         shift = request.form.get('shift')
         course_name = request.form.get('course_name', '')
         instructor = request.form.get('instructor', '')
@@ -201,6 +207,10 @@ def add_schedule():
         
         created_count = 0
         existing_count = 0
+        
+        if not days or len(days) == 0:
+            flash('Nenhum dia foi selecionado!', 'error')
+            return redirect(url_for('schedule_management'))
         
         for day in days:
             day_int = int(day)
