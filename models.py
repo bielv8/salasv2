@@ -14,6 +14,16 @@ class Classroom(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    def __init__(self, name='', capacity=0, has_computers=False, software='', description='', floor=1, block='', image_url=''):
+        self.name = name
+        self.capacity = capacity
+        self.has_computers = has_computers
+        self.software = software
+        self.description = description
+        self.floor = floor
+        self.block = block
+        self.image_url = image_url
+    
     # Relationship with schedules
     schedules = db.relationship('Schedule', backref='classroom', lazy=True, cascade='all, delete-orphan')
     
@@ -43,6 +53,16 @@ class Schedule(db.Model):
     end_time = db.Column(db.String(10), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __init__(self, classroom_id=0, day_of_week=0, shift='', course_name='', instructor='', start_time='', end_time='', is_active=True):
+        self.classroom_id = classroom_id
+        self.day_of_week = day_of_week
+        self.shift = shift
+        self.course_name = course_name
+        self.instructor = instructor
+        self.start_time = start_time
+        self.end_time = end_time
+        self.is_active = is_active
     
     def __repr__(self):
         return f'<Schedule {self.course_name} - {self.shift}>'
