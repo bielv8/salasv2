@@ -70,27 +70,36 @@ def edit_classroom(classroom_id):
     classroom = Classroom.query.get_or_404(classroom_id)
     
     if request.method == 'POST':
-        classroom.name = request.form.get('name', '')
-        classroom.capacity = int(request.form.get('capacity', 0))
-        classroom.has_computers = 'has_computers' in request.form
-        classroom.software = request.form.get('software', '')
-        classroom.description = request.form.get('description', '')
-        classroom.floor = int(request.form.get('floor', 1))
-        classroom.block = request.form.get('block', '')
-        # Handle image upload
-        if 'image' in request.files:
-            file = request.files['image']
-            if file and file.filename != '' and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                # Add unique identifier to prevent conflicts
-                unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
-                classroom.image_filename = unique_filename
-        classroom.updated_at = datetime.utcnow()
-        
-        db.session.commit()
-        flash('Sala atualizada com sucesso!', 'success')
-        return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+        try:
+            classroom.name = request.form.get('name', '')
+            classroom.capacity = int(request.form.get('capacity', 0))
+            classroom.has_computers = 'has_computers' in request.form
+            classroom.software = request.form.get('software', '')
+            classroom.description = request.form.get('description', '')
+            classroom.floor = int(request.form.get('floor', 1))
+            classroom.block = request.form.get('block', '')
+            
+            # Handle image upload with proper null checking
+            if 'image' in request.files:
+                file = request.files['image']
+                if file and file.filename and file.filename != '' and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    # Add unique identifier to prevent conflicts
+                    unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                    # Ensure upload directory exists
+                    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                    file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+                    classroom.image_filename = unique_filename
+                    
+            classroom.updated_at = datetime.utcnow()
+            
+            db.session.commit()
+            flash('Sala atualizada com sucesso!', 'success')
+            return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao atualizar sala: {str(e)}', 'error')
+            return render_template('edit_classroom.html', classroom=classroom)
     
     return render_template('edit_classroom.html', classroom=classroom)
 
@@ -98,56 +107,62 @@ def edit_classroom(classroom_id):
 @require_admin_auth
 def add_classroom():
     if request.method == 'POST':
-        # Handle image upload
-        image_filename = ''
-        if 'image' in request.files:
-            file = request.files['image']
-            if file and file.filename != '' and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                # Add unique identifier to prevent conflicts
-                unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
-                image_filename = unique_filename
-        
-        classroom = Classroom(
-            name=request.form.get('name', ''),
-            capacity=int(request.form.get('capacity', 0)),
-            has_computers='has_computers' in request.form,
-            software=request.form.get('software', ''),
-            description=request.form.get('description', ''),
-            floor=int(request.form.get('floor', 1)),
-            block=request.form.get('block', ''),
-            image_filename=image_filename
-        )
-        
-        db.session.add(classroom)
-        db.session.commit()
-        
-        # Create initial schedules if provided
-        initial_shift = request.form.get('initial_shift')
-        if initial_shift and request.form.get('initial_course'):
-            initial_days = request.form.getlist('initial_days')
-            if initial_days:
-                for day in initial_days:
-                    schedule = Schedule(
-                        classroom_id=classroom.id,
-                        day_of_week=int(day),
-                        shift=initial_shift,
-                        course_name=request.form.get('initial_course', ''),
-                        instructor=request.form.get('initial_instructor', ''),
-                        start_time=request.form.get('initial_start_time', ''),
-                        end_time=request.form.get('initial_end_time', '')
-                    )
-                    db.session.add(schedule)
-                db.session.commit()
-                flash(f'Sala adicionada com {len(initial_days)} horários iniciais!', 'success')
+        try:
+            # Handle image upload
+            image_filename = ''
+            if 'image' in request.files:
+                file = request.files['image']
+                if file and file.filename and file.filename != '' and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    # Add unique identifier to prevent conflicts
+                    unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                    # Ensure upload directory exists
+                    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                    file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+                    image_filename = unique_filename
+            
+            classroom = Classroom(
+                name=request.form.get('name', ''),
+                capacity=int(request.form.get('capacity', 0)),
+                has_computers='has_computers' in request.form,
+                software=request.form.get('software', ''),
+                description=request.form.get('description', ''),
+                floor=int(request.form.get('floor', 1)),
+                block=request.form.get('block', ''),
+                image_filename=image_filename
+            )
+            
+            db.session.add(classroom)
+            db.session.commit()
+            
+            # Create initial schedules if provided
+            initial_shift = request.form.get('initial_shift')
+            if initial_shift and request.form.get('initial_course'):
+                initial_days = request.form.getlist('initial_days')
+                if initial_days:
+                    for day in initial_days:
+                        schedule = Schedule(
+                            classroom_id=classroom.id,
+                            day_of_week=int(day),
+                            shift=initial_shift,
+                            course_name=request.form.get('initial_course', ''),
+                            instructor=request.form.get('initial_instructor', ''),
+                            start_time=request.form.get('initial_start_time', ''),
+                            end_time=request.form.get('initial_end_time', '')
+                        )
+                        db.session.add(schedule)
+                    db.session.commit()
+                    flash(f'Sala adicionada com {len(initial_days)} horários iniciais!', 'success')
+                else:
+                    flash('Sala adicionada com sucesso!', 'success')
             else:
                 flash('Sala adicionada com sucesso!', 'success')
-        else:
-            flash('Sala adicionada com sucesso!', 'success')
-        
-        return redirect(url_for('index'))
-    
+            
+            return redirect(url_for('classroom_detail', classroom_id=classroom.id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao adicionar sala: {str(e)}', 'error')
+            
     return render_template('edit_classroom.html', classroom=None)
 
 @app.route('/schedule_management')
@@ -155,61 +170,47 @@ def add_classroom():
 def schedule_management():
     classrooms = Classroom.query.all()
     schedules = Schedule.query.filter_by(is_active=True).all()
-    return render_template('schedule_management.html', classrooms=classrooms, schedules=schedules)
+    
+    # Organize schedules by classroom and day
+    schedule_map = {}
+    for schedule in schedules:
+        if schedule.classroom_id not in schedule_map:
+            schedule_map[schedule.classroom_id] = {}
+        if schedule.day_of_week not in schedule_map[schedule.classroom_id]:
+            schedule_map[schedule.classroom_id][schedule.day_of_week] = {}
+        schedule_map[schedule.classroom_id][schedule.day_of_week][schedule.shift] = schedule
+    
+    return render_template('schedule_management.html', 
+                         classrooms=classrooms, 
+                         schedules=schedules,
+                         schedule_map=schedule_map)
 
 @app.route('/add_schedule', methods=['POST'])
 @require_admin_auth
 def add_schedule():
-    schedule = Schedule(
-        classroom_id=int(request.form.get('classroom_id', 0)),
-        day_of_week=int(request.form.get('day_of_week', 0)),
-        shift=request.form.get('shift', ''),
-        course_name=request.form.get('course_name', ''),
-        instructor=request.form.get('instructor', ''),
-        start_time=request.form.get('start_time', ''),
-        end_time=request.form.get('end_time', '')
-    )
-    
-    db.session.add(schedule)
-    db.session.commit()
-    flash('Horário adicionado com sucesso!', 'success')
-    return redirect(url_for('schedule_management'))
-
-@app.route('/batch_schedule', methods=['POST'])
-@require_admin_auth
-def batch_schedule():
-    classroom_id = int(request.form.get('classroom_id', 0))
+    classroom_id = int(request.form.get('classroom_id'))
+    days = request.form.getlist('days')
+    shift = request.form.get('shift')
     course_name = request.form.get('course_name', '')
     instructor = request.form.get('instructor', '')
-    shift = request.form.get('shift', '')
     start_time = request.form.get('start_time', '')
     end_time = request.form.get('end_time', '')
     
-    # Get selected days
-    selected_days = []
-    for i in range(6):  # Monday to Saturday
-        if request.form.get(f'day_{i}'):
-            selected_days.append(i)
-    
-    if not selected_days:
-        flash('Selecione pelo menos um dia da semana!', 'error')
-        return redirect(url_for('schedule_management'))
-    
-    # Create schedules for selected days
     created_count = 0
-    for day in selected_days:
-        # Check if schedule already exists
-        existing = Schedule.query.filter_by(
+    for day in days:
+        day_int = int(day)
+        # Check if schedule already exists for this slot
+        existing_schedule = Schedule.query.filter_by(
             classroom_id=classroom_id,
-            day_of_week=day,
+            day_of_week=day_int,
             shift=shift,
             is_active=True
         ).first()
         
-        if not existing:
+        if not existing_schedule:
             schedule = Schedule(
                 classroom_id=classroom_id,
-                day_of_week=day,
+                day_of_week=day_int,
                 shift=shift,
                 course_name=course_name,
                 instructor=instructor,
@@ -254,7 +255,7 @@ def dashboard():
         classroom_query = classroom_query.filter(Classroom.floor == int(floor_filter))
     if has_computers_filter:
         has_computers_bool = has_computers_filter.lower() == 'true'
-        classroom_query = classroom_query.filter(Classroom.has_computers == has_computers_bool)
+        classroom_query = classroom_query.filter(Classroom.has_computers.is_(has_computers_bool))
     if capacity_filter:
         capacity_ranges = {
             'small': (0, 20),
@@ -378,18 +379,18 @@ def generate_pdf(classroom_id):
         download_name=f'sala_{classroom.name.replace(" ", "_")}.pdf'
     )
 
-@app.route('/generate_general_report')  
+@app.route('/generate_general_report')
 def generate_general_report_route():
     classrooms = Classroom.query.all()
-    all_schedules = Schedule.query.filter_by(is_active=True).all()
+    schedules = Schedule.query.filter_by(is_active=True).all()
     
-    pdf_buffer = generate_general_report(classrooms, all_schedules)
+    pdf_buffer = generate_general_report(classrooms, schedules)
     
     return send_file(
         io.BytesIO(pdf_buffer.getvalue()),
         mimetype='application/pdf',
         as_attachment=True,
-        download_name='relatorio_geral_salas.pdf'
+        download_name='relatorio_geral.pdf'
     )
 
 @app.route('/generate_availability_report')
@@ -422,260 +423,250 @@ def generate_qr(classroom_id):
         download_name=f'qr_sala_{classroom.name.replace(" ", "_")}.png'
     )
 
-# Exportação para Excel
+# Exportação para Excel - versão corrigida
 @app.route('/export_excel')
 def export_excel():
-    # Create workbook and worksheet
-    wb = openpyxl.Workbook()
-    
-    # Sheet 1: Classrooms
-    ws1 = wb.active
-    ws1.title = "Salas de Aula"
-    
-    # Headers for classrooms
-    headers1 = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Andar', 'Tem Computadores', 'Softwares', 'Descrição']
-    for col, header in enumerate(headers1, 1):
-        cell = ws1.cell(row=1, column=col, value=header)
-        cell.font = Font(bold=True)
-        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-        cell.font = Font(color='FFFFFF', bold=True)
-        cell.alignment = Alignment(horizontal='center')
-    
-    # Data for classrooms
-    classrooms = Classroom.query.all()
-    for row, classroom in enumerate(classrooms, 2):
-        ws1.cell(row=row, column=1, value=classroom.id)
-        ws1.cell(row=row, column=2, value=classroom.name)
-        ws1.cell(row=row, column=3, value=classroom.capacity)
-        ws1.cell(row=row, column=4, value=classroom.block)
-        ws1.cell(row=row, column=5, value=classroom.floor)
-        ws1.cell(row=row, column=6, value='Sim' if classroom.has_computers else 'Não')
-        ws1.cell(row=row, column=7, value=classroom.software)
-        ws1.cell(row=row, column=8, value=classroom.description)
-    
-    # Auto-fit columns
-    for column in ws1.columns:
-        max_length = 0
-        column_letter = column[0].column_letter
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = min(max_length + 2, 50)
-        ws1.column_dimensions[column_letter].width = adjusted_width
-    
-    # Sheet 2: Schedules
-    ws2 = wb.create_sheet(title="Horários")
-    
-    # Headers for schedules
-    headers2 = ['ID', 'Sala', 'Dia da Semana', 'Turno', 'Curso', 'Professor', 'Início', 'Fim', 'Ativo']
-    for col, header in enumerate(headers2, 1):
-        cell = ws2.cell(row=1, column=col, value=header)
-        cell.font = Font(bold=True)
-        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-        cell.font = Font(color='FFFFFF', bold=True)
-        cell.alignment = Alignment(horizontal='center')
-    
-    # Data for schedules
-    schedules = Schedule.query.all()
-    days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
-    shifts = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
-    
-    for row, schedule in enumerate(schedules, 2):
-        classroom = Classroom.query.get(schedule.classroom_id)
-        ws2.cell(row=row, column=1, value=schedule.id)
-        ws2.cell(row=row, column=2, value=classroom.name if classroom else 'N/A')
-        ws2.cell(row=row, column=3, value=days[schedule.day_of_week])
-        ws2.cell(row=row, column=4, value=shifts.get(schedule.shift, schedule.shift))
-        ws2.cell(row=row, column=5, value=schedule.course_name)
-        ws2.cell(row=row, column=6, value=schedule.instructor)
-        ws2.cell(row=row, column=7, value=schedule.start_time)
-        ws2.cell(row=row, column=8, value=schedule.end_time)
-        ws2.cell(row=row, column=9, value='Sim' if schedule.is_active else 'Não')
-    
-    # Auto-fit columns
-    for column in ws2.columns:
-        max_length = 0
-        column_letter = column[0].column_letter
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = min(max_length + 2, 50)
-        ws2.column_dimensions[column_letter].width = adjusted_width
-    
-    # Sheet 3: Statistics
-    ws3 = wb.create_sheet(title="Estatísticas")
-    
-    # Statistics data
-    total_classrooms = len(classrooms)
-    total_schedules = len([s for s in schedules if s.is_active])
-    total_slots = total_classrooms * 23  # 6 days * 4 shifts - 1 (no Saturday night)
-    occupancy_rate = (total_schedules / total_slots * 100) if total_slots > 0 else 0
-    
-    stats_data = [
-        ['Estatística', 'Valor'],
-        ['Total de Salas', total_classrooms],
-        ['Total de Horários Ativos', total_schedules],
-        ['Total de Slots Possíveis', total_slots],
-        ['Taxa de Ocupação (%)', f'{occupancy_rate:.1f}%'],
-        ['Salas com Computadores', len([c for c in classrooms if c.has_computers])],
-        ['Salas sem Computadores', len([c for c in classrooms if not c.has_computers])],
-    ]
-    
-    for row, data in enumerate(stats_data, 1):
-        for col, value in enumerate(data, 1):
-            cell = ws3.cell(row=row, column=col, value=value)
-            if row == 1:
-                cell.font = Font(bold=True)
-                cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-                cell.font = Font(color='FFFFFF', bold=True)
-                cell.alignment = Alignment(horizontal='center')
-    
-    # Auto-fit columns
-    for column in ws3.columns:
-        max_length = 0
-        column_letter = column[0].column_letter
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = min(max_length + 2, 30)
-        ws3.column_dimensions[column_letter].width = adjusted_width
-    
-    # Save to BytesIO
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-    
-    # Generate filename with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f'relatorio_senai_{timestamp}.xlsx'
-    
-    response = make_response(output.getvalue())
-    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
-    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    
-    return response
+    try:
+        # Create workbook and worksheet
+        wb = openpyxl.Workbook()
+        
+        # Sheet 1: Classrooms
+        ws1 = wb.active
+        ws1.title = "Salas de Aula"
+        
+        # Headers for classrooms
+        headers1 = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Andar', 'Tem Computadores', 'Softwares', 'Descrição']
+        for col, header in enumerate(headers1, 1):
+            cell = ws1.cell(row=1, column=col)
+            cell.value = header
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            cell.alignment = Alignment(horizontal='center')
+        
+        # Data for classrooms
+        classrooms = Classroom.query.all()
+        for row, classroom in enumerate(classrooms, 2):
+            ws1.cell(row=row, column=1).value = classroom.id
+            ws1.cell(row=row, column=2).value = classroom.name
+            ws1.cell(row=row, column=3).value = classroom.capacity
+            ws1.cell(row=row, column=4).value = classroom.block
+            ws1.cell(row=row, column=5).value = classroom.floor
+            ws1.cell(row=row, column=6).value = 'Sim' if classroom.has_computers else 'Não'
+            ws1.cell(row=row, column=7).value = classroom.software
+            ws1.cell(row=row, column=8).value = classroom.description
+        
+        # Auto-fit columns
+        for column_cells in ws1.columns:
+            max_length = 0
+            column_letter = column_cells[0].column_letter
+            for cell in column_cells:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws1.column_dimensions[column_letter].width = adjusted_width
+        
+        # Sheet 2: Schedules
+        ws2 = wb.create_sheet(title="Horários")
+        
+        # Headers for schedules
+        headers2 = ['ID', 'Sala', 'Dia da Semana', 'Turno', 'Curso', 'Professor', 'Início', 'Fim', 'Ativo']
+        for col, header in enumerate(headers2, 1):
+            cell = ws2.cell(row=1, column=col)
+            cell.value = header
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            cell.alignment = Alignment(horizontal='center')
+        
+        # Data for schedules
+        schedules = Schedule.query.all()
+        days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+        shifts = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
+        
+        for row, schedule in enumerate(schedules, 2):
+            classroom = Classroom.query.get(schedule.classroom_id)
+            ws2.cell(row=row, column=1).value = schedule.id
+            ws2.cell(row=row, column=2).value = classroom.name if classroom else 'N/A'
+            ws2.cell(row=row, column=3).value = days[schedule.day_of_week]
+            ws2.cell(row=row, column=4).value = shifts.get(schedule.shift, schedule.shift)
+            ws2.cell(row=row, column=5).value = schedule.course_name
+            ws2.cell(row=row, column=6).value = schedule.instructor
+            ws2.cell(row=row, column=7).value = schedule.start_time
+            ws2.cell(row=row, column=8).value = schedule.end_time
+            ws2.cell(row=row, column=9).value = 'Sim' if schedule.is_active else 'Não'
+        
+        # Auto-fit columns for sheet 2
+        for column_cells in ws2.columns:
+            max_length = 0
+            column_letter = column_cells[0].column_letter
+            for cell in column_cells:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws2.column_dimensions[column_letter].width = adjusted_width
+        
+        # Sheet 3: Statistics
+        ws3 = wb.create_sheet(title="Estatísticas")
+        ws3.cell(row=1, column=1).value = "Estatística"
+        ws3.cell(row=1, column=2).value = "Valor"
+        
+        # Style headers
+        for col in [1, 2]:
+            cell = ws3.cell(row=1, column=col)
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            cell.alignment = Alignment(horizontal='center')
+        
+        # Statistics data
+        total_classrooms = len(classrooms)
+        total_schedules = len([s for s in schedules if s.is_active])
+        total_slots = total_classrooms * 23  # 6 days * 4 shifts - 1 (no Saturday night)
+        occupancy_rate = (total_schedules / total_slots * 100) if total_slots > 0 else 0
+        
+        stats_data = [
+            ['Total de Salas', total_classrooms],
+            ['Total de Horários Ativos', total_schedules],
+            ['Taxa de Ocupação (%)', f"{occupancy_rate:.1f}%"],
+            ['Salas com Computadores', len([c for c in classrooms if c.has_computers])],
+            ['Salas sem Computadores', len([c for c in classrooms if not c.has_computers])]
+        ]
+        
+        for row, (stat, value) in enumerate(stats_data, 2):
+            ws3.cell(row=row, column=1).value = stat
+            ws3.cell(row=row, column=2).value = value
+        
+        # Auto-fit columns for sheet 3
+        for column_cells in ws3.columns:
+            max_length = 0
+            column_letter = column_cells[0].column_letter
+            for cell in column_cells:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws3.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save to BytesIO
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f'relatorio_senai_{timestamp}.xlsx'
+        
+        response = make_response(output.getvalue())
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        
+        return response
+    except Exception as e:
+        flash(f'Erro ao gerar Excel: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
 
 @app.route('/export_filtered_excel')
 def export_filtered_excel():
-    # Get the same filters as dashboard
-    block_filter = request.args.get('block', '')
-    floor_filter = request.args.get('floor', '')
-    has_computers_filter = request.args.get('has_computers', '')
-    capacity_filter = request.args.get('capacity', '')
-    day_filter = request.args.get('day', '')
-    shift_filter = request.args.get('shift', '')
-    
-    # Build filtered queries
-    classroom_query = Classroom.query
-    if block_filter:
-        classroom_query = classroom_query.filter(Classroom.block == block_filter)
-    if floor_filter:
-        classroom_query = classroom_query.filter(Classroom.floor == int(floor_filter))
-    if has_computers_filter:
-        has_computers_bool = has_computers_filter.lower() == 'true'
-        classroom_query = classroom_query.filter(Classroom.has_computers == has_computers_bool)
-    if capacity_filter:
-        capacity_ranges = {
-            'small': (0, 20),
-            'medium': (21, 35),
-            'large': (36, 100)
-        }
-        if capacity_filter in capacity_ranges:
-            min_cap, max_cap = capacity_ranges[capacity_filter]
-            classroom_query = classroom_query.filter(
-                Classroom.capacity >= min_cap,
-                Classroom.capacity <= max_cap
-            )
-    
-    filtered_classrooms = classroom_query.all()
-    
-    # Build schedule query with filters
-    schedule_query = Schedule.query.filter_by(is_active=True)
-    if day_filter:
-        schedule_query = schedule_query.filter(Schedule.day_of_week == int(day_filter))
-    if shift_filter:
-        schedule_query = schedule_query.filter(Schedule.shift == shift_filter)
-    
-    filtered_schedules = schedule_query.all()
-    
-    # Create Excel file similar to export_excel but with filtered data
-    wb = openpyxl.Workbook()
-    ws1 = wb.active
-    ws1.title = "Salas Filtradas"
-    
-    # Headers
-    headers1 = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Andar', 'Tem Computadores', 'Softwares', 'Descrição']
-    for col, header in enumerate(headers1, 1):
-        cell = ws1.cell(row=1, column=col, value=header)
-        cell.font = Font(bold=True)
-        cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-        cell.font = Font(color='FFFFFF', bold=True)
-        cell.alignment = Alignment(horizontal='center')
-    
-    # Data
-    for row, classroom in enumerate(filtered_classrooms, 2):
-        ws1.cell(row=row, column=1, value=classroom.id)
-        ws1.cell(row=row, column=2, value=classroom.name)
-        ws1.cell(row=row, column=3, value=classroom.capacity)
-        ws1.cell(row=row, column=4, value=classroom.block)
-        ws1.cell(row=row, column=5, value=classroom.floor)
-        ws1.cell(row=row, column=6, value='Sim' if classroom.has_computers else 'Não')
-        ws1.cell(row=row, column=7, value=classroom.software)
-        ws1.cell(row=row, column=8, value=classroom.description)
-    
-    # Auto-fit columns
-    for column in ws1.columns:
-        max_length = 0
-        column_letter = column[0].column_letter
-        for cell in column:
-            try:
-                if len(str(cell.value)) > max_length:
-                    max_length = len(str(cell.value))
-            except:
-                pass
-        adjusted_width = min(max_length + 2, 50)
-        ws1.column_dimensions[column_letter].width = adjusted_width
-    
-    # Save to BytesIO
-    output = io.BytesIO()
-    wb.save(output)
-    output.seek(0)
-    
-    # Generate filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f'relatorio_filtrado_{timestamp}.xlsx'
-    
-    response = make_response(output.getvalue())
-    response.headers['Content-Disposition'] = f'attachment; filename={filename}'
-    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    
-    return response
-
-
-@app.route('/delete_classroom/<int:classroom_id>', methods=['POST'])
-def delete_classroom(classroom_id):
-    if not session.get('admin_authenticated'):
-        flash('Acesso negado. Faça login como administrador.', 'error')
-        return redirect(url_for('auth'))
-    
-    classroom = Classroom.query.get_or_404(classroom_id)
-    classroom_name = classroom.name
-    
-    # First delete all schedules associated with this classroom
-    Schedule.query.filter_by(classroom_id=classroom_id).delete()
-    
-    # Then delete the classroom
-    db.session.delete(classroom)
-    db.session.commit()
-    
-    flash(f'Sala "{classroom_name}" foi excluída com sucesso!', 'success')
-    return redirect(url_for('dashboard'))
+    try:
+        # Get the same filters as dashboard
+        block_filter = request.args.get('block', '')
+        floor_filter = request.args.get('floor', '')
+        has_computers_filter = request.args.get('has_computers', '')
+        capacity_filter = request.args.get('capacity', '')
+        day_filter = request.args.get('day', '')
+        shift_filter = request.args.get('shift', '')
+        
+        # Build filtered queries
+        classroom_query = Classroom.query
+        if block_filter:
+            classroom_query = classroom_query.filter(Classroom.block == block_filter)
+        if floor_filter:
+            classroom_query = classroom_query.filter(Classroom.floor == int(floor_filter))
+        if has_computers_filter:
+            has_computers_bool = has_computers_filter.lower() == 'true'
+            classroom_query = classroom_query.filter(Classroom.has_computers.is_(has_computers_bool))
+        if capacity_filter:
+            capacity_ranges = {
+                'small': (0, 20),
+                'medium': (21, 35),
+                'large': (36, 100)
+            }
+            if capacity_filter in capacity_ranges:
+                min_cap, max_cap = capacity_ranges[capacity_filter]
+                classroom_query = classroom_query.filter(
+                    Classroom.capacity >= min_cap,
+                    Classroom.capacity <= max_cap
+                )
+        
+        filtered_classrooms = classroom_query.all()
+        
+        # Build schedule query with filters
+        schedule_query = Schedule.query.filter_by(is_active=True)
+        if day_filter:
+            schedule_query = schedule_query.filter(Schedule.day_of_week == int(day_filter))
+        if shift_filter:
+            schedule_query = schedule_query.filter(Schedule.shift == shift_filter)
+        
+        filtered_schedules = schedule_query.all()
+        
+        # Create Excel file similar to export_excel but with filtered data
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = "Salas Filtradas"
+        
+        # Headers
+        headers = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Andar', 'Tem Computadores', 'Softwares', 'Descrição']
+        for col, header in enumerate(headers, 1):
+            cell = ws1.cell(row=1, column=col)
+            cell.value = header
+            cell.font = Font(bold=True, color='FFFFFF')
+            cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+            cell.alignment = Alignment(horizontal='center')
+        
+        # Data
+        for row, classroom in enumerate(filtered_classrooms, 2):
+            ws1.cell(row=row, column=1).value = classroom.id
+            ws1.cell(row=row, column=2).value = classroom.name
+            ws1.cell(row=row, column=3).value = classroom.capacity
+            ws1.cell(row=row, column=4).value = classroom.block
+            ws1.cell(row=row, column=5).value = classroom.floor
+            ws1.cell(row=row, column=6).value = 'Sim' if classroom.has_computers else 'Não'
+            ws1.cell(row=row, column=7).value = classroom.software
+            ws1.cell(row=row, column=8).value = classroom.description
+        
+        # Auto-fit columns
+        for column_cells in ws1.columns:
+            max_length = 0
+            column_letter = column_cells[0].column_letter
+            for cell in column_cells:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws1.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save to BytesIO
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f'relatorio_filtrado_{timestamp}.xlsx'
+        
+        response = make_response(output.getvalue())
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        
+        return response
+    except Exception as e:
+        flash(f'Erro ao gerar Excel filtrado: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
