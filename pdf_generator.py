@@ -6,6 +6,7 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 import io
 from datetime import datetime
+from datetime import datetime
 
 def create_header_style():
     styles = getSampleStyleSheet()
@@ -192,9 +193,6 @@ def generate_general_report(classrooms, all_schedules):
     # Header
     add_header(story, "Relatório Geral de Salas", f"Total de {len(classrooms)} salas cadastradas")
     
-    # Summary table
-    data = [['Sala', 'Capacidade', 'Computadores', 'Status']]
-    
     # Create schedule map for quick lookup
     schedule_map = {}
     for schedule in all_schedules:
@@ -202,64 +200,130 @@ def generate_general_report(classrooms, all_schedules):
             schedule_map[schedule.classroom_id] = []
         schedule_map[schedule.classroom_id].append(schedule)
     
-    for classroom in classrooms:
-        has_schedules = classroom.id in schedule_map and len(schedule_map[classroom.id]) > 0
-        status = "Em uso" if has_schedules else "Disponível"
+    # Detailed report for each classroom
+    for i, classroom in enumerate(classrooms):
+        if i > 0:
+            story.append(Spacer(1, 30))
         
-        data.append([
-            f"{classroom.name} ({classroom.block}{classroom.floor})",
-            f"{classroom.capacity} alunos",
-            "Sim" if classroom.has_computers else "Não",
-            status
-        ])
-    
-    table = Table(data, colWidths=[2.5*inch, 1.2*inch, 1*inch, 1.3*inch])
-    table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8fafc')),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f1f5f9')])
-    ]))
-    
-    story.append(table)
-    story.append(Spacer(1, 30))
-    
-    # Statistics
-    total_capacity = sum(classroom.capacity for classroom in classrooms)
-    computers_count = sum(1 for classroom in classrooms if classroom.has_computers)
-    occupied_count = len(set(schedule.classroom_id for schedule in all_schedules))
-    
-    stats_data = [
-        ['Estatística', 'Valor'],
-        ['Total de Salas', str(len(classrooms))],
-        ['Capacidade Total', f'{total_capacity} alunos'],
-        ['Salas com Computadores', str(computers_count)],
-        ['Salas em Uso', str(occupied_count)],
-        ['Salas Disponíveis', str(len(classrooms) - occupied_count)]
-    ]
-    
-    stats_table = Table(stats_data, colWidths=[2.5*inch, 1.5*inch])
-    stats_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#059669')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 11),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ecfdf5')),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
-    ]))
-    
-    story.append(Paragraph("<b>Estatísticas Gerais</b>", styles['Heading3']))
-    story.append(Spacer(1, 12))
-    story.append(stats_table)
+        # Classroom header
+        classroom_title = f"Sala: {classroom.name}"
+        story.append(Paragraph(classroom_title, styles['Heading2']))
+        story.append(Spacer(1, 12))
+        
+        # Basic info
+        info_data = [
+            ['Informação', 'Detalhes'],
+            ['Nome', classroom.name],
+            ['Capacidade', f'{classroom.capacity} alunos'],
+            ['Localização', f'{classroom.block}, {classroom.floor}º andar'],
+            ['Computadores', 'Sim' if classroom.has_computers else 'Não'],
+        ]
+        
+        if classroom.software:
+            info_data.append(['Software', classroom.software])
+        
+        info_table = Table(info_data, colWidths=[1.5*inch, 4*inch])
+        info_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#3b82f6')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#f8fafc'), colors.white]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        story.append(info_table)
+        story.append(Spacer(1, 15))
+        
+        # Occupancy statistics for this classroom
+        classroom_schedules = schedule_map.get(classroom.id, [])
+        total_slots = 23  # 6 days * 4 shifts - 1 (no Saturday night)
+        occupied_slots = len(classroom_schedules)
+        occupancy_rate = (occupied_slots / total_slots * 100) if total_slots > 0 else 0
+        
+        occupancy_data = [
+            ['Métrica', 'Valor'],
+            ['Horários Ocupados', f'{occupied_slots} de {total_slots}'],
+            ['Taxa de Ocupação', f'{occupancy_rate:.1f}%'],
+            ['Status', 'Em uso' if occupied_slots > 0 else 'Disponível']
+        ]
+        
+        occupancy_table = Table(occupancy_data, colWidths=[1.5*inch, 2*inch])
+        occupancy_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10b981')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#f0fdf4'), colors.white]),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#bbf7d0')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        
+        story.append(occupancy_table)
+        story.append(Spacer(1, 15))
+        
+        # Schedule details for this classroom
+        if classroom_schedules:
+            story.append(Paragraph("Horários Detalhados", styles['Heading3']))
+            story.append(Spacer(1, 8))
+            
+            days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+            shifts = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
+            
+            schedule_data = [['Dia', 'Turno', 'Curso', 'Instrutor', 'Horário']]
+            
+            for schedule in sorted(classroom_schedules, key=lambda x: (x.day_of_week, x.shift)):
+                course_name = schedule.course_name
+                if len(course_name) > 20:
+                    course_name = course_name[:17] + "..."
+                
+                instructor = schedule.instructor or 'N/A'
+                if len(instructor) > 15:
+                    instructor = instructor[:12] + "..."
+                
+                schedule_data.append([
+                    days[schedule.day_of_week],
+                    shifts.get(schedule.shift, schedule.shift),
+                    course_name,
+                    instructor,
+                    f'{schedule.start_time} - {schedule.end_time}'
+                ])
+            
+            schedule_table = Table(schedule_data, colWidths=[0.8*inch, 0.8*inch, 1.8*inch, 1.2*inch, 1*inch])
+            schedule_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.HexColor('#f8fafc'), colors.white]),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            
+            story.append(schedule_table)
+        else:
+            empty_style = ParagraphStyle(
+                'Empty',
+                parent=styles['Normal'],
+                fontSize=9,
+                textColor=colors.HexColor('#64748b'),
+                spaceAfter=15
+            )
+            story.append(Paragraph("Nenhum horário cadastrado para esta sala.", empty_style))
     
     # Footer
     story.append(Spacer(1, 30))

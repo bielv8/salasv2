@@ -239,6 +239,50 @@ def dashboard():
 def availability():
     return redirect(url_for('dashboard'))
 
+@app.route('/available_now')
+def available_now():
+    from datetime import datetime
+    
+    # Get current day and time
+    current_day = datetime.now().weekday()  # 0=Monday, 6=Sunday
+    current_hour = datetime.now().hour
+    
+    # Determine current shift
+    current_shift = None
+    if 7 <= current_hour < 12:
+        current_shift = 'morning'
+    elif 13 <= current_hour < 18:
+        current_shift = 'afternoon'  
+    elif 19 <= current_hour < 23:
+        current_shift = 'night'
+    elif 7 <= current_hour < 18:  # Full day overlaps with morning and afternoon
+        current_shift = 'fullday'
+    
+    classrooms = Classroom.query.all()
+    
+    if current_day == 6 or current_shift is None:  # Sunday or outside operating hours
+        available_rooms = classrooms
+        current_period = "Fora do horário de funcionamento"
+    else:
+        # Find occupied classrooms for current time slot
+        occupied_schedules = Schedule.query.filter_by(
+            day_of_week=current_day,
+            shift=current_shift,
+            is_active=True
+        ).all()
+        
+        occupied_classroom_ids = [s.classroom_id for s in occupied_schedules]
+        available_rooms = [room for room in classrooms if room.id not in occupied_classroom_ids]
+        
+        days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+        shifts = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
+        current_period = f"{days[current_day]} - {shifts.get(current_shift, 'N/A')}"
+    
+    return render_template('available_now.html', 
+                         available_rooms=available_rooms,
+                         current_period=current_period,
+                         total_rooms=len(classrooms))
+
 @app.route('/generate_pdf/<int:classroom_id>')
 def generate_pdf(classroom_id):
     classroom = Classroom.query.get_or_404(classroom_id)
@@ -253,8 +297,8 @@ def generate_pdf(classroom_id):
         download_name=f'sala_{classroom.name.replace(" ", "_")}.pdf'
     )
 
-@app.route('/generate_general_report')
-def generate_general_report_route():
+@app.route('/generate_general_report')  
+def generate_general_report():
     classrooms = Classroom.query.all()
     all_schedules = Schedule.query.filter_by(is_active=True).all()
     

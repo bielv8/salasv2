@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Salas Disponíveis Agora - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1><i class="fas fa-clock me-2 text-success"></i>Salas Disponíveis Agora</h1>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left me-2"></i>Voltar ao Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Time Info -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-info-circle fa-2x me-3"></i>
+                    <div>
+                        <h5 class="mb-1">Período Atual: {{ current_period }}</h5>
+                        <p class="mb-0">Mostrando {{ available_rooms|length }} de {{ total_rooms }} salas disponíveis</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Available Rooms -->
+    {% if available_rooms %}
+    <div class="row">
+        {% for room in available_rooms %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card classroom-card h-100">
+                <!-- Room Image -->
+                {% if room.image_url %}
+                <img src="{{ room.image_url }}" class="classroom-image" alt="{{ room.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                <div class="classroom-image-placeholder" style="display: none;">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                </div>
+                {% else %}
+                <div class="classroom-image-placeholder">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                </div>
+                {% endif %}
+
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0">{{ room.name }}</h5>
+                        <span class="badge bg-success available-badge">
+                            <i class="fas fa-check me-1"></i>LIVRE
+                        </span>
+                    </div>
+                    
+                    <div class="room-details mb-3">
+                        <div class="detail-item">
+                            <i class="fas fa-users text-primary me-2"></i>
+                            <span>{{ room.capacity }} alunos</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-map-marker-alt text-primary me-2"></i>
+                            <span>{{ room.block }}, {{ room.floor }}º andar</span>
+                        </div>
+                        {% if room.has_computers %}
+                        <div class="detail-item">
+                            <i class="fas fa-desktop text-success me-2"></i>
+                            <span>Com computadores</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if room.description %}
+                    <p class="card-text text-muted small">{{ room.description[:100] }}{% if room.description|length > 100 %}...{% endif %}</p>
+                    {% endif %}
+
+                    <div class="mt-auto">
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('classroom_detail', classroom_id=room.id) }}" class="btn btn-primary flex-grow-1">
+                                <i class="fas fa-eye me-2"></i>Ver Detalhes
+                            </a>
+                            <a href="{{ url_for('generate_qr', classroom_id=room.id) }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-qrcode"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-warning text-center">
+                <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                <h4>Nenhuma Sala Disponível</h4>
+                <p class="mb-0">Todas as salas estão ocupadas no momento ou estamos fora do horário de funcionamento.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.available-badge {
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(40, 167, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+}
+
+.room-details .detail-item {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.classroom-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.classroom-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %}

@@ -9,10 +9,13 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <h1><i class="fas fa-tachometer-alt me-2 text-primary"></i>Dashboard</h1>
-                <div class="btn-group">
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('available_now') }}" class="btn available-now-btn">
+                        <i class="fas fa-clock me-2"></i>Salas Disponíveis Agora
+                    </a>
                     {% if session.admin_authenticated %}
-                    <a href="{{ url_for('generate_availability_report_route') }}" class="btn btn-outline-success">
-                        <i class="fas fa-file-pdf me-2"></i>Relatório PDF
+                    <a href="{{ url_for('generate_general_report') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-file-pdf me-2"></i>Relatório Geral
                     </a>
                     {% endif %}
                 </div>
@@ -116,8 +119,45 @@
                                                  {% for room in free_classrooms %}{{ room.name }}{% if not loop.last %}, {% endif %}{% endfor %}<br>
                                                  <span class='text-danger'>Ocupadas ({{ occupied_classrooms|length }}):</span><br>
                                                  {% for room in occupied_classrooms %}{{ room.name }}{% if not loop.last %}, {% endif %}{% endfor %}">
-                                                <div class="text-success"><i class="fas fa-check"></i> {{ free_classrooms|length }} livres</div>
-                                                <div class="text-danger"><i class="fas fa-times"></i> {{ occupied_classrooms|length }} ocupadas</div>
+                                                
+                                                {% set availability_rate = (free_classrooms|length / classrooms|length * 100) if classrooms|length > 0 else 0 %}
+                                                {% if availability_rate >= 75 %}
+                                                    <div class="availability-indicator high-availability">
+                                                        <div class="indicator-bar"></div>
+                                                        <span class="availability-text">
+                                                            <i class="fas fa-circle text-success me-1"></i>{{ free_classrooms|length }} livres
+                                                        </span>
+                                                        <small class="text-success">{{ "%.0f"|format(availability_rate) }}% disponível</small>
+                                                    </div>
+                                                {% elif availability_rate >= 50 %}
+                                                    <div class="availability-indicator medium-availability">
+                                                        <div class="indicator-bar"></div>
+                                                        <span class="availability-text">
+                                                            <i class="fas fa-circle text-warning me-1"></i>{{ free_classrooms|length }} livres
+                                                        </span>
+                                                        <small class="text-warning">{{ "%.0f"|format(availability_rate) }}% disponível</small>
+                                                    </div>
+                                                {% elif availability_rate >= 25 %}
+                                                    <div class="availability-indicator low-availability">
+                                                        <div class="indicator-bar"></div>
+                                                        <span class="availability-text">
+                                                            <i class="fas fa-circle text-warning me-1"></i>{{ free_classrooms|length }} livres
+                                                        </span>
+                                                        <small class="text-warning">{{ "%.0f"|format(availability_rate) }}% disponível</small>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="availability-indicator no-availability">
+                                                        <div class="indicator-bar"></div>
+                                                        <span class="availability-text">
+                                                            <i class="fas fa-circle text-danger me-1"></i>{{ free_classrooms|length }} livres
+                                                        </span>
+                                                        <small class="text-danger">{{ "%.0f"|format(availability_rate) }}% disponível</small>
+                                                    </div>
+                                                {% endif %}
+                                                
+                                                <div class="occupied-count">
+                                                    <i class="fas fa-times text-muted me-1"></i>{{ occupied_classrooms|length }} ocupadas
+                                                </div>
                                             </div>
                                         </td>
                                         {% else %}
