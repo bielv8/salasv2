@@ -33,12 +33,17 @@ def generate_qr_code(url, classroom_name):
     
     try:
         # Try to use a nice font
-        font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
-        font_subtitle = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+        font_title = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 16)
+        font_subtitle = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 12)
     except:
-        # Fallback to default font
-        font_title = ImageFont.load_default()
-        font_subtitle = ImageFont.load_default()
+        try:
+            # Try DejaVu fonts as fallback
+            font_title = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+            font_subtitle = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+        except:
+            # Fallback to default font
+            font_title = ImageFont.load_default()
+            font_subtitle = ImageFont.load_default()
     
     # School name
     school_text = "SENAI Morvan Figueiredo"

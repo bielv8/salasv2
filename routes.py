@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from pdf_generator import generate_classroom_pdf, generate_general_report, generate_availability_report
 from qr_generator import generate_qr_code
 import io
+from urllib.parse import urljoin
 
 ADMIN_PASSWORD = "senai103103"
 
@@ -60,13 +61,13 @@ def edit_classroom(classroom_id):
     classroom = Classroom.query.get_or_404(classroom_id)
     
     if request.method == 'POST':
-        classroom.name = request.form.get('name')
-        classroom.capacity = int(request.form.get('capacity'))
+        classroom.name = request.form.get('name', '')
+        classroom.capacity = int(request.form.get('capacity', 0))
         classroom.has_computers = 'has_computers' in request.form
         classroom.software = request.form.get('software', '')
         classroom.description = request.form.get('description', '')
-        classroom.floor = int(request.form.get('floor'))
-        classroom.block = request.form.get('block')
+        classroom.floor = int(request.form.get('floor', 1))
+        classroom.block = request.form.get('block', '')
         classroom.updated_at = datetime.utcnow()
         
         db.session.commit()
@@ -80,13 +81,13 @@ def edit_classroom(classroom_id):
 def add_classroom():
     if request.method == 'POST':
         classroom = Classroom(
-            name=request.form.get('name'),
-            capacity=int(request.form.get('capacity')),
+            name=request.form.get('name', ''),
+            capacity=int(request.form.get('capacity', 0)),
             has_computers='has_computers' in request.form,
             software=request.form.get('software', ''),
             description=request.form.get('description', ''),
-            floor=int(request.form.get('floor')),
-            block=request.form.get('block')
+            floor=int(request.form.get('floor', 1)),
+            block=request.form.get('block', '')
         )
         
         db.session.add(classroom)
@@ -107,13 +108,13 @@ def schedule_management():
 @require_admin_auth
 def add_schedule():
     schedule = Schedule(
-        classroom_id=int(request.form.get('classroom_id')),
-        day_of_week=int(request.form.get('day_of_week')),
-        shift=request.form.get('shift'),
-        course_name=request.form.get('course_name'),
+        classroom_id=int(request.form.get('classroom_id', 0)),
+        day_of_week=int(request.form.get('day_of_week', 0)),
+        shift=request.form.get('shift', ''),
+        course_name=request.form.get('course_name', ''),
         instructor=request.form.get('instructor', ''),
-        start_time=request.form.get('start_time'),
-        end_time=request.form.get('end_time')
+        start_time=request.form.get('start_time', ''),
+        end_time=request.form.get('end_time', '')
     )
     
     db.session.add(schedule)
@@ -130,8 +131,8 @@ def delete_schedule(schedule_id):
     flash('Horário removido com sucesso!', 'success')
     return redirect(url_for('schedule_management'))
 
-@app.route('/availability')
-def availability():
+@app.route('/dashboard')
+def dashboard():
     classrooms = Classroom.query.all()
     schedules = Schedule.query.filter_by(is_active=True).all()
     
@@ -144,7 +145,22 @@ def availability():
             schedule_map[schedule.classroom_id][schedule.day_of_week] = {}
         schedule_map[schedule.classroom_id][schedule.day_of_week][schedule.shift] = schedule
     
-    return render_template('availability.html', classrooms=classrooms, schedule_map=schedule_map)
+    # Calculate statistics
+    total_slots = len(classrooms) * 23  # 6 days * 4 shifts - 1 (no Saturday night)
+    occupied_slots = len(schedules)
+    free_slots = total_slots - occupied_slots
+    occupancy_rate = (occupied_slots / total_slots * 100) if total_slots > 0 else 0
+    
+    return render_template('dashboard.html', 
+                         classrooms=classrooms, 
+                         schedule_map=schedule_map,
+                         free_slots=free_slots,
+                         occupied_slots=occupied_slots,
+                         occupancy_rate=occupancy_rate)
+
+@app.route('/availability')
+def availability():
+    return redirect(url_for('dashboard'))
 
 @app.route('/generate_pdf/<int:classroom_id>')
 def generate_pdf(classroom_id):

@@ -76,7 +76,8 @@
         ('night', 'Noite', 'dark')
     ] %}
 
-    {% for day_idx, day_name in enumerate(days) %}
+    {% for day_idx in range(days|length) %}
+    {% set day_name = days[day_idx] %}
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">

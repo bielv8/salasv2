@@ -9,8 +9,8 @@
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="fas fa-map me-2 text-primary"></i>Mapa de Salas</h1>
                 <div class="btn-group" role="group">
-                    <a href="{{ url_for('availability') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-eye me-2"></i>Ver Disponibilidade
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                     </a>
                     {% if session.admin_authenticated %}
                     <a href="{{ url_for('generate_general_report_route') }}" class="btn btn-outline-success">
@@ -80,57 +80,37 @@
              data-floor="{{ classroom.floor }}" 
              data-computers="{{ classroom.has_computers|lower }}"
              data-capacity="{{ classroom.capacity }}">
-            <div class="card h-100">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">{{ classroom.name }}</h5>
-                    <span class="badge bg-secondary">{{ classroom.block }}{{ classroom.floor }}</span>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <small class="text-muted">Capacidade</small>
-                            <div><i class="fas fa-users me-1 text-info"></i>{{ classroom.capacity }} alunos</div>
+            <div class="card h-100 clean-card">
+                <div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div>
+                            <h5 class="card-title mb-1">{{ classroom.name }}</h5>
+                            <small class="text-muted">{{ classroom.block }}{{ classroom.floor }} • {{ classroom.capacity }} alunos</small>
                         </div>
-                        <div class="col-6">
-                            <small class="text-muted">Computadores</small>
-                            <div>
-                                {% if classroom.has_computers %}
-                                    <i class="fas fa-desktop me-1 text-success"></i>Sim
-                                {% else %}
-                                    <i class="fas fa-times me-1 text-danger"></i>Não
-                                {% endif %}
-                            </div>
-                        </div>
+                        {% if classroom.has_computers %}
+                        <i class="fas fa-desktop text-success" title="Com computadores"></i>
+                        {% endif %}
                     </div>
                     
                     {% if classroom.software %}
-                    <div class="mb-3">
-                        <small class="text-muted">Softwares</small>
-                        <div class="small">{{ classroom.software }}</div>
+                    <div class="mb-2">
+                        <div class="text-truncate small text-muted">{{ classroom.software }}</div>
                     </div>
                     {% endif %}
                     
-                    {% if classroom.description %}
-                    <div class="mb-3">
-                        <small class="text-muted">Descrição</small>
-                        <div class="small">{{ classroom.description }}</div>
-                    </div>
-                    {% endif %}
-                </div>
-                <div class="card-footer">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}" class="btn btn-primary btn-sm">
-                            <i class="fas fa-eye me-1"></i>Detalhes
+                    <div class="d-flex justify-content-between align-items-center mt-auto">
+                        <a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}" class="btn btn-sm btn-primary">
+                            <i class="fas fa-eye me-1"></i>Ver
                         </a>
                         <div class="btn-group btn-group-sm">
-                            <a href="{{ url_for('generate_pdf', classroom_id=classroom.id) }}" class="btn btn-outline-secondary" title="Gerar PDF">
+                            <a href="{{ url_for('generate_pdf', classroom_id=classroom.id) }}" class="btn btn-outline-secondary btn-sm" title="PDF">
                                 <i class="fas fa-file-pdf"></i>
                             </a>
-                            <a href="{{ url_for('generate_qr', classroom_id=classroom.id) }}" class="btn btn-outline-secondary" title="Gerar QR Code">
+                            <a href="{{ url_for('generate_qr', classroom_id=classroom.id) }}" class="btn btn-outline-secondary btn-sm" title="QR Code">
                                 <i class="fas fa-qrcode"></i>
                             </a>
                             {% if session.admin_authenticated %}
-                            <a href="{{ url_for('edit_classroom', classroom_id=classroom.id) }}" class="btn btn-outline-warning" title="Editar">
+                            <a href="{{ url_for('edit_classroom', classroom_id=classroom.id) }}" class="btn btn-outline-warning btn-sm" title="Editar">
                                 <i class="fas fa-edit"></i>
                             </a>
                             {% endif %}
