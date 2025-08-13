@@ -401,7 +401,7 @@ def available_now():
     # current_time_minutes = 14 * 60 + 30  # 14:30 (2:30 PM) - during fullday/afternoon
     # current_hour, current_minute = 14, 30
     
-    print(f"DEBUG: Current day: {current_day}, current hour: {current_hour}:{current_minute:02d}")
+    # print(f"DEBUG: Current day: {current_day}, current hour: {current_hour}:{current_minute:02d}")
     
     classrooms = Classroom.query.all()
     
@@ -435,7 +435,13 @@ def available_now():
         if 450 <= current_time_minutes < 1080:
             active_shifts.append('fullday')
         
-        print(f"DEBUG: Active shifts at {current_hour}:{current_minute:02d}: {active_shifts}")
+        # print(f"DEBUG: Active shifts at {current_hour}:{current_minute:02d}: {active_shifts}")
+        
+        # Debug: Show all schedules for current day (remove in production)
+        # all_today_schedules = Schedule.query.filter_by(day_of_week=current_day, is_active=True).all()
+        # print(f"DEBUG: All schedules for day {current_day}: {len(all_today_schedules)}")
+        # for schedule in all_today_schedules:
+        #     print(f"  - Classroom {schedule.classroom_id}: {schedule.shift} - {schedule.course_name} by {schedule.instructor}")
         
         # Find occupied classrooms for ALL active shifts
         for shift in active_shifts:
@@ -445,9 +451,10 @@ def available_now():
                 is_active=True
             ).all()
             
+            # print(f"DEBUG: Found {len(occupied_schedules)} schedules for shift '{shift}' on day {current_day}")
             for schedule in occupied_schedules:
                 occupied_classroom_ids.add(schedule.classroom_id)
-                print(f"DEBUG: Classroom {schedule.classroom_id} occupied by {shift} - {schedule.course_name}")
+                # print(f"DEBUG: Classroom {schedule.classroom_id} occupied by {shift} - {schedule.course_name}")
         
         available_rooms = [room for room in classrooms if room.id not in occupied_classroom_ids]
         
@@ -460,7 +467,7 @@ def available_now():
         else:
             current_period = f"{days[current_day]} - Intervalo"
     
-    print(f"DEBUG: Available rooms: {len(available_rooms)}/{len(classrooms)}")
+    # print(f"DEBUG: Available rooms: {len(available_rooms)}/{len(classrooms)}")
     
     return render_template('available_now.html', 
                          available_rooms=available_rooms,

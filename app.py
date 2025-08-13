@@ -31,13 +31,14 @@ with app.app_context():
     # Import models to ensure tables are created
     import models
     
-    # Drop and recreate tables to handle schema changes
-    db.drop_all()
+    # Create tables if they don't exist
     db.create_all()
     
-    # Initialize sample data
-    try:
-        sample_classrooms = [
+    # Initialize sample data ONLY if no classrooms exist
+    existing_classrooms = models.Classroom.query.first()
+    if not existing_classrooms:
+        try:
+            sample_classrooms = [
             {
                 'name': 'Laboratório de Informática 1',
                 'capacity': 30,
@@ -85,14 +86,16 @@ with app.app_context():
             }
         ]
         
-        for classroom_data in sample_classrooms:
-            classroom = models.Classroom(**classroom_data)
-            db.session.add(classroom)
-        
-        db.session.commit()
-        print("Sample classrooms created successfully!")
-    except Exception as e:
-        print(f"Database setup completed: {e}")
+            for classroom_data in sample_classrooms:
+                classroom = models.Classroom(**classroom_data)
+                db.session.add(classroom)
+            
+            db.session.commit()
+            print("Sample classrooms created successfully!")
+        except Exception as e:
+            print(f"Error creating sample data: {e}")
+    else:
+        print("Database already has data, skipping sample creation")
 
 # Import routes
 import routes

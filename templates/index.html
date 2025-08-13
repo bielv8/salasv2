@@ -219,13 +219,21 @@ function clearFilters() {
     filterClassrooms();
 }
 
-// Add event listeners to filters
-document.getElementById('applyFilters').addEventListener('click', filterClassrooms);
-document.getElementById('clearFilters').addEventListener('click', clearFilters);
-document.getElementById('filterBlock').addEventListener('input', filterClassrooms);
-document.getElementById('filterInstructor').addEventListener('input', filterClassrooms);
-document.getElementById('filterSoftware').addEventListener('input', filterClassrooms);
-document.getElementById('filterComputers').addEventListener('change', filterClassrooms);
-document.getElementById('filterCapacity').addEventListener('change', filterClassrooms);
+// Add event listeners to filters (with null checks)
+const applyBtn = document.getElementById('applyFilters');
+const clearBtn = document.getElementById('clearFilters');
+const filterBlockEl = document.getElementById('filterBlock');
+const filterInstructorEl = document.getElementById('filterInstructor');
+const filterSoftwareEl = document.getElementById('filterSoftware');
+const filterComputersEl = document.getElementById('filterComputers');
+const filterCapacityEl = document.getElementById('filterCapacity');
+
+if (applyBtn) applyBtn.addEventListener('click', filterClassrooms);
+if (clearBtn) clearBtn.addEventListener('click', clearFilters);
+if (filterBlockEl) filterBlockEl.addEventListener('input', filterClassrooms);
+if (filterInstructorEl) filterInstructorEl.addEventListener('input', filterClassrooms);
+if (filterSoftwareEl) filterSoftwareEl.addEventListener('input', filterClassrooms);
+if (filterComputersEl) filterComputersEl.addEventListener('change', filterClassrooms);
+if (filterCapacityEl) filterCapacityEl.addEventListener('change', filterClassrooms);
 </script>
 {% endblock %}
