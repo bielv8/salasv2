@@ -188,43 +188,65 @@ def schedule_management():
 @app.route('/add_schedule', methods=['POST'])
 @require_admin_auth
 def add_schedule():
-    classroom_id = int(request.form.get('classroom_id'))
-    days = request.form.getlist('days')
-    shift = request.form.get('shift')
-    course_name = request.form.get('course_name', '')
-    instructor = request.form.get('instructor', '')
-    start_time = request.form.get('start_time', '')
-    end_time = request.form.get('end_time', '')
-    
-    created_count = 0
-    for day in days:
-        day_int = int(day)
-        # Check if schedule already exists for this slot
-        existing_schedule = Schedule.query.filter_by(
-            classroom_id=classroom_id,
-            day_of_week=day_int,
-            shift=shift,
-            is_active=True
-        ).first()
+    try:
+        classroom_id = int(request.form.get('classroom_id'))
+        days = request.form.getlist('days')
+        shift = request.form.get('shift')
+        course_name = request.form.get('course_name', '')
+        instructor = request.form.get('instructor', '')
+        start_time = request.form.get('start_time', '')
+        end_time = request.form.get('end_time', '')
         
-        if not existing_schedule:
-            schedule = Schedule(
+        print(f"DEBUG: Adding schedule - classroom_id: {classroom_id}, days: {days}, shift: {shift}")
+        
+        created_count = 0
+        existing_count = 0
+        
+        for day in days:
+            day_int = int(day)
+            
+            # Check if schedule already exists for this slot
+            existing_schedule = Schedule.query.filter_by(
                 classroom_id=classroom_id,
                 day_of_week=day_int,
                 shift=shift,
-                course_name=course_name,
-                instructor=instructor,
-                start_time=start_time,
-                end_time=end_time
-            )
-            db.session.add(schedule)
-            created_count += 1
-    
-    if created_count > 0:
-        db.session.commit()
-        flash(f'{created_count} horários adicionados com sucesso!', 'success')
-    else:
-        flash('Todos os horários selecionados já existem!', 'warning')
+                is_active=True
+            ).first()
+            
+            print(f"DEBUG: Day {day_int}, existing: {existing_schedule is not None}")
+            
+            if not existing_schedule:
+                schedule = Schedule(
+                    classroom_id=classroom_id,
+                    day_of_week=day_int,
+                    shift=shift,
+                    course_name=course_name,
+                    instructor=instructor,
+                    start_time=start_time,
+                    end_time=end_time
+                )
+                db.session.add(schedule)
+                created_count += 1
+                print(f"DEBUG: Created schedule for day {day_int}")
+            else:
+                existing_count += 1
+                print(f"DEBUG: Schedule already exists for day {day_int}")
+        
+        if created_count > 0:
+            db.session.commit()
+            if existing_count > 0:
+                flash(f'{created_count} horários adicionados, {existing_count} já existiam!', 'success')
+            else:
+                flash(f'{created_count} horários adicionados com sucesso!', 'success')
+        elif existing_count > 0:
+            flash(f'Todos os {existing_count} horários selecionados já existem!', 'warning')
+        else:
+            flash('Nenhum horário foi selecionado!', 'error')
+        
+    except Exception as e:
+        print(f"DEBUG: Error in add_schedule: {str(e)}")
+        db.session.rollback()
+        flash(f'Erro ao adicionar horários: {str(e)}', 'error')
     
     return redirect(url_for('schedule_management'))
 
@@ -236,6 +258,28 @@ def delete_schedule(schedule_id):
     db.session.commit()
     flash('Horário removido com sucesso!', 'success')
     return redirect(url_for('schedule_management'))
+
+@app.route('/delete_classroom/<int:classroom_id>', methods=['POST'])
+@require_admin_auth
+def delete_classroom(classroom_id):
+    try:
+        classroom = Classroom.query.get_or_404(classroom_id)
+        classroom_name = classroom.name
+        
+        # Delete all associated schedules first
+        Schedule.query.filter_by(classroom_id=classroom_id).delete()
+        
+        # Delete the classroom
+        db.session.delete(classroom)
+        db.session.commit()
+        
+        flash(f'Sala "{classroom_name}" excluída com sucesso!', 'success')
+        return redirect(url_for('index'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir sala: {str(e)}', 'error')
+        return redirect(url_for('edit_classroom', classroom_id=classroom_id))
 
 @app.route('/dashboard')
 def dashboard():

@@ -210,10 +210,17 @@ Nova Sala - SENAI Morvan Figueiredo
                         {% endif %}
 
                         <div class="d-flex justify-content-between">
-                            <a href="{% if classroom %}{{ url_for('classroom_detail', classroom_id=classroom.id) }}{% else %}{{ url_for('index') }}{% endif %}" 
-                               class="btn btn-secondary">
-                                <i class="fas fa-times me-2"></i>Cancelar
-                            </a>
+                            <div>
+                                <a href="{% if classroom %}{{ url_for('classroom_detail', classroom_id=classroom.id) }}{% else %}{{ url_for('index') }}{% endif %}" 
+                                   class="btn btn-secondary">
+                                    <i class="fas fa-times me-2"></i>Cancelar
+                                </a>
+                                {% if classroom %}
+                                <button type="button" class="btn btn-danger ms-2" onclick="confirmDelete()">
+                                    <i class="fas fa-trash me-2"></i>Excluir Sala
+                                </button>
+                                {% endif %}
+                            </div>
                             <button type="submit" class="btn btn-primary">
                                 {% if classroom %}
                                 <i class="fas fa-save me-2"></i>Atualizar Sala
@@ -223,6 +230,12 @@ Nova Sala - SENAI Morvan Figueiredo
                             </button>
                         </div>
                     </form>
+                    
+                    {% if classroom %}
+                    <!-- Hidden form for deletion -->
+                    <form id="deleteForm" method="POST" action="{{ url_for('delete_classroom', classroom_id=classroom.id) }}" style="display: none;">
+                    </form>
+                    {% endif %}
                 </div>
             </div>
 
@@ -321,5 +334,14 @@ document.querySelector('form').addEventListener('submit', function(e) {
         return false;
     }
 });
+
+{% if classroom %}
+// Delete confirmation function
+function confirmDelete() {
+    if (confirm('Tem certeza que deseja excluir a sala "{{ classroom.name }}"?\n\nEsta ação não pode ser desfeita e também excluirá todos os horários associados a esta sala.')) {
+        document.getElementById('deleteForm').submit();
+    }
+}
+{% endif %}
 </script>
 {% endblock %}
