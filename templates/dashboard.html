@@ -24,15 +24,6 @@
                             <li><a class="dropdown-item" href="{{ url_for('export_filtered_excel', **request.args) }}">
                                 <i class="fas fa-filter me-2"></i>Excel Filtrado
                             </a></li>
-                            {% if session.admin_authenticated %}
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{{ url_for('generate_general_report_route') }}">
-                                <i class="fas fa-file-pdf me-2"></i>PDF Geral
-                            </a></li>
-                            <li><a class="dropdown-item" href="{{ url_for('generate_availability_report_route') }}">
-                                <i class="fas fa-chart-bar me-2"></i>PDF Disponibilidade
-                            </a></li>
-                            {% endif %}
                         </ul>
                     </div>
                 </div>
@@ -241,15 +232,25 @@
                             <td class="text-center">
                                 <div class="btn-group-vertical" role="group">
                                     <a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}" 
-                                       class="btn btn-sm btn-outline-primary mb-1">
+                                       class="btn btn-sm btn-outline-primary mb-1" title="Ver Detalhes">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    {% if session.admin_authenticated %}
+                                    <a href="{{ url_for('edit_classroom', classroom_id=classroom.id) }}" 
+                                       class="btn btn-sm btn-outline-warning mb-1" title="Editar Sala">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button onclick="confirmDelete('{{ classroom.name }}', {{ classroom.id }})" 
+                                            class="btn btn-sm btn-outline-danger mb-1" title="Excluir Sala">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    {% endif %}
                                     <a href="{{ url_for('generate_pdf', classroom_id=classroom.id) }}" 
-                                       class="btn btn-sm btn-outline-danger mb-1">
+                                       class="btn btn-sm btn-outline-info mb-1" title="PDF">
                                         <i class="fas fa-file-pdf"></i>
                                     </a>
                                     <a href="{{ url_for('generate_qr', classroom_id=classroom.id) }}" 
-                                       class="btn btn-sm btn-outline-info">
+                                       class="btn btn-sm btn-outline-success" title="QR Code">
                                         <i class="fas fa-qrcode"></i>
                                     </a>
                                 </div>
@@ -273,6 +274,28 @@
         </div>
     </div>
     {% endif %}
+</div>
+
+<!-- Modal de confirmação de exclusão -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir a sala <strong id="roomName"></strong>?</p>
+                <p class="text-danger">Esta ação não pode ser desfeita e também removerá todos os horários associados a esta sala.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Sim, Excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -316,275 +339,13 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Auto-submit form when filters change (opcional)
-document.querySelectorAll('select').forEach(function(select) {
-    select.addEventListener('change', function() {
-        // Uncomment the line below for auto-submit on change
-        // this.form.submit();
-    });
-});
-</script>
-{% endblock %}
-
-    <!-- Statistics Cards -->
-    <div class="row mb-4">
-        <div class="col-md-3 mb-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body text-center">
-                    <i class="fas fa-school fa-2x mb-2"></i>
-                    <h3 class="mb-0">{{ classrooms|length }}</h3>
-                    <p class="mb-0">Salas Totais</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-3">
-            <div class="card bg-success text-white">
-                <div class="card-body text-center">
-                    <i class="fas fa-check-circle fa-2x mb-2"></i>
-                    <h3 class="mb-0">{{ free_slots }}</h3>
-                    <p class="mb-0">Horários Livres</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-3">
-            <div class="card bg-danger text-white">
-                <div class="card-body text-center">
-                    <i class="fas fa-calendar-times fa-2x mb-2"></i>
-                    <h3 class="mb-0">{{ occupied_slots }}</h3>
-                    <p class="mb-0">Horários Ocupados</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-3">
-            <div class="card bg-info text-white">
-                <div class="card-body text-center">
-                    <i class="fas fa-percentage fa-2x mb-2"></i>
-                    <h3 class="mb-0">{{ "%.1f"|format(occupancy_rate) }}%</h3>
-                    <p class="mb-0">Taxa de Ocupação</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Daily Schedule Overview -->
-    {% set days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'] %}
-    {% set shifts = [
-        ('morning', 'Manhã', 'info'),
-        ('afternoon', 'Tarde', 'warning'),
-        ('fullday', 'Integral', 'success'),
-        ('night', 'Noite', 'dark')
-    ] %}
-
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h4 class="mb-0"><i class="fas fa-calendar-week me-2"></i>Visão Geral da Semana</h4>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th style="width: 200px;">Dia</th>
-                                    <th class="text-center">Manhã</th>
-                                    <th class="text-center">Tarde</th>
-                                    <th class="text-center">Integral</th>
-                                    <th class="text-center">Noite</th>
-                                    <th class="text-center">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for day_idx in range(days|length) %}
-                                {% set day_name = days[day_idx] %}
-                                <tr>
-                                    <td><strong>{{ day_name }}</strong></td>
-                                    {% set day_totals = {'morning': 0, 'afternoon': 0, 'fullday': 0, 'night': 0} %}
-                                    {% for shift_key, shift_name, shift_color in shifts %}
-                                        {% if not (day_idx == 5 and shift_key == 'night') %}
-                                        <td class="text-center position-relative">
-                                            {% set occupied_classrooms = [] %}
-                                            {% set free_classrooms = [] %}
-                                            {% for classroom in classrooms %}
-                                                {% if schedule_map.get(classroom.id, {}).get(day_idx, {}).get(shift_key) %}
-                                                    {% set _ = occupied_classrooms.append(classroom) %}
-                                                {% else %}
-                                                    {% set _ = free_classrooms.append(classroom) %}
-                                                {% endif %}
-                                            {% endfor %}
-                                            
-                                            <div class="availability-cell" 
-                                                 data-bs-toggle="tooltip" 
-                                                 data-bs-placement="top" 
-                                                 data-bs-html="true"
-                                                 data-bs-title="<strong>{{ day_name }} - {{ shift_name }}</strong><br>
-                                                 <span class='text-success'>Livres ({{ free_classrooms|length }}):</span><br>
-                                                 {% for room in free_classrooms %}{{ room.name }}{% if not loop.last %}, {% endif %}{% endfor %}<br>
-                                                 <span class='text-danger'>Ocupadas ({{ occupied_classrooms|length }}):</span><br>
-                                                 {% for room in occupied_classrooms %}{{ room.name }}{% if not loop.last %}, {% endif %}{% endfor %}">
-                                                
-                                                {% set availability_rate = (free_classrooms|length / classrooms|length * 100) if classrooms|length > 0 else 0 %}
-                                                {% if availability_rate >= 75 %}
-                                                    <div class="availability-indicator high-availability">
-                                                        <div class="indicator-bar"></div>
-                                                        <span class="availability-text">
-                                                            <i class="fas fa-circle text-success me-1"></i>{{ free_classrooms|length }} livres
-                                                        </span>
-                                                        <small class="text-success">{{ "%.0f"|format(availability_rate) }}% disponível</small>
-                                                    </div>
-                                                {% elif availability_rate >= 50 %}
-                                                    <div class="availability-indicator medium-availability">
-                                                        <div class="indicator-bar"></div>
-                                                        <span class="availability-text">
-                                                            <i class="fas fa-circle text-warning me-1"></i>{{ free_classrooms|length }} livres
-                                                        </span>
-                                                        <small class="text-warning">{{ "%.0f"|format(availability_rate) }}% disponível</small>
-                                                    </div>
-                                                {% elif availability_rate >= 25 %}
-                                                    <div class="availability-indicator low-availability">
-                                                        <div class="indicator-bar"></div>
-                                                        <span class="availability-text">
-                                                            <i class="fas fa-circle text-warning me-1"></i>{{ free_classrooms|length }} livres
-                                                        </span>
-                                                        <small class="text-warning">{{ "%.0f"|format(availability_rate) }}% disponível</small>
-                                                    </div>
-                                                {% else %}
-                                                    <div class="availability-indicator no-availability">
-                                                        <div class="indicator-bar"></div>
-                                                        <span class="availability-text">
-                                                            <i class="fas fa-circle text-danger me-1"></i>{{ free_classrooms|length }} livres
-                                                        </span>
-                                                        <small class="text-danger">{{ "%.0f"|format(availability_rate) }}% disponível</small>
-                                                    </div>
-                                                {% endif %}
-                                                
-                                                <div class="occupied-count">
-                                                    <i class="fas fa-times text-muted me-1"></i>{{ occupied_classrooms|length }} ocupadas
-                                                </div>
-                                            </div>
-                                        </td>
-                                        {% else %}
-                                        <td class="text-center text-muted">
-                                            <small>N/A</small>
-                                        </td>
-                                        {% endif %}
-                                    {% endfor %}
-                                    <td class="text-center">
-                                        {% set day_total_occupied = 0 %}
-                                        {% for classroom in classrooms %}
-                                            {% for shift_key, shift_name, shift_color in shifts %}
-                                                {% if not (day_idx == 5 and shift_key == 'night') and schedule_map.get(classroom.id, {}).get(day_idx, {}).get(shift_key) %}
-                                                    {% set day_total_occupied = day_total_occupied + 1 %}
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% endfor %}
-                                        {% set day_total_slots = classrooms|length * (3 if day_idx == 5 else 4) %}
-                                        {% set day_free = day_total_slots - day_total_occupied %}
-                                        
-                                        <div class="small">
-                                            <div class="text-success">{{ day_free }} livres</div>
-                                            <div class="text-danger">{{ day_total_occupied }} ocupadas</div>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Classroom Status Grid -->
-    <div class="row mt-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h4 class="mb-0"><i class="fas fa-door-open me-2"></i>Status das Salas</h4>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        {% for classroom in classrooms %}
-                        <div class="col-xl-3 col-lg-4 col-md-6 mb-3">
-                            <div class="card h-100 border-start-primary">
-                                <div class="card-body p-3">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <h6 class="mb-0 text-truncate">{{ classroom.name }}</h6>
-                                        <span class="badge bg-secondary">{{ classroom.block }}{{ classroom.floor }}</span>
-                                    </div>
-                                    
-                                    <div class="row text-center mb-2">
-                                        <div class="col-4">
-                                            <small class="text-muted d-block">Capacidade</small>
-                                            <strong>{{ classroom.capacity }}</strong>
-                                        </div>
-                                        <div class="col-4">
-                                            <small class="text-muted d-block">Computadores</small>
-                                            {% if classroom.has_computers %}
-                                            <i class="fas fa-check text-success"></i>
-                                            {% else %}
-                                            <i class="fas fa-times text-danger"></i>
-                                            {% endif %}
-                                        </div>
-                                        <div class="col-4">
-                                            <small class="text-muted d-block">Horários</small>
-                                            {% set classroom_schedules = 0 %}
-                                            {% for day_idx in range(6) %}
-                                                {% for shift_key, shift_name, shift_color in shifts %}
-                                                    {% if not (day_idx == 5 and shift_key == 'night') and schedule_map.get(classroom.id, {}).get(day_idx, {}).get(shift_key) %}
-                                                        {% set classroom_schedules = classroom_schedules + 1 %}
-                                                    {% endif %}
-                                                {% endfor %}
-                                            {% endfor %}
-                                            <strong>{{ classroom_schedules }}</strong>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="progress mb-2" style="height: 4px;">
-                                        {% set max_slots = 23 %}  {# 6 days * 4 shifts - 1 (no Saturday night) #}
-                                        {% set usage_percent = (classroom_schedules / max_slots * 100) if max_slots > 0 else 0 %}
-                                        <div class="progress-bar" style="width: {{ usage_percent }}%"></div>
-                                    </div>
-                                    
-                                    <div class="d-flex justify-content-between">
-                                        <a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}" class="btn btn-sm btn-outline-primary">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        <div class="btn-group btn-group-sm">
-                                            <a href="{{ url_for('generate_pdf', classroom_id=classroom.id) }}" class="btn btn-outline-secondary" title="PDF">
-                                                <i class="fas fa-file-pdf"></i>
-                                            </a>
-                                            <a href="{{ url_for('generate_qr', classroom_id=classroom.id) }}" class="btn btn-outline-secondary" title="QR">
-                                                <i class="fas fa-qrcode"></i>
-                                            </a>
-                                            {% if session.admin_authenticated %}
-                                            <a href="{{ url_for('edit_classroom', classroom_id=classroom.id) }}" class="btn btn-outline-warning" title="Editar">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-// Initialize tooltips
-document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl, {
-            trigger: 'hover'
-        });
-    });
-});
+// Função para confirmar exclusão
+function confirmDelete(roomName, roomId) {
+    document.getElementById('roomName').textContent = roomName;
+    document.getElementById('deleteForm').action = `/delete_classroom/${roomId}`;
+    
+    var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
 </script>
 {% endblock %}

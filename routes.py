@@ -633,3 +633,23 @@ def export_filtered_excel():
     response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     
     return response
+
+
+@app.route('/delete_classroom/<int:classroom_id>', methods=['POST'])
+def delete_classroom(classroom_id):
+    if not session.get('admin_authenticated'):
+        flash('Acesso negado. Faça login como administrador.', 'error')
+        return redirect(url_for('auth'))
+    
+    classroom = Classroom.query.get_or_404(classroom_id)
+    classroom_name = classroom.name
+    
+    # First delete all schedules associated with this classroom
+    Schedule.query.filter_by(classroom_id=classroom_id).delete()
+    
+    # Then delete the classroom
+    db.session.delete(classroom)
+    db.session.commit()
+    
+    flash(f'Sala "{classroom_name}" foi excluída com sucesso!', 'success')
+    return redirect(url_for('dashboard'))
