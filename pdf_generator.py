@@ -89,6 +89,38 @@ def generate_classroom_pdf(classroom, schedules):
     story.append(info_table)
     story.append(Spacer(1, 30))
     
+    # Occupancy Statistics
+    total_slots = 23  # 6 days * 4 shifts - 1 (no Saturday night)
+    occupied_slots = len(schedules)
+    occupancy_rate = (occupied_slots / total_slots * 100) if total_slots > 0 else 0
+    
+    story.append(Paragraph("<b>Taxa de Ocupação</b>", styles['Heading3']))
+    story.append(Spacer(1, 12))
+    
+    occupancy_data = [
+        ['Métrica', 'Valor'],
+        ['Total de Horários Possíveis', f'{total_slots} horários'],
+        ['Horários Ocupados', f'{occupied_slots} horários'],
+        ['Horários Livres', f'{total_slots - occupied_slots} horários'],
+        ['Taxa de Ocupação', f'{occupancy_rate:.1f}%']
+    ]
+    
+    occupancy_table = Table(occupancy_data, colWidths=[2.5*inch, 2*inch])
+    occupancy_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10b981')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0fdf4')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#bbf7d0')),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+    ]))
+    
+    story.append(occupancy_table)
+    story.append(Spacer(1, 30))
+    
     # Schedule Information
     if schedules:
         story.append(Paragraph("<b>Horários de Aula</b>", styles['Heading3']))
@@ -98,26 +130,42 @@ def generate_classroom_pdf(classroom, schedules):
         
         schedule_data = [['Dia', 'Turno', 'Horário', 'Curso', 'Instrutor']]
         
+        shifts = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
+        
         for schedule in schedules:
+            # Truncate long course names to prevent text overlap
+            course_name = schedule.course_name
+            if len(course_name) > 20:
+                course_name = course_name[:17] + "..."
+            
+            instructor = schedule.instructor or 'N/A'
+            if len(instructor) > 12:
+                instructor = instructor[:9] + "..."
+            
             schedule_data.append([
                 days[schedule.day_of_week],
-                schedule.shift.title(),
+                shifts.get(schedule.shift, schedule.shift.title()),
                 f'{schedule.start_time} - {schedule.end_time}',
-                schedule.course_name,
-                schedule.instructor or 'Não informado'
+                course_name,
+                instructor
             ])
         
-        schedule_table = Table(schedule_data, colWidths=[1*inch, 1*inch, 1.2*inch, 2*inch, 1.3*inch])
+        schedule_table = Table(schedule_data, colWidths=[0.9*inch, 0.9*inch, 1.1*inch, 1.8*inch, 1.1*inch])
         schedule_table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10b981')),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1e40af')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f9ff')),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f8fafc')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e1')),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 1), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
         ]))
         
         story.append(schedule_table)

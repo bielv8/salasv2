@@ -82,6 +82,24 @@ body {
     font-size: 2rem;
 }
 
+/* Availability cell hover effects */
+.availability-cell {
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.availability-cell:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+}
+
+/* Tooltip customization */
+.tooltip-inner {
+    max-width: 300px;
+    text-align: left;
+}
+
 .card-header {
     background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-primary-dark) 100%);
     border-bottom: none;

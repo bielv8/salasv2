@@ -108,6 +108,100 @@ Nova Sala - SENAI Morvan Figueiredo
                             <div class="form-text">Informações adicionais sobre a sala (equipamentos, características especiais, etc.).</div>
                         </div>
 
+                        {% if not classroom %}
+                        <div class="mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-calendar-plus me-2"></i>Horários Iniciais (Opcional)</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="initial_shift" class="form-label">Turno</label>
+                                            <select class="form-select" id="initial_shift" name="initial_shift">
+                                                <option value="">Não criar horários iniciais</option>
+                                                <option value="morning">Manhã</option>
+                                                <option value="afternoon">Tarde</option>
+                                                <option value="fullday">Integral</option>
+                                                <option value="night">Noite</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="initial_course" class="form-label">Curso</label>
+                                            <input type="text" class="form-control" id="initial_course" name="initial_course" 
+                                                   placeholder="Ex: Técnico em Informática">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="initial_instructor" class="form-label">Instrutor</label>
+                                            <input type="text" class="form-control" id="initial_instructor" name="initial_instructor" 
+                                                   placeholder="Nome do instrutor">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="initial_start_time" class="form-label">Início</label>
+                                            <input type="time" class="form-control" id="initial_start_time" name="initial_start_time">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="initial_end_time" class="form-label">Fim</label>
+                                            <input type="time" class="form-control" id="initial_end_time" name="initial_end_time">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label class="form-label">Dias da Semana</label>
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="initial_day_0" name="initial_days" value="0">
+                                                    <label class="form-check-label" for="initial_day_0">Segunda-feira</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="initial_day_1" name="initial_days" value="1">
+                                                    <label class="form-check-label" for="initial_day_1">Terça-feira</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="initial_day_2" name="initial_days" value="2">
+                                                    <label class="form-check-label" for="initial_day_2">Quarta-feira</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="initial_day_3" name="initial_days" value="3">
+                                                    <label class="form-check-label" for="initial_day_3">Quinta-feira</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="initial_day_4" name="initial_days" value="4">
+                                                    <label class="form-check-label" for="initial_day_4">Sexta-feira</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="initial_day_5" name="initial_days" value="5">
+                                                    <label class="form-check-label" for="initial_day_5">Sábado</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Dica:</strong> Você pode criar horários iniciais para esta sala junto com o cadastro.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
                         <div class="d-flex justify-content-between">
                             <a href="{% if classroom %}{{ url_for('classroom_detail', classroom_id=classroom.id) }}{% else %}{{ url_for('index') }}{% endif %}" 
                                class="btn btn-secondary">
@@ -154,6 +248,38 @@ Nova Sala - SENAI Morvan Figueiredo
         </div>
     </div>
 </div>
+
+<script>
+// Auto-fill times based on shift selection for initial schedules
+document.getElementById('initial_shift').addEventListener('change', function() {
+    const shift = this.value;
+    const startTime = document.getElementById('initial_start_time');
+    const endTime = document.getElementById('initial_end_time');
+    
+    switch(shift) {
+        case 'morning':
+            startTime.value = '07:30';
+            endTime.value = '12:00';
+            break;
+        case 'afternoon':
+            startTime.value = '13:00';
+            endTime.value = '18:00';
+            break;
+        case 'fullday':
+            startTime.value = '07:30';
+            endTime.value = '18:00';
+            break;
+        case 'night':
+            startTime.value = '19:00';
+            endTime.value = '22:30';
+            break;
+        default:
+            startTime.value = '';
+            endTime.value = '';
+            break;
+    }
+});
+</script>
 {% endblock %}
 
 {% block scripts %}

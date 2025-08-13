@@ -96,19 +96,28 @@
                                     {% set day_totals = {'morning': 0, 'afternoon': 0, 'fullday': 0, 'night': 0} %}
                                     {% for shift_key, shift_name, shift_color in shifts %}
                                         {% if not (day_idx == 5 and shift_key == 'night') %}
-                                        <td class="text-center">
-                                            {% set occupied = 0 %}
-                                            {% set total = classrooms|length %}
+                                        <td class="text-center position-relative">
+                                            {% set occupied_classrooms = [] %}
+                                            {% set free_classrooms = [] %}
                                             {% for classroom in classrooms %}
                                                 {% if schedule_map.get(classroom.id, {}).get(day_idx, {}).get(shift_key) %}
-                                                    {% set occupied = occupied + 1 %}
+                                                    {% set _ = occupied_classrooms.append(classroom) %}
+                                                {% else %}
+                                                    {% set _ = free_classrooms.append(classroom) %}
                                                 {% endif %}
                                             {% endfor %}
-                                            {% set free = total - occupied %}
                                             
-                                            <div class="small">
-                                                <div class="text-success"><i class="fas fa-check"></i> {{ free }} livres</div>
-                                                <div class="text-danger"><i class="fas fa-times"></i> {{ occupied }} ocupadas</div>
+                                            <div class="availability-cell" 
+                                                 data-bs-toggle="tooltip" 
+                                                 data-bs-placement="top" 
+                                                 data-bs-html="true"
+                                                 data-bs-title="<strong>{{ day_name }} - {{ shift_name }}</strong><br>
+                                                 <span class='text-success'>Livres ({{ free_classrooms|length }}):</span><br>
+                                                 {% for room in free_classrooms %}{{ room.name }}{% if not loop.last %}, {% endif %}{% endfor %}<br>
+                                                 <span class='text-danger'>Ocupadas ({{ occupied_classrooms|length }}):</span><br>
+                                                 {% for room in occupied_classrooms %}{{ room.name }}{% if not loop.last %}, {% endif %}{% endfor %}">
+                                                <div class="text-success"><i class="fas fa-check"></i> {{ free_classrooms|length }} livres</div>
+                                                <div class="text-danger"><i class="fas fa-times"></i> {{ occupied_classrooms|length }} ocupadas</div>
                                             </div>
                                         </td>
                                         {% else %}
@@ -223,4 +232,16 @@
         </div>
     </div>
 </div>
+
+<script>
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+            trigger: 'hover'
+        });
+    });
+});
+</script>
 {% endblock %}

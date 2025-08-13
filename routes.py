@@ -94,7 +94,30 @@ def add_classroom():
         
         db.session.add(classroom)
         db.session.commit()
-        flash('Sala adicionada com sucesso!', 'success')
+        
+        # Create initial schedules if provided
+        initial_shift = request.form.get('initial_shift')
+        if initial_shift and request.form.get('initial_course'):
+            initial_days = request.form.getlist('initial_days')
+            if initial_days:
+                for day in initial_days:
+                    schedule = Schedule(
+                        classroom_id=classroom.id,
+                        day_of_week=int(day),
+                        shift=initial_shift,
+                        course_name=request.form.get('initial_course', ''),
+                        instructor=request.form.get('initial_instructor', ''),
+                        start_time=request.form.get('initial_start_time', ''),
+                        end_time=request.form.get('initial_end_time', '')
+                    )
+                    db.session.add(schedule)
+                db.session.commit()
+                flash(f'Sala adicionada com {len(initial_days)} horários iniciais!', 'success')
+            else:
+                flash('Sala adicionada com sucesso!', 'success')
+        else:
+            flash('Sala adicionada com sucesso!', 'success')
+        
         return redirect(url_for('index'))
     
     return render_template('edit_classroom.html', classroom=None)
