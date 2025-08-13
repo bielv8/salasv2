@@ -396,23 +396,36 @@ def get_current_shift():
     current_minute = now.minute
     current_time_minutes = current_hour * 60 + current_minute
     
+    # FOR TESTING: Simulate afternoon time (14:30)
+    current_hour = 14
+    current_minute = 30
+    current_time_minutes = current_hour * 60 + current_minute
+    
+    print(f"DEBUG: Current time: {current_hour}:{current_minute:02d} ({current_time_minutes} minutes)")
+    
     # Define shift time ranges in minutes
     # Morning: 7:30-12:00 (450-720 minutes)
     # Afternoon: 13:00-18:00 (780-1080 minutes)  
     # Night: 18:30-22:30 (1110-1350 minutes)
-    # Fullday: 7:30-18:00 (overlaps with morning and afternoon)
+    # Fullday: 8:00-17:00 (480-1020 minutes) - as per schedule data
     
     current_shifts = []
     
     if 450 <= current_time_minutes <= 720:  # Morning
         current_shifts.append('morning')
+        print(f"DEBUG: Added morning shift")
     if 780 <= current_time_minutes <= 1080:  # Afternoon
         current_shifts.append('afternoon')
+        print(f"DEBUG: Added afternoon shift")
     if 1110 <= current_time_minutes <= 1350:  # Night
         current_shifts.append('night')
-    if 450 <= current_time_minutes <= 1080:  # Fullday (overlaps morning and afternoon)
+        print(f"DEBUG: Added night shift")
+    # Fullday: check if within fullday hours (8:00-17:00)
+    if 480 <= current_time_minutes <= 1020:  # Fullday
         current_shifts.append('fullday')
+        print(f"DEBUG: Added fullday shift")
         
+    print(f"DEBUG: Current active shifts: {current_shifts}")
     return current_shifts
 
 def get_availability_for_date(target_date=None, shift_filter=None):
@@ -441,6 +454,8 @@ def get_availability_for_date(target_date=None, shift_filter=None):
         # If checking current date, only show rooms occupied RIGHT NOW
         if target_date.date() == datetime.now().date():
             current_shifts = get_current_shift()
+            print(f"DEBUG: Checking current date, active shifts: {current_shifts}")
+            
             if not current_shifts:  # Outside operating hours
                 return {
                     'available_rooms': classrooms,
@@ -457,10 +472,14 @@ def get_availability_for_date(target_date=None, shift_filter=None):
                     shift=shift,
                     is_active=True
                 ).all()
+                print(f"DEBUG: Found {len(schedules)} schedules for shift '{shift}' on day {target_day}")
+                for schedule in schedules:
+                    print(f"DEBUG: - {schedule.course_name} in classroom {schedule.classroom_id}")
                 occupied_schedules.extend(schedules)
         else:
             # For other dates, show all scheduled classes
             occupied_schedules = Schedule.query.filter_by(day_of_week=target_day, is_active=True).all()
+            print(f"DEBUG: Checking other date, found {len(occupied_schedules)} total schedules")
     else:
         # Apply specific shift filter
         occupied_schedules = Schedule.query.filter_by(
@@ -468,6 +487,7 @@ def get_availability_for_date(target_date=None, shift_filter=None):
             shift=shift_filter,
             is_active=True
         ).all()
+        print(f"DEBUG: Using shift filter '{shift_filter}', found {len(occupied_schedules)} schedules")
     
     occupied_classroom_ids = set(schedule.classroom_id for schedule in occupied_schedules)
     
