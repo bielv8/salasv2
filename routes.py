@@ -385,6 +385,10 @@ def available_now():
     current_minute = datetime.now().minute
     current_time_minutes = current_hour * 60 + current_minute
     
+    # FOR TESTING: Uncomment line below to simulate time during class hours
+    current_time_minutes = 14 * 60 + 30  # 14:30 (2:30 PM) - during fullday/afternoon
+    current_hour, current_minute = 14, 30
+    
     print(f"DEBUG: Current day: {current_day}, current hour: {current_hour}:{current_minute:02d}")
     
     classrooms = Classroom.query.all()
