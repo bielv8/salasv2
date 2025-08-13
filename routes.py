@@ -1,7 +1,7 @@
 import os
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app import app, db
-from models import Classroom, Schedule, AdminSession
+from models import Classroom, Schedule
 from datetime import datetime, timedelta
 from pdf_generator import generate_classroom_pdf, generate_general_report, generate_availability_report
 from qr_generator import generate_qr_code
@@ -189,7 +189,7 @@ def schedule_management():
 @require_admin_auth
 def add_schedule():
     try:
-        classroom_id = int(request.form.get('classroom_id'))
+        classroom_id = int(request.form.get('classroom_id') or 0)
         days = request.form.getlist('days')
         
         # Handle single day submissions from first modal
@@ -229,7 +229,7 @@ def add_schedule():
                 schedule = Schedule(
                     classroom_id=classroom_id,
                     day_of_week=day_int,
-                    shift=shift,
+                    shift=shift or '',
                     course_name=course_name,
                     instructor=instructor,
                     start_time=start_time,
