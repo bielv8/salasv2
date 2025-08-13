@@ -218,7 +218,7 @@
                                                  title="{{ schedule.course_name }} - {{ schedule.instructor or 'Sem professor' }}">
                                                 <small>
                                                     {{ {'morning': 'M', 'afternoon': 'T', 'fullday': 'I', 'night': 'N'}[shift] }}
-                                                    <br>{{ schedule.start_time }}
+                                                    <br>{{ schedule.start_time }} - {{ schedule.end_time }}
                                                 </small>
                                             </div>
                                         {% endif %}

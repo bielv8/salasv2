@@ -39,7 +39,7 @@ Nova Sala - SENAI Morvan Figueiredo
                     </h3>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-8 mb-3">
                                 <label for="name" class="form-label">Nome da Sala *</label>
@@ -79,11 +79,16 @@ Nova Sala - SENAI Morvan Figueiredo
                         </div>
 
                         <div class="mb-3">
-                            <label for="image_url" class="form-label">URL da Imagem</label>
-                            <input type="url" class="form-control" id="image_url" name="image_url" 
-                                   value="{{ classroom.image_url if classroom else '' }}"
-                                   placeholder="https://exemplo.com/imagem-da-sala.jpg">
-                            <div class="form-text">URL de uma imagem que representa esta sala.</div>
+                            <label for="image" class="form-label">Imagem da Sala</label>
+                            <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                            <div class="form-text">Selecione uma imagem da sala (PNG, JPG, JPEG ou GIF - opcional).</div>
+                            {% if classroom and classroom.image_filename %}
+                            <div class="mt-2">
+                                <small class="text-muted">Imagem atual:</small>
+                                <img src="{{ url_for('static', filename='uploads/' + classroom.image_filename) }}" 
+                                     alt="Imagem atual" class="img-thumbnail" style="max-width: 150px; max-height: 100px;">
+                            </div>
+                            {% endif %}
                         </div>
 
                         <div class="mb-3">

@@ -81,8 +81,8 @@
              data-computers="{{ classroom.has_computers|lower }}"
              data-capacity="{{ classroom.capacity }}">
             <div class="card h-100 clean-card">
-                {% if classroom.image_url %}
-                <img src="{{ classroom.image_url }}" class="classroom-image" alt="{{ classroom.name }}">
+                {% if classroom.image_filename %}
+                <img src="{{ url_for('static', filename='uploads/' + classroom.image_filename) }}" class="classroom-image" alt="{{ classroom.name }}">
                 {% else %}
                 <div class="classroom-image-placeholder">
                     <i class="fas fa-door-open"></i>

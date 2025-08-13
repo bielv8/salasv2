@@ -9,8 +9,15 @@ import io
 from urllib.parse import urljoin
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
+from werkzeug.utils import secure_filename
+import uuid
 
 ADMIN_PASSWORD = "senai103103"
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def is_admin_authenticated():
     return session.get('admin_authenticated', False)
@@ -70,7 +77,15 @@ def edit_classroom(classroom_id):
         classroom.description = request.form.get('description', '')
         classroom.floor = int(request.form.get('floor', 1))
         classroom.block = request.form.get('block', '')
-        classroom.image_url = request.form.get('image_url', '')
+        # Handle image upload
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and file.filename != '' and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                # Add unique identifier to prevent conflicts
+                unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+                classroom.image_filename = unique_filename
         classroom.updated_at = datetime.utcnow()
         
         db.session.commit()
@@ -83,6 +98,17 @@ def edit_classroom(classroom_id):
 @require_admin_auth
 def add_classroom():
     if request.method == 'POST':
+        # Handle image upload
+        image_filename = ''
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and file.filename != '' and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                # Add unique identifier to prevent conflicts
+                unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+                image_filename = unique_filename
+        
         classroom = Classroom(
             name=request.form.get('name', ''),
             capacity=int(request.form.get('capacity', 0)),
@@ -91,7 +117,7 @@ def add_classroom():
             description=request.form.get('description', ''),
             floor=int(request.form.get('floor', 1)),
             block=request.form.get('block', ''),
-            image_url=request.form.get('image_url', '')
+            image_filename=image_filename
         )
         
         db.session.add(classroom)

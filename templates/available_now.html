@@ -38,8 +38,8 @@
         <div class="col-lg-4 col-md-6 mb-4">
             <div class="card classroom-card h-100">
                 <!-- Room Image -->
-                {% if room.image_url %}
-                <img src="{{ room.image_url }}" class="classroom-image" alt="{{ room.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                {% if room.image_filename %}
+                <img src="{{ url_for('static', filename='uploads/' + room.image_filename) }}" class="classroom-image" alt="{{ room.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                 <div class="classroom-image-placeholder" style="display: none;">
                     <i class="fas fa-chalkboard-teacher"></i>
                 </div>

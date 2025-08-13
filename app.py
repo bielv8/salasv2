@@ -46,7 +46,7 @@ with app.app_context():
                 'description': 'Laboratório equipado com computadores de última geração para cursos técnicos.',
                 'floor': 1,
                 'block': 'A',
-                'image_url': ''
+                'image_filename': ''
             },
             {
                 'name': 'Sala de Aula 101',
@@ -56,7 +56,7 @@ with app.app_context():
                 'description': 'Sala de aula tradicional com projetor e ar condicionado.',
                 'floor': 1,
                 'block': 'A',
-                'image_url': ''
+                'image_filename': ''
             },
             {
                 'name': 'Laboratório de Eletrônica',
@@ -66,7 +66,7 @@ with app.app_context():
                 'description': 'Laboratório especializado em eletrônica com bancadas e equipamentos.',
                 'floor': 2,
                 'block': 'B',
-                'image_url': ''
+                'image_filename': ''
             },
             {
                 'name': 'Sala de Aula 201',
@@ -76,7 +76,7 @@ with app.app_context():
                 'description': 'Sala ampla para aulas teóricas com sistema de som.',
                 'floor': 2,
                 'block': 'B',
-                'image_url': ''
+                'image_filename': ''
             },
             {
                 'name': 'Laboratório de Mecânica',
@@ -86,7 +86,7 @@ with app.app_context():
                 'description': 'Laboratório para cursos de mecânica com simuladores.',
                 'floor': 1,
                 'block': 'C',
-                'image_url': ''
+                'image_filename': ''
             }
         ]
         

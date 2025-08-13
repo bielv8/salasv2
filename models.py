@@ -10,11 +10,11 @@ class Classroom(db.Model):
     description = db.Column(db.Text, default='')
     floor = db.Column(db.Integer, nullable=False)
     block = db.Column(db.String(10), nullable=False)
-    image_url = db.Column(db.String(255), default='')
+    image_filename = db.Column(db.String(255), default='')  # Store filename instead of URL
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    def __init__(self, name='', capacity=0, has_computers=False, software='', description='', floor=1, block='', image_url=''):
+    def __init__(self, name='', capacity=0, has_computers=False, software='', description='', floor=1, block='', image_filename=''):
         self.name = name
         self.capacity = capacity
         self.has_computers = has_computers
@@ -22,7 +22,7 @@ class Classroom(db.Model):
         self.description = description
         self.floor = floor
         self.block = block
-        self.image_url = image_url
+        self.image_filename = image_filename
     
     # Relationship with schedules
     schedules = db.relationship('Schedule', backref='classroom', lazy=True, cascade='all, delete-orphan')
