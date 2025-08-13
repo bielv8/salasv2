@@ -542,7 +542,7 @@ def export_excel():
         ws1.title = "Salas de Aula"
         
         # Headers for classrooms
-        headers1 = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Andar', 'Tem Computadores', 'Softwares', 'Descrição']
+        headers1 = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Tem Computadores', 'Softwares', 'Descrição']
         for col, header in enumerate(headers1, 1):
             cell = ws1.cell(row=1, column=col)
             cell.value = header
@@ -557,10 +557,9 @@ def export_excel():
             ws1.cell(row=row, column=2).value = classroom.name
             ws1.cell(row=row, column=3).value = classroom.capacity
             ws1.cell(row=row, column=4).value = classroom.block
-            ws1.cell(row=row, column=5).value = classroom.floor
-            ws1.cell(row=row, column=6).value = 'Sim' if classroom.has_computers else 'Não'
-            ws1.cell(row=row, column=7).value = classroom.software
-            ws1.cell(row=row, column=8).value = classroom.description
+            ws1.cell(row=row, column=5).value = 'Sim' if classroom.has_computers else 'Não'
+            ws1.cell(row=row, column=6).value = classroom.software
+            ws1.cell(row=row, column=7).value = classroom.description
         
         # Auto-fit columns
         for column_cells in ws1.columns:
@@ -683,7 +682,7 @@ def export_filtered_excel():
     try:
         # Get the same filters as dashboard
         block_filter = request.args.get('block', '')
-        floor_filter = request.args.get('floor', '')
+        # Remove floor filter as it doesn't exist in the model
         has_computers_filter = request.args.get('has_computers', '')
         capacity_filter = request.args.get('capacity', '')
         day_filter = request.args.get('day', '')
@@ -693,8 +692,7 @@ def export_filtered_excel():
         classroom_query = Classroom.query
         if block_filter:
             classroom_query = classroom_query.filter(Classroom.block == block_filter)
-        if floor_filter:
-            classroom_query = classroom_query.filter(Classroom.floor == int(floor_filter))
+        # Remove floor filter as it doesn't exist in the model
         if has_computers_filter:
             has_computers_bool = has_computers_filter.lower() == 'true'
             classroom_query = classroom_query.filter(Classroom.has_computers.is_(has_computers_bool))
@@ -728,7 +726,7 @@ def export_filtered_excel():
         ws1.title = "Salas Filtradas"
         
         # Headers
-        headers = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Andar', 'Tem Computadores', 'Softwares', 'Descrição']
+        headers = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Tem Computadores', 'Softwares', 'Descrição']
         for col, header in enumerate(headers, 1):
             cell = ws1.cell(row=1, column=col)
             cell.value = header
@@ -742,10 +740,9 @@ def export_filtered_excel():
             ws1.cell(row=row, column=2).value = classroom.name
             ws1.cell(row=row, column=3).value = classroom.capacity
             ws1.cell(row=row, column=4).value = classroom.block
-            ws1.cell(row=row, column=5).value = classroom.floor
-            ws1.cell(row=row, column=6).value = 'Sim' if classroom.has_computers else 'Não'
-            ws1.cell(row=row, column=7).value = classroom.software
-            ws1.cell(row=row, column=8).value = classroom.description
+            ws1.cell(row=row, column=5).value = 'Sim' if classroom.has_computers else 'Não'
+            ws1.cell(row=row, column=6).value = classroom.software
+            ws1.cell(row=row, column=7).value = classroom.description
         
         # Auto-fit columns
         for column_cells in ws1.columns:
