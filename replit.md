@@ -10,6 +10,10 @@ This is a classroom management system for SENAI "Morvan Figueiredo" school built
 - **Improved PDF Generation**: Enhanced PDF reports with better formatting and error handling
 - **Session Security**: Configured proper SESSION_SECRET for secure authentication
 - **Schedule Management in Edit Page**: Added functionality to view and remove individual schedules directly from classroom edit page
+- **Brazil Timezone Support**: All date/time operations now use São Paulo timezone (UTC-3) for accurate local time display
+- **Ultra-Precise Availability System**: Completely redesigned availability logic to check exact course dates and times - only shows rooms as occupied when courses are actually running
+- **Incident Reporting System**: Added comprehensive incident tracking for each classroom with reporter details and admin deletion capability
+- **Classroom Password Display**: Admin passwords are now shown on classroom detail pages with secure reveal functionality
 
 # User Preferences
 

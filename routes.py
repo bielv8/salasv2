@@ -723,19 +723,20 @@ def get_availability_for_date(target_date=None, shift_filter=None):
                     if schedule.start_date and schedule.end_date:
                         if schedule.start_date <= target_date_only <= schedule.end_date:
                             active_schedules.append(schedule)
-                            print(f"DEBUG: Schedule {schedule.id} is ACTIVE (course runs {schedule.start_date} to {schedule.end_date})")
+                            print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is ACTIVE (course runs {schedule.start_date} to {schedule.end_date})")
                         else:
-                            print(f"DEBUG: Schedule {schedule.id} is EXPIRED/FUTURE (course runs {schedule.start_date} to {schedule.end_date}, today is {target_date_only})")
+                            print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is EXPIRED/FUTURE (course runs {schedule.start_date} to {schedule.end_date}, today is {target_date_only})")
                     else:
                         # If no dates specified, consider it active (backward compatibility)
                         active_schedules.append(schedule)
-                        print(f"DEBUG: Schedule {schedule.id} has no date restrictions, treating as active")
+                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) has no date restrictions, treating as active")
                 
                 occupied_schedules.extend(active_schedules)
                 print(f"DEBUG: Using primary shift '{primary_shift}', found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
                 
-                # Also check for fullday schedules that overlap with current time - PRECISE DATE CHECKING
-                if primary_shift in ['morning', 'afternoon']:
+                # CRITICAL LOGIC: Only add fullday schedules if we're checking for CURRENT time
+                # This prevents fullday classes from appearing when user filters by specific shift
+                if primary_shift in ['morning', 'afternoon'] and target_date.date() == get_brazil_time().date():
                     all_fullday_schedules = Schedule.query.filter_by(
                         day_of_week=target_day,
                         shift='fullday',
@@ -747,16 +748,19 @@ def get_availability_for_date(target_date=None, shift_filter=None):
                         if schedule.start_date and schedule.end_date:
                             if schedule.start_date <= target_date_only <= schedule.end_date:
                                 active_fullday_schedules.append(schedule)
-                                print(f"DEBUG: Fullday schedule {schedule.id} is ACTIVE")
+                                print(f"DEBUG: Fullday schedule {schedule.id} is ACTIVE (overlaps with current {primary_shift} shift)")
                             else:
                                 print(f"DEBUG: Fullday schedule {schedule.id} is EXPIRED/FUTURE")
                         else:
                             active_fullday_schedules.append(schedule)
                     
                     occupied_schedules.extend(active_fullday_schedules)
-                    print(f"DEBUG: Added {len(active_fullday_schedules)} ACTIVE fullday schedules for overlap")
+                    print(f"DEBUG: Added {len(active_fullday_schedules)} ACTIVE fullday schedules for CURRENT TIME overlap")
+                else:
+                    print(f"DEBUG: Skipping fullday overlap - not checking current time or not morning/afternoon shift")
         else:
-            # For other dates, show all scheduled classes - PRECISE DATE CHECKING
+            # For other dates (future/past), show all scheduled classes - PRECISE DATE CHECKING
+            print(f"DEBUG: Checking NON-CURRENT date {target_date_only} - showing all active courses for that day")
             all_schedules = Schedule.query.filter_by(day_of_week=target_day, is_active=True).all()
             
             active_schedules = []
@@ -764,16 +768,20 @@ def get_availability_for_date(target_date=None, shift_filter=None):
                 if schedule.start_date and schedule.end_date:
                     if schedule.start_date <= target_date_only <= schedule.end_date:
                         active_schedules.append(schedule)
-                        print(f"DEBUG: Schedule {schedule.id} is ACTIVE on {target_date_only}")
+                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is ACTIVE on {target_date_only}")
                     else:
-                        print(f"DEBUG: Schedule {schedule.id} is EXPIRED/FUTURE on {target_date_only}")
+                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is EXPIRED/FUTURE on {target_date_only}")
                 else:
                     active_schedules.append(schedule)
+                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) has no date restrictions, treating as active")
             
             occupied_schedules = active_schedules
             print(f"DEBUG: Checking other date, found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
     else:
-        # Apply specific shift filter - PRECISE DATE CHECKING
+        # Apply specific shift filter - ULTRA PRECISE: ONLY show rooms occupied by EXACTLY that shift
+        print(f"DEBUG: PRECISE FILTER MODE - Looking for shift '{shift_filter}' on {target_date_only}")
+        
+        # Get schedules that EXACTLY match the requested shift
         all_schedules = Schedule.query.filter_by(
             day_of_week=target_day,
             shift=shift_filter,
@@ -785,14 +793,19 @@ def get_availability_for_date(target_date=None, shift_filter=None):
             if schedule.start_date and schedule.end_date:
                 if schedule.start_date <= target_date_only <= schedule.end_date:
                     active_schedules.append(schedule)
-                    print(f"DEBUG: Schedule {schedule.id} is ACTIVE with shift filter")
+                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is ACTIVE with exact shift filter '{shift_filter}'")
                 else:
-                    print(f"DEBUG: Schedule {schedule.id} is EXPIRED/FUTURE with shift filter")
+                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is EXPIRED/FUTURE with shift filter")
             else:
                 active_schedules.append(schedule)
+                print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) has no date restrictions, treating as active for shift filter")
         
         occupied_schedules = active_schedules
-        print(f"DEBUG: Using shift filter '{shift_filter}', found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
+        
+        # CRITICAL: When filtering by specific shift, DO NOT include fullday or other shifts
+        # User wants to see availability for THAT EXACT shift only
+        print(f"DEBUG: EXACT SHIFT FILTER '{shift_filter}' - found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
+        print(f"DEBUG: NOT checking fullday overlap because user specifically filtered for '{shift_filter}' shift")
     
     occupied_classroom_ids = set(schedule.classroom_id for schedule in occupied_schedules)
     
@@ -805,7 +818,7 @@ def get_availability_for_date(target_date=None, shift_filter=None):
     
     if shift_filter and shift_filter != 'all':
         shift_names = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
-        period_description = f"{day_name} - {shift_names.get(shift_filter, shift_filter)}"
+        period_description = f"{day_name} - {shift_names.get(shift_filter, shift_filter)} (Filtro Específico)"
     elif target_date.date() == get_brazil_time().date() and (shift_filter is None or shift_filter == 'all'):
         # Show current period
         current_shifts = get_current_shift()
