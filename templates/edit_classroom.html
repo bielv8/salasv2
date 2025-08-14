@@ -168,6 +168,19 @@ Nova Sala - SENAI Morvan Figueiredo
                                             <input type="time" class="form-control" id="initial_end_time" name="initial_end_time">
                                         </div>
                                     </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="initial_start_date" class="form-label">Data de Início do Curso</label>
+                                            <input type="date" class="form-control" id="initial_start_date" name="initial_start_date">
+                                            <div class="form-text">Data em que o curso inicia (opcional).</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="initial_end_date" class="form-label">Data de Término do Curso</label>
+                                            <input type="date" class="form-control" id="initial_end_date" name="initial_end_date">
+                                            <div class="form-text">Data em que o curso termina (opcional).</div>
+                                        </div>
+                                    </div>
                                     
                                     <div class="mb-3">
                                         <label class="form-label">Dias da Semana</label>
@@ -215,7 +228,8 @@ Nova Sala - SENAI Morvan Figueiredo
                                     
                                     <div class="alert alert-info">
                                         <i class="fas fa-info-circle me-2"></i>
-                                        <strong>Dica:</strong> Você pode criar horários iniciais para esta sala junto com o cadastro.
+                                        <strong>Dica:</strong> Você pode criar horários iniciais para esta sala junto com o cadastro. 
+                                        Se você informar as datas de início e fim, o sistema fará um controle preciso de disponibilidade baseado no período do curso.
                                     </div>
                                 </div>
                             </div>
@@ -398,6 +412,39 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Auto-fill times based on initial shift selection
+const initialShiftSelect = document.getElementById('initial_shift');
+if (initialShiftSelect) {
+    initialShiftSelect.addEventListener('change', function() {
+        const shift = this.value;
+        const startTime = document.getElementById('initial_start_time');
+        const endTime = document.getElementById('initial_end_time');
+        
+        switch(shift) {
+            case 'morning':
+                startTime.value = '07:30';
+                endTime.value = '12:00';
+                break;
+            case 'afternoon':
+                startTime.value = '13:00';
+                endTime.value = '18:00';
+                break;
+            case 'fullday':
+                startTime.value = '07:30';
+                endTime.value = '18:00';
+                break;
+            case 'night':
+                startTime.value = '19:00';
+                endTime.value = '22:30';
+                break;
+            default:
+                startTime.value = '';
+                endTime.value = '';
+                break;
+        }
+    });
+}
 
 // Form validation
 document.addEventListener('DOMContentLoaded', function() {

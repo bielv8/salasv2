@@ -6,6 +6,7 @@ This is a classroom management system for SENAI "Morvan Figueiredo" school built
 - **Migration to Replit Environment**: Successfully migrated from Replit Agent to standard Replit environment with improved security and Flask best practices - COMPLETED
 - **Availability System Bug Fix**: Fixed AttributeError in availability filtering system where 'schedule.course' should be 'schedule.course_name' - system now works precisely with dates, periods, and schedules
 - **Footer Update**: Updated copyright year to 2025 in all templates
+- **Enhanced Classroom Creation**: Added date fields (start_date/end_date) to initial schedule creation when adding new classrooms, matching the functionality of the full schedule management system - ensures precise availability tracking from the beginning
 - **Excel File Management**: Added functionality for each classroom to have an associated Excel file that users can download
 - **Enhanced Dashboard**: Added advanced filtering system with search by block, floor, capacity, computers, day, and shift
 - **Excel Export**: Implemented comprehensive Excel export with multiple sheets (classrooms, schedules, statistics) and filtered export options

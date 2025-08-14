@@ -332,6 +332,24 @@ def add_classroom():
             if initial_shift and request.form.get('initial_course'):
                 initial_days = request.form.getlist('initial_days')
                 if initial_days:
+                    # Process date fields
+                    initial_start_date = None
+                    initial_end_date = None
+                    
+                    if request.form.get('initial_start_date'):
+                        try:
+                            from datetime import datetime
+                            initial_start_date = datetime.strptime(request.form.get('initial_start_date'), '%Y-%m-%d').date()
+                        except ValueError:
+                            pass
+                    
+                    if request.form.get('initial_end_date'):
+                        try:
+                            from datetime import datetime
+                            initial_end_date = datetime.strptime(request.form.get('initial_end_date'), '%Y-%m-%d').date()
+                        except ValueError:
+                            pass
+                    
                     for day in initial_days:
                         schedule = Schedule(
                             classroom_id=classroom.id,
@@ -340,11 +358,21 @@ def add_classroom():
                             course_name=request.form.get('initial_course', ''),
                             instructor=request.form.get('initial_instructor', ''),
                             start_time=request.form.get('initial_start_time', ''),
-                            end_time=request.form.get('initial_end_time', '')
+                            end_time=request.form.get('initial_end_time', ''),
+                            start_date=initial_start_date,
+                            end_date=initial_end_date
                         )
                         db.session.add(schedule)
                     db.session.commit()
-                    flash(f'Sala adicionada com {len(initial_days)} horários iniciais!', 'success')
+                    
+                    # Enhanced success message with date info
+                    date_info = ""
+                    if initial_start_date and initial_end_date:
+                        date_info = f" (período: {initial_start_date.strftime('%d/%m/%Y')} a {initial_end_date.strftime('%d/%m/%Y')})"
+                    elif initial_start_date:
+                        date_info = f" (início: {initial_start_date.strftime('%d/%m/%Y')})"
+                    
+                    flash(f'Sala adicionada com {len(initial_days)} horários iniciais{date_info}!', 'success')
                 else:
                     flash('Sala adicionada com sucesso!', 'success')
             else:
