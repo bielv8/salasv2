@@ -75,14 +75,14 @@ Nova Sala - SENAI Morvan Figueiredo
                         </div>
 
                         <div class="mb-3">
-                            <label for="excel_file" class="form-label">Planilha Excel da Sala</label>
+                            <label for="excel_file" class="form-label">Planilha de Patrimônio da Sala</label>
                             <input type="file" class="form-control" id="excel_file" name="excel_file" accept=".xlsx,.xls">
-                            <div class="form-text">Selecione um arquivo Excel com informações da sala (.xlsx ou .xls - opcional).</div>
+                            <div class="form-text">Selecione um arquivo Excel com o patrimônio da sala (.xlsx ou .xls - opcional).</div>
                             {% if classroom and classroom.excel_filename %}
                             <div class="mt-2">
                                 <small class="text-success">
                                     <i class="fas fa-file-excel me-1"></i>
-                                    Arquivo Excel atual disponível para download
+                                    Arquivo de patrimônio disponível para download
                                 </small>
                             </div>
                             {% endif %}

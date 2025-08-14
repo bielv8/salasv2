@@ -156,11 +156,11 @@
                         </a>
                         {% if classroom.excel_filename %}
                         <a href="{{ url_for('download_excel', classroom_id=classroom.id) }}" class="btn btn-outline-success">
-                            <i class="fas fa-file-excel me-2"></i>Baixar Planilha
+                            <i class="fas fa-file-excel me-2"></i>Baixar Patrimônio
                         </a>
                         {% else %}
                         <button class="btn btn-outline-secondary" disabled>
-                            <i class="fas fa-file-excel me-2"></i>Sem Planilha
+                            <i class="fas fa-file-excel me-2"></i>Sem Patrimônio
                         </button>
                         {% endif %}
                         {% if session.admin_authenticated %}

@@ -131,7 +131,7 @@ def download_excel(classroom_id):
     try:
         file_path = os.path.join(UPLOAD_FOLDER, classroom.excel_filename)
         if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True, download_name=f"{classroom.name}_planilha.xlsx")
+            return send_file(file_path, as_attachment=True, download_name=f"{classroom.name}_patrimonio.xlsx")
         else:
             flash('Arquivo Excel não encontrado.', 'error')
             return redirect(url_for('classroom_detail', classroom_id=classroom_id))
@@ -482,10 +482,10 @@ def get_current_shift():
     current_minute = now.minute
     current_time_minutes = current_hour * 60 + current_minute
     
-    # FOR TESTING: Simulate afternoon time (14:30)
-    current_hour = 14
-    current_minute = 30
-    current_time_minutes = current_hour * 60 + current_minute
+    # Use real current time
+    # current_hour = 14  # FOR TESTING only
+    # current_minute = 30
+    # current_time_minutes = current_hour * 60 + current_minute
     
     print(f"DEBUG: Current time: {current_hour}:{current_minute:02d} ({current_time_minutes} minutes)")
     
@@ -537,7 +537,7 @@ def get_availability_for_date(target_date=None, shift_filter=None):
     
     # If no shift filter is provided and we're checking current time, get current shifts
     if shift_filter is None or shift_filter == 'all':
-        # If checking current date, only show rooms occupied RIGHT NOW
+        # If checking current date, determine the primary current shift
         if target_date.date() == datetime.now().date():
             current_shifts = get_current_shift()
             print(f"DEBUG: Checking current date, active shifts: {current_shifts}")
@@ -550,18 +550,41 @@ def get_availability_for_date(target_date=None, shift_filter=None):
                     'total_rooms': len(classrooms)
                 }
             
-            # Get schedules for current active shifts only
+            # Determine which shift to check based on current time
+            # Priority: specific shifts (morning, afternoon, night) over fullday
+            primary_shift = None
+            
+            # Check for specific time-based shifts first
+            if 'morning' in current_shifts:
+                primary_shift = 'morning'
+            elif 'afternoon' in current_shifts:
+                primary_shift = 'afternoon'
+            elif 'night' in current_shifts:
+                primary_shift = 'night'
+            elif 'fullday' in current_shifts:
+                primary_shift = 'fullday'
+            
             occupied_schedules = []
-            for shift in current_shifts:
+            
+            if primary_shift:
+                # Get schedules for the primary shift only
                 schedules = Schedule.query.filter_by(
                     day_of_week=target_day,
-                    shift=shift,
+                    shift=primary_shift,
                     is_active=True
                 ).all()
-                print(f"DEBUG: Found {len(schedules)} schedules for shift '{shift}' on day {target_day}")
-                for schedule in schedules:
-                    print(f"DEBUG: - {schedule.course_name} in classroom {schedule.classroom_id}")
                 occupied_schedules.extend(schedules)
+                print(f"DEBUG: Using primary shift '{primary_shift}', found {len(schedules)} schedules")
+                
+                # Also check for fullday schedules that overlap with current time
+                if primary_shift in ['morning', 'afternoon']:
+                    fullday_schedules = Schedule.query.filter_by(
+                        day_of_week=target_day,
+                        shift='fullday',
+                        is_active=True
+                    ).all()
+                    occupied_schedules.extend(fullday_schedules)
+                    print(f"DEBUG: Added {len(fullday_schedules)} fullday schedules for overlap")
         else:
             # For other dates, show all scheduled classes
             occupied_schedules = Schedule.query.filter_by(day_of_week=target_day, is_active=True).all()
