@@ -96,3 +96,21 @@ class AdminSession(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+
+class Incident(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classroom.id'), nullable=False)
+    reporter_name = db.Column(db.String(100), nullable=False)
+    reporter_email = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    def __init__(self, classroom_id=0, reporter_name='', reporter_email='', description=''):
+        self.classroom_id = classroom_id
+        self.reporter_name = reporter_name
+        self.reporter_email = reporter_email
+        self.description = description
+    
+    def __repr__(self):
+        return f'<Incident {self.id} - {self.reporter_name}>'

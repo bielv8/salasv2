@@ -70,6 +70,24 @@
                     </div>
                     {% endif %}
 
+                    <!-- Admin Password Section -->
+                    {% if classroom.admin_password %}
+                    <div class="mb-4">
+                        <h5><i class="fas fa-key me-2"></i>Senha Administrativa</h5>
+                        <div class="bg-light p-3 rounded">
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="classroom_admin_password" 
+                                       value="{{ classroom.admin_password }}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" id="reveal_password_btn"
+                                        onclick="revealClassroomPassword()">
+                                    <i class="fas fa-eye" id="reveal_icon"></i> Revelar
+                                </button>
+                            </div>
+                            <small class="text-muted">Clique em "Revelar" e digite a senha de administrador do sistema para visualizar.</small>
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <div class="row">
                         <div class="col-md-6">
                             <h6><i class="fas fa-building me-2"></i>Localização</h6>
@@ -138,6 +156,48 @@
                 </div>
             </div>
             {% endif %}
+
+            <!-- Incident Reporting Section -->
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Ocorrências</h5>
+                    <button class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#incidentModal">
+                        <i class="fas fa-plus me-1"></i>Registrar Ocorrência
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if incidents %}
+                    <div class="incident-list">
+                        {% for incident in incidents %}
+                        <div class="incident-item border-bottom pb-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <p class="mb-1">{{ incident.description }}</p>
+                                    <small class="text-muted">
+                                        <strong>{{ incident.reporter_name }}</strong> ({{ incident.reporter_email }})
+                                        - {{ incident.created_at.strftime('%d/%m/%Y às %H:%M') if incident.created_at else 'Data não informada' }}
+                                    </small>
+                                </div>
+                                {% if session.admin_authenticated %}
+                                <form method="POST" action="{{ url_for('delete_incident', incident_id=incident.id) }}" 
+                                      style="display: inline;" 
+                                      onsubmit="return confirm('Tem certeza que deseja excluir esta ocorrência?')">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center">
+                        <i class="fas fa-check-circle me-2"></i>Nenhuma ocorrência registrada para esta sala.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
         <!-- Actions Sidebar -->
@@ -154,6 +214,9 @@
                         <a href="{{ url_for('generate_qr', classroom_id=classroom.id) }}" class="btn btn-outline-secondary">
                             <i class="fas fa-qrcode me-2"></i>Gerar QR Code
                         </a>
+                        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#incidentModal">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Registrar Ocorrência
+                        </button>
                         {% if classroom.excel_filename %}
                         <a href="{{ url_for('download_excel', classroom_id=classroom.id) }}" class="btn btn-outline-success">
                             <i class="fas fa-file-excel me-2"></i>Baixar Patrimônio
@@ -198,4 +261,72 @@
         </div>
     </div>
 </div>
+
+<!-- Incident Reporting Modal -->
+<div class="modal fade" id="incidentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>Registrar Ocorrência
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_incident', classroom_id=classroom.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="reporter_name" class="form-label">Seu Nome *</label>
+                        <input type="text" class="form-control" id="reporter_name" name="reporter_name" 
+                               placeholder="Digite seu nome completo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="reporter_email" class="form-label">Seu E-mail *</label>
+                        <input type="email" class="form-control" id="reporter_email" name="reporter_email" 
+                               placeholder="seuemail@exemplo.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="incident_description" class="form-label">Descrição da Ocorrência *</label>
+                        <textarea class="form-control" id="incident_description" name="description" 
+                                  rows="4" placeholder="Descreva detalhadamente a ocorrência..." required></textarea>
+                        <div class="form-text">
+                            Seja específico: equipamento quebrado, problema de limpeza, necessidade de manutenção, etc.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-plus me-2"></i>Registrar Ocorrência
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Function to reveal classroom admin password
+function revealClassroomPassword() {
+    const systemPassword = prompt('Digite a senha de administrador do sistema para revelar a senha da sala:');
+    
+    if (systemPassword === 'senai103103') {
+        const passwordField = document.getElementById('classroom_admin_password');
+        const revealBtn = document.getElementById('reveal_password_btn');
+        const revealIcon = document.getElementById('reveal_icon');
+        
+        if (passwordField.type === 'password') {
+            passwordField.type = 'text';
+            revealIcon.className = 'fas fa-eye-slash';
+            revealBtn.innerHTML = '<i class="fas fa-eye-slash" id="reveal_icon"></i> Ocultar';
+        } else {
+            passwordField.type = 'password';
+            revealIcon.className = 'fas fa-eye';
+            revealBtn.innerHTML = '<i class="fas fa-eye" id="reveal_icon"></i> Revelar';
+        }
+    } else if (systemPassword !== null) {
+        alert('Senha de administrador incorreta!');
+    }
+}
+</script>
+
 {% endblock %}

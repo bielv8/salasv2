@@ -2,8 +2,13 @@ import os
 import sys
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app import app, db
-from models import Classroom, Schedule
+from models import Classroom, Schedule, Incident
 from datetime import datetime, timedelta
+try:
+    import pytz
+    PYTZ_AVAILABLE = True
+except ImportError:
+    PYTZ_AVAILABLE = False
 import io
 from urllib.parse import urljoin
 from werkzeug.utils import secure_filename
@@ -59,9 +64,23 @@ def index():
 
 @app.route('/classroom/<int:classroom_id>')
 def classroom_detail(classroom_id):
+    from datetime import datetime
+    current_date = get_brazil_time().date()
+    
     classroom = Classroom.query.get_or_404(classroom_id)
-    schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).all()
-    return render_template('classroom.html', classroom=classroom, schedules=schedules)
+    
+    # Only show active schedules where courses haven't ended yet
+    schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
+        db.or_(
+            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date >= current_date  # Course hasn't ended yet
+        )
+    ).all()
+    
+    # Get incidents for this classroom
+    incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).order_by(Incident.created_at.desc()).all()
+    
+    return render_template('classroom.html', classroom=classroom, schedules=schedules, incidents=incidents)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -88,8 +107,7 @@ def logout():
 @app.route('/edit_classroom/<int:classroom_id>', methods=['GET', 'POST'])
 @require_admin_auth
 def edit_classroom(classroom_id):
-    from datetime import datetime
-    current_date = datetime.now().date()
+    current_date = get_brazil_time().date()
     
     classroom = Classroom.query.get_or_404(classroom_id)
     
@@ -226,6 +244,57 @@ def delete_schedule(schedule_id):
     
     return redirect(url_for('edit_classroom', classroom_id=classroom_id))
 
+@app.route('/add_incident/<int:classroom_id>', methods=['POST'])
+def add_incident(classroom_id):
+    classroom = Classroom.query.get_or_404(classroom_id)
+    
+    try:
+        reporter_name = request.form.get('reporter_name', '').strip()
+        reporter_email = request.form.get('reporter_email', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        if not reporter_name or not reporter_email or not description:
+            flash('Todos os campos são obrigatórios para registrar uma ocorrência.', 'error')
+            return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+        
+        # Create incident using Brazil time
+        incident = Incident(
+            classroom_id=classroom_id,
+            reporter_name=reporter_name,
+            reporter_email=reporter_email,
+            description=description
+        )
+        
+        # Override created_at with Brazil time
+        incident.created_at = get_brazil_time().replace(tzinfo=None)
+        
+        db.session.add(incident)
+        db.session.commit()
+        
+        flash(f'Ocorrência registrada com sucesso! Obrigado, {reporter_name}.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao registrar ocorrência: {str(e)}', 'error')
+    
+    return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+
+@app.route('/delete_incident/<int:incident_id>', methods=['POST'])
+@require_admin_auth
+def delete_incident(incident_id):
+    incident = Incident.query.get_or_404(incident_id)
+    classroom_id = incident.classroom_id
+    
+    try:
+        db.session.delete(incident)
+        db.session.commit()
+        flash('Ocorrência removida com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao remover ocorrência: {str(e)}', 'error')
+    
+    return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+
 @app.route('/add_classroom', methods=['GET', 'POST'])
 @require_admin_auth
 def add_classroom():
@@ -291,8 +360,7 @@ def add_classroom():
 @app.route('/schedule_management')
 @require_admin_auth
 def schedule_management():
-    from datetime import datetime
-    current_date = datetime.now().date()
+    current_date = get_brazil_time().date()
     
     classrooms = Classroom.query.all()
     
@@ -467,8 +535,7 @@ def dashboard():
     classrooms = classroom_query.all()
     
     # Build schedule query with filters - ONLY SHOW ACTIVE/CURRENT COURSES
-    from datetime import datetime
-    current_date = datetime.now().date()
+    current_date = get_brazil_time().date()
     
     schedule_query = Schedule.query.filter_by(is_active=True)
     
@@ -540,11 +607,19 @@ def dashboard():
 def availability():
     return redirect(url_for('dashboard'))
 
+def get_brazil_time():
+    """Get current time in Brazil timezone (UTC-3)"""
+    if PYTZ_AVAILABLE:
+        brazil_tz = pytz.timezone('America/Sao_Paulo')
+        return datetime.now(brazil_tz)
+    else:
+        # Fallback: subtract 3 hours from UTC to approximate Brazil time
+        utc_time = datetime.utcnow()
+        return utc_time - timedelta(hours=3)
+
 def get_current_shift():
-    """Get the current shift based on time"""
-    from datetime import datetime
-    
-    now = datetime.now()
+    """Get the current shift based on Brazil time"""
+    now = get_brazil_time()
     current_hour = now.hour
     current_minute = now.minute
     current_time_minutes = current_hour * 60 + current_minute
@@ -583,10 +658,8 @@ def get_current_shift():
 
 def get_availability_for_date(target_date=None, shift_filter=None):
     """Helper function to get room availability for a specific date and optional shift"""
-    from datetime import datetime
-    
     if target_date is None:
-        target_date = datetime.now()
+        target_date = get_brazil_time()
     
     # Get day of week (0=Monday, 6=Sunday)
     target_day = target_date.weekday()
@@ -608,7 +681,7 @@ def get_availability_for_date(target_date=None, shift_filter=None):
     # If no shift filter is provided and we're checking current time, get current shifts
     if shift_filter is None or shift_filter == 'all':
         # If checking current date, determine the primary current shift
-        if target_date.date() == datetime.now().date():
+        if target_date.date() == get_brazil_time().date():
             current_shifts = get_current_shift()
             print(f"DEBUG: Checking current date, active shifts: {current_shifts}")
             
@@ -733,7 +806,7 @@ def get_availability_for_date(target_date=None, shift_filter=None):
     if shift_filter and shift_filter != 'all':
         shift_names = {'morning': 'Manhã', 'afternoon': 'Tarde', 'fullday': 'Integral', 'night': 'Noite'}
         period_description = f"{day_name} - {shift_names.get(shift_filter, shift_filter)}"
-    elif target_date.date() == datetime.now().date() and (shift_filter is None or shift_filter == 'all'):
+    elif target_date.date() == get_brazil_time().date() and (shift_filter is None or shift_filter == 'all'):
         # Show current period
         current_shifts = get_current_shift()
         if current_shifts:
@@ -755,8 +828,6 @@ def get_availability_for_date(target_date=None, shift_filter=None):
 
 @app.route('/available_now')
 def available_now():
-    from datetime import datetime
-    
     # Get query parameters for date and shift filtering
     date_param = request.args.get('date')
     shift_param = request.args.get('shift', 'all')
@@ -764,11 +835,12 @@ def available_now():
     # Parse target date
     if date_param:
         try:
+            from datetime import datetime
             target_date = datetime.strptime(date_param, '%Y-%m-%d')
         except ValueError:
-            target_date = datetime.now()
+            target_date = get_brazil_time()
     else:
-        target_date = datetime.now()
+        target_date = get_brazil_time()
     
     # Get availability data
     availability_data = get_availability_for_date(target_date, shift_param)
