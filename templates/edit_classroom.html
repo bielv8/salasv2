@@ -105,11 +105,27 @@ Nova Sala - SENAI Morvan Figueiredo
                             <div class="form-text">Liste os softwares instalados nos computadores desta sala (se houver).</div>
                         </div>
 
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="description" class="form-label">Descrição</label>
                             <textarea class="form-control" id="description" name="description" rows="3" 
                                       placeholder="Descreva as características e equipamentos desta sala">{{ classroom.description if classroom else '' }}</textarea>
                             <div class="form-text">Informações adicionais sobre a sala (equipamentos, características especiais, etc.).</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="admin_password" class="form-label">Senha Administrativa da Sala</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="admin_password" name="admin_password" 
+                                       value="{{ classroom.admin_password if classroom else '' }}" 
+                                       placeholder="Senha especial para acesso administrativo da sala">
+                                <button class="btn btn-outline-secondary" type="button" id="toggleAdminPassword" title="Mostrar/Ocultar senha">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-warning" type="button" id="revealAdminPassword" title="Revelar senha existente">
+                                    <i class="fas fa-unlock"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Senha especial que pode ser solicitada para acesso administrativo aos recursos desta sala. Para revelar a senha atual, clique no botão de revelação e digite a senha de administrador do sistema.</div>
                         </div>
 
                         {% if not classroom %}
@@ -402,6 +418,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 alert('A capacidade deve ser entre 1 e 100 alunos.');
                 return false;
+            }
+        });
+    }
+});
+
+// Admin password toggle functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggleAdminPassword');
+    const revealBtn = document.getElementById('revealAdminPassword');
+    const passwordField = document.getElementById('admin_password');
+
+    if (toggleBtn && passwordField) {
+        toggleBtn.addEventListener('click', function() {
+            const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordField.setAttribute('type', type);
+            
+            const icon = this.querySelector('i');
+            if (type === 'text') {
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+    }
+
+    if (revealBtn && passwordField) {
+        revealBtn.addEventListener('click', function() {
+            const systemPassword = prompt('Para revelar a senha administrativa da sala, digite a senha de administrador do sistema:');
+            if (systemPassword === 'senai103103') {
+                passwordField.setAttribute('type', 'text');
+                const toggleIcon = toggleBtn?.querySelector('i');
+                if (toggleIcon) {
+                    toggleIcon.classList.remove('fa-eye');
+                    toggleIcon.classList.add('fa-eye-slash');
+                }
+                alert('Senha revelada com sucesso!');
+            } else if (systemPassword !== null) {
+                alert('Senha de administrador incorreta!');
             }
         });
     }

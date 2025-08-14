@@ -11,10 +11,11 @@ class Classroom(db.Model):
     block = db.Column(db.String(50), nullable=False)
     image_filename = db.Column(db.String(255), default='')  # Store filename instead of URL
     excel_filename = db.Column(db.String(255), default='')  # Store Excel filename
+    admin_password = db.Column(db.String(255), default='')  # Admin password for classroom access
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    def __init__(self, name='', capacity=0, has_computers=False, software='', description='', block='', image_filename='', excel_filename=''):
+    def __init__(self, name='', capacity=0, has_computers=False, software='', description='', block='', image_filename='', excel_filename='', admin_password=''):
         self.name = name
         self.capacity = capacity
         self.has_computers = has_computers
@@ -23,6 +24,7 @@ class Classroom(db.Model):
         self.block = block
         self.image_filename = image_filename
         self.excel_filename = excel_filename
+        self.admin_password = admin_password
     
     # Relationship with schedules
     schedules = db.relationship('Schedule', backref='classroom', lazy=True, cascade='all, delete-orphan')
@@ -51,10 +53,12 @@ class Schedule(db.Model):
     instructor = db.Column(db.String(100), default='')
     start_time = db.Column(db.String(10), nullable=False)
     end_time = db.Column(db.String(10), nullable=False)
+    start_date = db.Column(db.Date, nullable=True)  # Course start date
+    end_date = db.Column(db.Date, nullable=True)    # Course end date
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    def __init__(self, classroom_id=0, day_of_week=0, shift='', course_name='', instructor='', start_time='', end_time='', is_active=True):
+    def __init__(self, classroom_id=0, day_of_week=0, shift='', course_name='', instructor='', start_time='', end_time='', start_date=None, end_date=None, is_active=True):
         self.classroom_id = classroom_id
         self.day_of_week = day_of_week
         self.shift = shift
@@ -62,6 +66,8 @@ class Schedule(db.Model):
         self.instructor = instructor
         self.start_time = start_time
         self.end_time = end_time
+        self.start_date = start_date
+        self.end_date = end_date
         self.is_active = is_active
     
     def __repr__(self):
@@ -79,6 +85,8 @@ class Schedule(db.Model):
             'instructor': self.instructor,
             'start_time': self.start_time,
             'end_time': self.end_time,
+            'start_date': self.start_date.strftime('%Y-%m-%d') if self.start_date else '',
+            'end_date': self.end_date.strftime('%Y-%m-%d') if self.end_date else '',
             'is_active': self.is_active
         }
 

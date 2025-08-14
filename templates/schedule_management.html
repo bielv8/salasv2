@@ -83,6 +83,7 @@
                                     <th>Turno</th>
                                     <th>Horário</th>
                                     <th>Curso</th>
+                                    <th>Duração</th>
                                     <th>Instrutor</th>
                                     <th>Ações</th>
                                 </tr>
@@ -113,6 +114,13 @@
                                     </td>
                                     <td>{{ schedule.start_time }} - {{ schedule.end_time }}</td>
                                     <td>{{ schedule.course_name }}</td>
+                                    <td>
+                                        {% if schedule.start_date and schedule.end_date %}
+                                            <small class="text-muted">{{ schedule.start_date.strftime('%d/%m/%Y') if schedule.start_date else '' }} - {{ schedule.end_date.strftime('%d/%m/%Y') if schedule.end_date else '' }}</small>
+                                        {% else %}
+                                            <small class="text-warning">Não informado</small>
+                                        {% endif %}
+                                    </td>
                                     <td>{{ schedule.instructor or 'Não informado' }}</td>
                                     <td>
                                         <a href="{{ url_for('delete_schedule', schedule_id=schedule.id) }}" 
@@ -212,6 +220,19 @@
                             <label for="instructor" class="form-label">Instrutor</label>
                             <input type="text" class="form-control" id="instructor" name="instructor" 
                                    placeholder="Nome do instrutor">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="start_date" class="form-label">Data de Início do Curso *</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" required>
+                            <div class="form-text">Data em que o curso inicia nesta sala.</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="end_date" class="form-label">Data de Término do Curso *</label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" required>
+                            <div class="form-text">Data em que o curso termina nesta sala.</div>
                         </div>
                     </div>
 

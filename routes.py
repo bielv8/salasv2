@@ -100,6 +100,7 @@ def edit_classroom(classroom_id):
             classroom.description = request.form.get('description', '')
 
             classroom.block = request.form.get('block', '')
+            classroom.admin_password = request.form.get('admin_password', '')
             
             # Handle image upload with proper null checking
             if 'image' in request.files:
@@ -237,9 +238,9 @@ def add_classroom():
                 has_computers='has_computers' in request.form,
                 software=request.form.get('software', ''),
                 description=request.form.get('description', ''),
-
                 block=request.form.get('block', ''),
-                image_filename=image_filename
+                image_filename=image_filename,
+                admin_password=request.form.get('admin_password', '')
             )
             
             db.session.add(classroom)
@@ -312,6 +313,16 @@ def add_schedule():
         instructor = request.form.get('instructor', '')
         start_time = request.form.get('start_time', '')
         end_time = request.form.get('end_time', '')
+        start_date_str = request.form.get('start_date', '')
+        end_date_str = request.form.get('end_date', '')
+        
+        # Parse dates
+        start_date = None
+        end_date = None
+        if start_date_str:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        if end_date_str:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         
         print(f"DEBUG: Adding schedule - classroom_id: {classroom_id}, days: {days}, shift: {shift}")
         
@@ -343,7 +354,9 @@ def add_schedule():
                     course_name=course_name,
                     instructor=instructor,
                     start_time=start_time,
-                    end_time=end_time
+                    end_time=end_time,
+                    start_date=start_date,
+                    end_date=end_date
                 )
                 db.session.add(schedule)
                 created_count += 1
