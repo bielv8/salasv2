@@ -9,6 +9,7 @@ This is a classroom management system for SENAI "Morvan Figueiredo" school built
 - **Excel Export**: Implemented comprehensive Excel export with multiple sheets (classrooms, schedules, statistics) and filtered export options
 - **Improved PDF Generation**: Enhanced PDF reports with better formatting and error handling
 - **Session Security**: Configured proper SESSION_SECRET for secure authentication
+- **Schedule Management in Edit Page**: Added functionality to view and remove individual schedules directly from classroom edit page
 
 # User Preferences
 
@@ -42,7 +43,7 @@ Preferred communication style: Simple, everyday language.
 ## Core Features
 - **Classroom Management**: CRUD operations for classroom information including capacity, equipment, and location
 - **Excel File Management**: Each classroom can have an associated Excel file for download by users
-- **Schedule Management**: Admin can manage class schedules with different shifts (morning, afternoon, full-day, night)
+- **Schedule Management**: Admin can manage class schedules with different shifts (morning, afternoon, full-day, night) including individual schedule removal from classroom edit page
 - **Availability Tracking**: Real-time display of classroom availability based on scheduled classes
 - **Report Generation**: PDF report generation using ReportLab library
 - **QR Code Generation**: Dynamic QR code creation for classroom access using qrcode and PIL libraries

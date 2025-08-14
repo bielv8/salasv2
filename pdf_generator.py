@@ -214,7 +214,7 @@ def generate_general_report(classrooms, all_schedules):
             ['Informação', 'Detalhes'],
             ['Nome', classroom.name],
             ['Capacidade', f'{classroom.capacity} alunos'],
-            ['Localização', f'{classroom.block}, {classroom.floor}º andar'],
+            ['Localização', classroom.block],
             ['Computadores', 'Sim' if classroom.has_computers else 'Não'],
         ]
         

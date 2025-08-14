@@ -206,6 +206,63 @@ Nova Sala - SENAI Morvan Figueiredo
                         </div>
                         {% endif %}
 
+                        {% if classroom and schedules %}
+                        <!-- Existing Schedules Management -->
+                        <div class="mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Horários Atuais da Sala</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Dia</th>
+                                                    <th>Turno</th>
+                                                    <th>Horário</th>
+                                                    <th>Curso</th>
+                                                    <th>Instrutor</th>
+                                                    <th>Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for schedule in schedules %}
+                                                <tr>
+                                                    <td>{{ schedule.to_dict()['day_name'] }}</td>
+                                                    <td>
+                                                        <span class="badge bg-secondary">
+                                                            {% if schedule.shift == 'morning' %}Manhã
+                                                            {% elif schedule.shift == 'afternoon' %}Tarde
+                                                            {% elif schedule.shift == 'fullday' %}Integral
+                                                            {% elif schedule.shift == 'night' %}Noite
+                                                            {% endif %}
+                                                        </span>
+                                                    </td>
+                                                    <td>{{ schedule.start_time }} - {{ schedule.end_time }}</td>
+                                                    <td>{{ schedule.course_name }}</td>
+                                                    <td>{{ schedule.instructor or 'Não informado' }}</td>
+                                                    <td>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                                onclick="confirmDeleteSchedule({{ schedule.id }}, '{{ schedule.course_name }}')">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="alert alert-info mb-0">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Importante:</strong> Para adicionar novos horários, use a página de 
+                                        <a href="{{ url_for('schedule_management') }}" class="alert-link">Gestão de Horários</a>.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
                         <div class="d-flex justify-content-between">
                             <div>
                                 <a href="{% if classroom %}{{ url_for('classroom_detail', classroom_id=classroom.id) }}{% else %}{{ url_for('index') }}{% endif %}" 
@@ -229,8 +286,12 @@ Nova Sala - SENAI Morvan Figueiredo
                     </form>
                     
                     {% if classroom %}
-                    <!-- Hidden form for deletion -->
+                    <!-- Hidden forms for deletion -->
                     <form id="deleteForm" method="POST" action="{{ url_for('delete_classroom', classroom_id=classroom.id) }}" style="display: none;">
+                    </form>
+                    
+                    <!-- Hidden form for schedule deletion -->
+                    <form id="deleteScheduleForm" method="POST" style="display: none;">
                     </form>
                     {% endif %}
                 </div>
@@ -317,9 +378,8 @@ document.querySelector('form').addEventListener('submit', function(e) {
     const name = document.getElementById('name').value.trim();
     const capacity = document.getElementById('capacity').value;
     const block = document.getElementById('block').value;
-    const floor = document.getElementById('floor').value;
     
-    if (!name || !capacity || !block || !floor) {
+    if (!name || !capacity || !block) {
         e.preventDefault();
         alert('Por favor, preencha todos os campos obrigatórios (*)');
         return false;
@@ -337,6 +397,15 @@ document.querySelector('form').addEventListener('submit', function(e) {
 function confirmDelete() {
     if (confirm('Tem certeza que deseja excluir a sala "{{ classroom.name }}"?\n\nEsta ação não pode ser desfeita e também excluirá todos os horários associados a esta sala.')) {
         document.getElementById('deleteForm').submit();
+    }
+}
+
+// Delete schedule confirmation function
+function confirmDeleteSchedule(scheduleId, courseName) {
+    if (confirm(`Tem certeza que deseja remover o horário do curso "${courseName}"? Esta ação não pode ser desfeita!`)) {
+        const form = document.getElementById('deleteScheduleForm');
+        form.action = `/delete_schedule/${scheduleId}`;
+        form.submit();
     }
 }
 {% endif %}

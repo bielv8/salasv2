@@ -72,6 +72,7 @@ def logout():
 @require_admin_auth
 def edit_classroom(classroom_id):
     classroom = Classroom.query.get_or_404(classroom_id)
+    schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).all()
     
     if request.method == 'POST':
         try:
@@ -115,9 +116,9 @@ def edit_classroom(classroom_id):
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao atualizar sala: {str(e)}', 'error')
-            return render_template('edit_classroom.html', classroom=classroom)
+            return render_template('edit_classroom.html', classroom=classroom, schedules=schedules)
     
-    return render_template('edit_classroom.html', classroom=classroom)
+    return render_template('edit_classroom.html', classroom=classroom, schedules=schedules)
 
 @app.route('/download_excel/<int:classroom_id>')
 def download_excel(classroom_id):
@@ -176,6 +177,22 @@ def upload_excel(classroom_id):
             flash(f'Erro ao carregar arquivo: {str(e)}', 'error')
     else:
         flash('Formato de arquivo não permitido. Use apenas arquivos .xlsx ou .xls', 'error')
+    
+    return redirect(url_for('edit_classroom', classroom_id=classroom_id))
+
+@app.route('/delete_schedule/<int:schedule_id>', methods=['POST'])
+@require_admin_auth
+def delete_schedule(schedule_id):
+    schedule = Schedule.query.get_or_404(schedule_id)
+    classroom_id = schedule.classroom_id
+    
+    try:
+        db.session.delete(schedule)
+        db.session.commit()
+        flash('Horário removido com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao remover horário: {str(e)}', 'error')
     
     return redirect(url_for('edit_classroom', classroom_id=classroom_id))
 
@@ -336,14 +353,7 @@ def add_schedule():
     
     return redirect(url_for('schedule_management'))
 
-@app.route('/delete_schedule/<int:schedule_id>')
-@require_admin_auth
-def delete_schedule(schedule_id):
-    schedule = Schedule.query.get_or_404(schedule_id)
-    schedule.is_active = False
-    db.session.commit()
-    flash('Horário removido com sucesso!', 'success')
-    return redirect(url_for('schedule_management'))
+
 
 @app.route('/delete_classroom/<int:classroom_id>', methods=['POST'])
 @require_admin_auth
