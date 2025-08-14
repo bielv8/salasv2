@@ -40,42 +40,42 @@ with app.app_context():
         if not existing_classrooms:
             try:
                 sample_classrooms = [
-                    {
-                        'name': 'Laboratório de Jogos Digitais',
-                        'capacity': 34,
-                        'has_computers': True,
-                        'software': 'Unity, Unreal Engine, Blender',
-                        'description': 'Laboratório especializado para desenvolvimento de jogos digitais.',
-                        'block': 'Oficina 1',
-                        'image_filename': ''
-                    },
-                    {
-                        'name': 'SALA DEV',
-                        'capacity': 34,
-                        'has_computers': True,
-                        'software': 'Visual Studio, Git, Docker',
-                        'description': 'Sala de desenvolvimento de sistemas.',
-                        'block': 'Oficina 2',
-                        'image_filename': ''
-                    },
-                    {
-                        'name': 'Sala 208',
-                        'capacity': 34,
-                        'has_computers': True,
-                        'software': 'IDE, Banco de dados',
-                        'description': 'Sala para desenvolvimento e banco de dados.',
-                        'block': 'Bloco A',
-                        'image_filename': ''
-                    },
-                    {
-                        'name': 'Sala 202',
-                        'capacity': 20,
-                        'has_computers': True,
-                        'software': 'Office, Visual Studio',
-                        'description': 'Sala para cursos FIC e desenvolvimento.',
-                        'block': 'Bloco A',
-                        'image_filename': ''
-                    }
+            {
+                'name': 'Laboratório de Jogos Digitais',
+                'capacity': 34,
+                'has_computers': True,
+                'software': 'Unity, Unreal Engine, Blender',
+                'description': 'Laboratório especializado para desenvolvimento de jogos digitais.',
+                'block': 'Oficina 1',
+                'image_filename': ''
+            },
+            {
+                'name': 'SALA DEV',
+                'capacity': 34,
+                'has_computers': True,
+                'software': 'Visual Studio, Git, Docker',
+                'description': 'Sala de desenvolvimento de sistemas.',
+                'block': 'Oficina 2',
+                'image_filename': ''
+            },
+            {
+                'name': 'Sala 208',
+                'capacity': 34,
+                'has_computers': True,
+                'software': 'IDE, Banco de dados',
+                'description': 'Sala para desenvolvimento e banco de dados.',
+                'block': 'Bloco A',
+                'image_filename': ''
+            },
+            {
+                'name': 'Sala 202',
+                'capacity': 20,
+                'has_computers': True,
+                'software': 'Office, Visual Studio',
+                'description': 'Sala para cursos FIC e desenvolvimento.',
+                'block': 'Bloco A',
+                'image_filename': ''
+            }
                 ]
                 
                 for classroom_data in sample_classrooms:

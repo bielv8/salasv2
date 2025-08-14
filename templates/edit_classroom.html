@@ -329,10 +329,13 @@ Nova Sala - SENAI Morvan Figueiredo
 
 <script>
 // Auto-fill times based on shift selection for initial schedules
-document.getElementById('initial_shift').addEventListener('change', function() {
-    const shift = this.value;
-    const startTime = document.getElementById('initial_start_time');
-    const endTime = document.getElementById('initial_end_time');
+document.addEventListener('DOMContentLoaded', function() {
+    const initialShift = document.getElementById('initial_shift');
+    if (initialShift) {
+        initialShift.addEventListener('change', function() {
+            const shift = this.value;
+            const startTime = document.getElementById('initial_start_time');
+            const endTime = document.getElementById('initial_end_time');
     
     switch(shift) {
         case 'morning':
@@ -356,6 +359,8 @@ document.getElementById('initial_shift').addEventListener('change', function() {
             endTime.value = '';
             break;
     }
+        });
+    }
 });
 </script>
 {% endblock %}
@@ -363,32 +368,42 @@ document.getElementById('initial_shift').addEventListener('change', function() {
 {% block scripts %}
 <script>
 // Auto-enable software field when computers checkbox is checked
-document.getElementById('has_computers').addEventListener('change', function() {
-    const softwareField = document.getElementById('software');
-    if (this.checked) {
-        softwareField.focus();
-        if (!softwareField.value) {
-            softwareField.placeholder = "Ex: Windows 10, Office 365, AutoCAD";
-        }
+document.addEventListener('DOMContentLoaded', function() {
+    const hasComputersCheckbox = document.getElementById('has_computers');
+    if (hasComputersCheckbox) {
+        hasComputersCheckbox.addEventListener('change', function() {
+            const softwareField = document.getElementById('software');
+            if (softwareField && this.checked) {
+                softwareField.focus();
+                if (!softwareField.value) {
+                    softwareField.placeholder = "Ex: Windows 10, Office 365, AutoCAD";
+                }
+            }
+        });
     }
 });
 
 // Form validation
-document.querySelector('form').addEventListener('submit', function(e) {
-    const name = document.getElementById('name').value.trim();
-    const capacity = document.getElementById('capacity').value;
-    const block = document.getElementById('block').value;
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const name = document.getElementById('name');
+            const capacity = document.getElementById('capacity');
+            const block = document.getElementById('block');
+            
+            if (!name?.value?.trim() || !capacity?.value || !block?.value) {
+                e.preventDefault();
+                alert('Por favor, preencha todos os campos obrigatórios (*)');
+                return false;
+            }
     
-    if (!name || !capacity || !block) {
-        e.preventDefault();
-        alert('Por favor, preencha todos os campos obrigatórios (*)');
-        return false;
-    }
-    
-    if (capacity < 1 || capacity > 100) {
-        e.preventDefault();
-        alert('A capacidade deve ser entre 1 e 100 alunos.');
-        return false;
+            if (capacity && (capacity.value < 1 || capacity.value > 100)) {
+                e.preventDefault();
+                alert('A capacidade deve ser entre 1 e 100 alunos.');
+                return false;
+            }
+        });
     }
 });
 

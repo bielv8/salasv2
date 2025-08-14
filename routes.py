@@ -1,16 +1,33 @@
 import os
+import sys
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app import app, db
 from models import Classroom, Schedule
 from datetime import datetime, timedelta
-from pdf_generator import generate_classroom_pdf, generate_general_report, generate_availability_report
-from qr_generator import generate_qr_code
 import io
 from urllib.parse import urljoin
-import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill
 from werkzeug.utils import secure_filename
 import uuid
+
+# Import optional dependencies with error handling
+try:
+    from pdf_generator import generate_classroom_pdf, generate_general_report, generate_availability_report
+except ImportError as e:
+    print(f"PDF generation not available: {e}")
+    generate_classroom_pdf = generate_general_report = generate_availability_report = None
+
+try:
+    from qr_generator import generate_qr_code
+except ImportError as e:
+    print(f"QR code generation not available: {e}")
+    generate_qr_code = None
+
+try:
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill
+except ImportError as e:
+    print(f"Excel functionality not available: {e}")
+    openpyxl = None
 
 ADMIN_PASSWORD = "senai103103"
 UPLOAD_FOLDER = 'static/uploads'
@@ -665,45 +682,69 @@ def available_now():
 
 @app.route('/generate_pdf/<int:classroom_id>')
 def generate_pdf(classroom_id):
+    if not generate_classroom_pdf:
+        flash('Geração de PDF não está disponível no momento.', 'error')
+        return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+        
     classroom = Classroom.query.get_or_404(classroom_id)
     schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).all()
     
-    pdf_buffer = generate_classroom_pdf(classroom, schedules)
-    
-    return send_file(
-        io.BytesIO(pdf_buffer.getvalue()),
-        mimetype='application/pdf',
-        as_attachment=True,
-        download_name=f'sala_{classroom.name.replace(" ", "_")}.pdf'
-    )
+    try:
+        pdf_buffer = generate_classroom_pdf(classroom, schedules)
+        
+        return send_file(
+            io.BytesIO(pdf_buffer.getvalue()),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f'sala_{classroom.name.replace(" ", "_")}.pdf'
+        )
+    except Exception as e:
+        flash(f'Erro ao gerar PDF: {str(e)}', 'error')
+        return redirect(url_for('classroom_detail', classroom_id=classroom_id))
 
 @app.route('/generate_general_report')
 def generate_general_report_route():
-    classrooms = Classroom.query.all()
-    schedules = Schedule.query.filter_by(is_active=True).all()
-    
-    pdf_buffer = generate_general_report(classrooms, schedules)
-    
-    return send_file(
-        io.BytesIO(pdf_buffer.getvalue()),
-        mimetype='application/pdf',
-        as_attachment=True,
-        download_name='relatorio_geral.pdf'
-    )
+    if not generate_general_report:
+        flash('Geração de relatórios não está disponível no momento.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    try:
+        classrooms = Classroom.query.all()
+        schedules = Schedule.query.filter_by(is_active=True).all()
+        
+        pdf_buffer = generate_general_report(classrooms, schedules)
+        
+        return send_file(
+            io.BytesIO(pdf_buffer.getvalue()),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name='relatorio_geral.pdf'
+        )
+    except Exception as e:
+        flash(f'Erro ao gerar relatório: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
 
 @app.route('/generate_availability_report')
 def generate_availability_report_route():
-    classrooms = Classroom.query.all()
-    schedules = Schedule.query.filter_by(is_active=True).all()
-    
-    pdf_buffer = generate_availability_report(classrooms, schedules)
-    
-    return send_file(
-        io.BytesIO(pdf_buffer.getvalue()),
-        mimetype='application/pdf',
-        as_attachment=True,
-        download_name='relatorio_disponibilidade.pdf'
-    )
+    if not generate_availability_report:
+        flash('Geração de relatórios não está disponível no momento.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    try:
+        classrooms = Classroom.query.all()
+        schedules = Schedule.query.filter_by(is_active=True).all()
+        
+        pdf_buffer = generate_availability_report(classrooms, schedules)
+        
+        return send_file(
+            io.BytesIO(pdf_buffer.getvalue()),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name='relatorio_disponibilidade.pdf'
+        )
+    except Exception as e:
+        flash(f'Erro ao gerar relatório: {str(e)}', 'error')
+        return redirect(url_for('dashboard'))
 
 @app.route('/generate_qr/<int:classroom_id>')
 def generate_qr(classroom_id):
