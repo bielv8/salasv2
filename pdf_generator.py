@@ -67,7 +67,6 @@ def generate_classroom_pdf(classroom, schedules):
         ['Nome da Sala', classroom.name],
         ['Capacidade', f'{classroom.capacity} alunos'],
         ['Bloco', classroom.block],
-        ['Andar', f'{classroom.floor}º andar'],
         ['Possui Computadores', 'Sim' if classroom.has_computers else 'Não'],
         ['Softwares Instalados', classroom.software or 'Nenhum'],
         ['Descrição', classroom.description or 'Sem descrição']
