@@ -759,8 +759,8 @@ def get_availability_for_date(target_date=None, shift_filter=None):
                 else:
                     print(f"DEBUG: Skipping fullday overlap - not checking current time or not morning/afternoon shift")
         else:
-            # For other dates (future/past), show all scheduled classes - PRECISE DATE CHECKING
-            print(f"DEBUG: Checking NON-CURRENT date {target_date_only} - showing all active courses for that day")
+            # For other dates (future/past), check ALL shifts to get complete availability picture
+            print(f"DEBUG: Checking NON-CURRENT date {target_date_only} - checking ALL shifts for complete availability")
             all_schedules = Schedule.query.filter_by(day_of_week=target_day, is_active=True).all()
             
             active_schedules = []
@@ -768,15 +768,15 @@ def get_availability_for_date(target_date=None, shift_filter=None):
                 if schedule.start_date and schedule.end_date:
                     if schedule.start_date <= target_date_only <= schedule.end_date:
                         active_schedules.append(schedule)
-                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is ACTIVE on {target_date_only}")
+                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) is ACTIVE on {target_date_only}")
                     else:
-                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is EXPIRED/FUTURE on {target_date_only}")
+                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) is EXPIRED/FUTURE on {target_date_only}")
                 else:
                     active_schedules.append(schedule)
-                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) has no date restrictions, treating as active")
+                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) has no date restrictions, treating as active")
             
             occupied_schedules = active_schedules
-            print(f"DEBUG: Checking other date, found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
+            print(f"DEBUG: Future/past date check - found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
     else:
         # Apply specific shift filter - ULTRA PRECISE: ONLY show rooms occupied by EXACTLY that shift
         print(f"DEBUG: PRECISE FILTER MODE - Looking for shift '{shift_filter}' on {target_date_only}")
@@ -793,19 +793,43 @@ def get_availability_for_date(target_date=None, shift_filter=None):
             if schedule.start_date and schedule.end_date:
                 if schedule.start_date <= target_date_only <= schedule.end_date:
                     active_schedules.append(schedule)
-                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is ACTIVE with exact shift filter '{shift_filter}'")
+                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) is ACTIVE with exact shift filter '{shift_filter}'")
                 else:
-                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) is EXPIRED/FUTURE with shift filter")
+                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) is EXPIRED/FUTURE with shift filter")
             else:
                 active_schedules.append(schedule)
-                print(f"DEBUG: Schedule {schedule.id} ({schedule.shift}) has no date restrictions, treating as active for shift filter")
+                print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) has no date restrictions, treating as active for shift filter")
         
         occupied_schedules = active_schedules
         
-        # CRITICAL: When filtering by specific shift, DO NOT include fullday or other shifts
-        # User wants to see availability for THAT EXACT shift only
-        print(f"DEBUG: EXACT SHIFT FILTER '{shift_filter}' - found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
-        print(f"DEBUG: NOT checking fullday overlap because user specifically filtered for '{shift_filter}' shift")
+        # CRITICAL: For specific shift filters, we need to consider fullday classes as conflicts too
+        # BUT only when the user is NOT specifically looking for fullday
+        if shift_filter != 'fullday':
+            print(f"DEBUG: Checking if any fullday classes conflict with '{shift_filter}' filter")
+            
+            # Get fullday schedules for this day
+            all_fullday_schedules = Schedule.query.filter_by(
+                day_of_week=target_day,
+                shift='fullday',
+                is_active=True
+            ).all()
+            
+            active_fullday_schedules = []
+            for schedule in all_fullday_schedules:
+                if schedule.start_date and schedule.end_date:
+                    if schedule.start_date <= target_date_only <= schedule.end_date:
+                        active_fullday_schedules.append(schedule)
+                        print(f"DEBUG: Fullday schedule {schedule.id} ({schedule.course}) CONFLICTS with '{shift_filter}' filter")
+                    else:
+                        print(f"DEBUG: Fullday schedule {schedule.id} ({schedule.course}) is EXPIRED/FUTURE, no conflict")
+                else:
+                    active_fullday_schedules.append(schedule)
+                    print(f"DEBUG: Fullday schedule {schedule.id} ({schedule.course}) has no date restrictions, treating as conflict")
+            
+            occupied_schedules.extend(active_fullday_schedules)
+            print(f"DEBUG: Added {len(active_fullday_schedules)} conflicting fullday schedules to '{shift_filter}' filter")
+        
+        print(f"DEBUG: EXACT SHIFT FILTER '{shift_filter}' - found {len(active_schedules)} exact matches + {len(occupied_schedules) - len(active_schedules)} conflicting schedules")
     
     occupied_classroom_ids = set(schedule.classroom_id for schedule in occupied_schedules)
     
