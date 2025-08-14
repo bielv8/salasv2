@@ -88,8 +88,20 @@ def logout():
 @app.route('/edit_classroom/<int:classroom_id>', methods=['GET', 'POST'])
 @require_admin_auth
 def edit_classroom(classroom_id):
+    from datetime import datetime
+    current_date = datetime.now().date()
+    
     classroom = Classroom.query.get_or_404(classroom_id)
-    schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).all()
+    
+    # Only show active schedules where courses haven't ended yet
+    schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
+        db.or_(
+            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date >= current_date  # Course hasn't ended yet
+        )
+    ).all()
+    
+    print(f"DEBUG: Edit classroom showing {len(schedules)} active/current schedules for classroom {classroom_id} (expired courses hidden)")
     
     if request.method == 'POST':
         try:
@@ -279,8 +291,20 @@ def add_classroom():
 @app.route('/schedule_management')
 @require_admin_auth
 def schedule_management():
+    from datetime import datetime
+    current_date = datetime.now().date()
+    
     classrooms = Classroom.query.all()
-    schedules = Schedule.query.filter_by(is_active=True).all()
+    
+    # Only show active schedules where courses haven't ended yet
+    schedules = Schedule.query.filter_by(is_active=True).filter(
+        db.or_(
+            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date >= current_date  # Course hasn't ended yet
+        )
+    ).all()
+    
+    print(f"DEBUG: Schedule management showing {len(schedules)} active/current schedules (expired courses hidden)")
     
     # Organize schedules by classroom and day
     schedule_map = {}
@@ -442,8 +466,20 @@ def dashboard():
     
     classrooms = classroom_query.all()
     
-    # Build schedule query with filters
+    # Build schedule query with filters - ONLY SHOW ACTIVE/CURRENT COURSES
+    from datetime import datetime
+    current_date = datetime.now().date()
+    
     schedule_query = Schedule.query.filter_by(is_active=True)
+    
+    # Filter out expired courses - only show courses that haven't ended yet
+    schedule_query = schedule_query.filter(
+        db.or_(
+            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date >= current_date  # Course hasn't ended yet
+        )
+    )
+    
     if day_filter:
         schedule_query = schedule_query.filter(Schedule.day_of_week == int(day_filter))
     if shift_filter:
@@ -452,6 +488,7 @@ def dashboard():
         schedule_query = schedule_query.filter(Schedule.instructor.ilike(f'%{instructor_filter}%'))
     
     schedules = schedule_query.all()
+    print(f"DEBUG: Dashboard showing {len(schedules)} active/current schedules (expired courses hidden)")
     
     # Filter classrooms by instructor if specified
     if instructor_filter:
@@ -553,8 +590,11 @@ def get_availability_for_date(target_date=None, shift_filter=None):
     
     # Get day of week (0=Monday, 6=Sunday)
     target_day = target_date.weekday()
+    target_date_only = target_date.date()
     
     classrooms = Classroom.query.all()
+    
+    print(f"DEBUG: Checking availability for date: {target_date_only}, day of week: {target_day}")
     
     # Check if it's Sunday
     if target_day == 6:  # Sunday
@@ -597,36 +637,89 @@ def get_availability_for_date(target_date=None, shift_filter=None):
             occupied_schedules = []
             
             if primary_shift:
-                # Get schedules for the primary shift only
-                schedules = Schedule.query.filter_by(
+                # Get schedules for the primary shift only - PRECISE DATE CHECKING
+                all_schedules = Schedule.query.filter_by(
                     day_of_week=target_day,
                     shift=primary_shift,
                     is_active=True
                 ).all()
-                occupied_schedules.extend(schedules)
-                print(f"DEBUG: Using primary shift '{primary_shift}', found {len(schedules)} schedules")
                 
-                # Also check for fullday schedules that overlap with current time
+                # Filter by actual course dates
+                active_schedules = []
+                for schedule in all_schedules:
+                    if schedule.start_date and schedule.end_date:
+                        if schedule.start_date <= target_date_only <= schedule.end_date:
+                            active_schedules.append(schedule)
+                            print(f"DEBUG: Schedule {schedule.id} is ACTIVE (course runs {schedule.start_date} to {schedule.end_date})")
+                        else:
+                            print(f"DEBUG: Schedule {schedule.id} is EXPIRED/FUTURE (course runs {schedule.start_date} to {schedule.end_date}, today is {target_date_only})")
+                    else:
+                        # If no dates specified, consider it active (backward compatibility)
+                        active_schedules.append(schedule)
+                        print(f"DEBUG: Schedule {schedule.id} has no date restrictions, treating as active")
+                
+                occupied_schedules.extend(active_schedules)
+                print(f"DEBUG: Using primary shift '{primary_shift}', found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
+                
+                # Also check for fullday schedules that overlap with current time - PRECISE DATE CHECKING
                 if primary_shift in ['morning', 'afternoon']:
-                    fullday_schedules = Schedule.query.filter_by(
+                    all_fullday_schedules = Schedule.query.filter_by(
                         day_of_week=target_day,
                         shift='fullday',
                         is_active=True
                     ).all()
-                    occupied_schedules.extend(fullday_schedules)
-                    print(f"DEBUG: Added {len(fullday_schedules)} fullday schedules for overlap")
+                    
+                    active_fullday_schedules = []
+                    for schedule in all_fullday_schedules:
+                        if schedule.start_date and schedule.end_date:
+                            if schedule.start_date <= target_date_only <= schedule.end_date:
+                                active_fullday_schedules.append(schedule)
+                                print(f"DEBUG: Fullday schedule {schedule.id} is ACTIVE")
+                            else:
+                                print(f"DEBUG: Fullday schedule {schedule.id} is EXPIRED/FUTURE")
+                        else:
+                            active_fullday_schedules.append(schedule)
+                    
+                    occupied_schedules.extend(active_fullday_schedules)
+                    print(f"DEBUG: Added {len(active_fullday_schedules)} ACTIVE fullday schedules for overlap")
         else:
-            # For other dates, show all scheduled classes
-            occupied_schedules = Schedule.query.filter_by(day_of_week=target_day, is_active=True).all()
-            print(f"DEBUG: Checking other date, found {len(occupied_schedules)} total schedules")
+            # For other dates, show all scheduled classes - PRECISE DATE CHECKING
+            all_schedules = Schedule.query.filter_by(day_of_week=target_day, is_active=True).all()
+            
+            active_schedules = []
+            for schedule in all_schedules:
+                if schedule.start_date and schedule.end_date:
+                    if schedule.start_date <= target_date_only <= schedule.end_date:
+                        active_schedules.append(schedule)
+                        print(f"DEBUG: Schedule {schedule.id} is ACTIVE on {target_date_only}")
+                    else:
+                        print(f"DEBUG: Schedule {schedule.id} is EXPIRED/FUTURE on {target_date_only}")
+                else:
+                    active_schedules.append(schedule)
+            
+            occupied_schedules = active_schedules
+            print(f"DEBUG: Checking other date, found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
     else:
-        # Apply specific shift filter
-        occupied_schedules = Schedule.query.filter_by(
+        # Apply specific shift filter - PRECISE DATE CHECKING
+        all_schedules = Schedule.query.filter_by(
             day_of_week=target_day,
             shift=shift_filter,
             is_active=True
         ).all()
-        print(f"DEBUG: Using shift filter '{shift_filter}', found {len(occupied_schedules)} schedules")
+        
+        active_schedules = []
+        for schedule in all_schedules:
+            if schedule.start_date and schedule.end_date:
+                if schedule.start_date <= target_date_only <= schedule.end_date:
+                    active_schedules.append(schedule)
+                    print(f"DEBUG: Schedule {schedule.id} is ACTIVE with shift filter")
+                else:
+                    print(f"DEBUG: Schedule {schedule.id} is EXPIRED/FUTURE with shift filter")
+            else:
+                active_schedules.append(schedule)
+        
+        occupied_schedules = active_schedules
+        print(f"DEBUG: Using shift filter '{shift_filter}', found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
     
     occupied_classroom_ids = set(schedule.classroom_id for schedule in occupied_schedules)
     
