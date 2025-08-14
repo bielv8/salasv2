@@ -768,12 +768,12 @@ def get_availability_for_date(target_date=None, shift_filter=None):
                 if schedule.start_date and schedule.end_date:
                     if schedule.start_date <= target_date_only <= schedule.end_date:
                         active_schedules.append(schedule)
-                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) is ACTIVE on {target_date_only}")
+                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course_name}) is ACTIVE on {target_date_only}")
                     else:
-                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) is EXPIRED/FUTURE on {target_date_only}")
+                        print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course_name}) is EXPIRED/FUTURE on {target_date_only}")
                 else:
                     active_schedules.append(schedule)
-                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) has no date restrictions, treating as active")
+                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course_name}) has no date restrictions, treating as active")
             
             occupied_schedules = active_schedules
             print(f"DEBUG: Future/past date check - found {len(active_schedules)} ACTIVE schedules out of {len(all_schedules)} total")
@@ -793,12 +793,12 @@ def get_availability_for_date(target_date=None, shift_filter=None):
             if schedule.start_date and schedule.end_date:
                 if schedule.start_date <= target_date_only <= schedule.end_date:
                     active_schedules.append(schedule)
-                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) is ACTIVE with exact shift filter '{shift_filter}'")
+                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course_name}) is ACTIVE with exact shift filter '{shift_filter}'")
                 else:
-                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) is EXPIRED/FUTURE with shift filter")
+                    print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course_name}) is EXPIRED/FUTURE with shift filter")
             else:
                 active_schedules.append(schedule)
-                print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course}) has no date restrictions, treating as active for shift filter")
+                print(f"DEBUG: Schedule {schedule.id} ({schedule.shift} - {schedule.course_name}) has no date restrictions, treating as active for shift filter")
         
         occupied_schedules = active_schedules
         
@@ -819,12 +819,12 @@ def get_availability_for_date(target_date=None, shift_filter=None):
                 if schedule.start_date and schedule.end_date:
                     if schedule.start_date <= target_date_only <= schedule.end_date:
                         active_fullday_schedules.append(schedule)
-                        print(f"DEBUG: Fullday schedule {schedule.id} ({schedule.course}) CONFLICTS with '{shift_filter}' filter")
+                        print(f"DEBUG: Fullday schedule {schedule.id} ({schedule.course_name}) CONFLICTS with '{shift_filter}' filter")
                     else:
-                        print(f"DEBUG: Fullday schedule {schedule.id} ({schedule.course}) is EXPIRED/FUTURE, no conflict")
+                        print(f"DEBUG: Fullday schedule {schedule.id} ({schedule.course_name}) is EXPIRED/FUTURE, no conflict")
                 else:
                     active_fullday_schedules.append(schedule)
-                    print(f"DEBUG: Fullday schedule {schedule.id} ({schedule.course}) has no date restrictions, treating as conflict")
+                    print(f"DEBUG: Fullday schedule {schedule.id} ({schedule.course_name}) has no date restrictions, treating as conflict")
             
             occupied_schedules.extend(active_fullday_schedules)
             print(f"DEBUG: Added {len(active_fullday_schedules)} conflicting fullday schedules to '{shift_filter}' filter")
