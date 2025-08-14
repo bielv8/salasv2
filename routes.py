@@ -15,9 +15,13 @@ import uuid
 ADMIN_PASSWORD = "senai103103"
 UPLOAD_FOLDER = 'static/uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+ALLOWED_EXCEL_EXTENSIONS = {'xlsx', 'xls'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_excel_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXCEL_EXTENSIONS
 
 def is_admin_authenticated():
     return session.get('admin_authenticated', False)
@@ -90,6 +94,18 @@ def edit_classroom(classroom_id):
                     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
                     file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
                     classroom.image_filename = unique_filename
+            
+            # Handle Excel file upload
+            if 'excel_file' in request.files:
+                excel_file = request.files['excel_file']
+                if excel_file and excel_file.filename and excel_file.filename != '' and allowed_excel_file(excel_file.filename):
+                    filename = secure_filename(excel_file.filename)
+                    # Add unique identifier to prevent conflicts
+                    unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                    # Ensure upload directory exists
+                    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+                    excel_file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+                    classroom.excel_filename = unique_filename
                     
             classroom.updated_at = datetime.utcnow()
             
@@ -102,6 +118,66 @@ def edit_classroom(classroom_id):
             return render_template('edit_classroom.html', classroom=classroom)
     
     return render_template('edit_classroom.html', classroom=classroom)
+
+@app.route('/download_excel/<int:classroom_id>')
+def download_excel(classroom_id):
+    classroom = Classroom.query.get_or_404(classroom_id)
+    
+    if not classroom.excel_filename:
+        flash('Nenhum arquivo Excel disponível para esta sala.', 'error')
+        return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+    
+    try:
+        file_path = os.path.join(UPLOAD_FOLDER, classroom.excel_filename)
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True, download_name=f"{classroom.name}_planilha.xlsx")
+        else:
+            flash('Arquivo Excel não encontrado.', 'error')
+            return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+    except Exception as e:
+        flash(f'Erro ao baixar arquivo: {str(e)}', 'error')
+        return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+
+@app.route('/upload_excel/<int:classroom_id>', methods=['POST'])
+@require_admin_auth
+def upload_excel(classroom_id):
+    classroom = Classroom.query.get_or_404(classroom_id)
+    
+    if 'excel_file' not in request.files:
+        flash('Nenhum arquivo selecionado.', 'error')
+        return redirect(url_for('edit_classroom', classroom_id=classroom_id))
+    
+    excel_file = request.files['excel_file']
+    
+    if excel_file.filename == '':
+        flash('Nenhum arquivo selecionado.', 'error')
+        return redirect(url_for('edit_classroom', classroom_id=classroom_id))
+    
+    if excel_file and allowed_excel_file(excel_file.filename):
+        try:
+            filename = secure_filename(excel_file.filename)
+            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+            excel_file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
+            
+            # Remove old Excel file if exists
+            if classroom.excel_filename:
+                old_file_path = os.path.join(UPLOAD_FOLDER, classroom.excel_filename)
+                if os.path.exists(old_file_path):
+                    os.remove(old_file_path)
+            
+            classroom.excel_filename = unique_filename
+            classroom.updated_at = datetime.utcnow()
+            db.session.commit()
+            
+            flash('Arquivo Excel carregado com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao carregar arquivo: {str(e)}', 'error')
+    else:
+        flash('Formato de arquivo não permitido. Use apenas arquivos .xlsx ou .xls', 'error')
+    
+    return redirect(url_for('edit_classroom', classroom_id=classroom_id))
 
 @app.route('/add_classroom', methods=['GET', 'POST'])
 @require_admin_auth
