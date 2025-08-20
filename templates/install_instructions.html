@@ -91,15 +91,105 @@
                         </ul>
                     </div>
 
-                    <div class="text-center mt-4">
+                    <!-- Install Button -->
+                    <div class="text-center mt-4 mb-4">
+                        <button id="installBtn" class="btn btn-success btn-lg me-3" style="display: none;">
+                            <i class="fas fa-download me-2"></i>
+                            Instalar Agora
+                        </button>
                         <a href="{{ url_for('index') }}" class="btn btn-primary">
                             <i class="fas fa-home me-2"></i>
                             Voltar ao Início
                         </a>
+                    </div>
+
+                    <!-- Install Status -->
+                    <div id="installStatus" class="alert alert-info text-center" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="statusMessage"></span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// PWA Install functionality
+let deferredPrompt;
+const installBtn = document.getElementById('installBtn');
+const installStatus = document.getElementById('installStatus');
+const statusMessage = document.getElementById('statusMessage');
+
+// Check if app is already installed
+if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+    showStatus('✅ Aplicativo já instalado!', 'success');
+} else {
+    // Listen for the beforeinstallprompt event
+    window.addEventListener('beforeinstallprompt', (e) => {
+        console.log('beforeinstallprompt event fired');
+        // Prevent the mini-infobar from appearing on mobile
+        e.preventDefault();
+        // Stash the event so it can be triggered later
+        deferredPrompt = e;
+        // Show the install button
+        installBtn.style.display = 'inline-block';
+        showStatus('📱 Aplicativo pronto para instalação!', 'info');
+    });
+
+    // Handle install button click
+    installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) {
+            showStatus('❌ Instalação não disponível neste navegador', 'warning');
+            return;
+        }
+
+        // Hide the install button
+        installBtn.style.display = 'none';
+        
+        // Show the install prompt
+        deferredPrompt.prompt();
+        
+        // Wait for the user to respond to the prompt
+        const { outcome } = await deferredPrompt.userChoice;
+        
+        if (outcome === 'accepted') {
+            showStatus('✅ Aplicativo instalado com sucesso!', 'success');
+        } else {
+            showStatus('❌ Instalação cancelada', 'warning');
+            installBtn.style.display = 'inline-block'; // Show button again
+        }
+        
+        // Clear the deferredPrompt
+        deferredPrompt = null;
+    });
+
+    // Listen for successful installation
+    window.addEventListener('appinstalled', (evt) => {
+        console.log('App installed successfully');
+        showStatus('✅ Aplicativo instalado com sucesso!', 'success');
+        installBtn.style.display = 'none';
+    });
+}
+
+function showStatus(message, type) {
+    statusMessage.textContent = message;
+    installStatus.className = `alert alert-${type} text-center`;
+    installStatus.style.display = 'block';
+}
+
+// Check if service worker is supported
+if ('serviceWorker' in navigator) {
+    // Register service worker for PWA functionality
+    navigator.serviceWorker.register('/static/sw.js')
+        .then((registration) => {
+            console.log('SW registered: ', registration);
+        })
+        .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+        });
+}
+</script>
 {% endblock %}

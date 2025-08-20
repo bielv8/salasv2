@@ -109,6 +109,11 @@ def install_instructions():
     """Página com instruções para instalar o aplicativo em diferentes dispositivos"""
     return render_template('install_instructions.html')
 
+@app.route('/static/sw.js')
+def service_worker():
+    """Serve the service worker with correct MIME type"""
+    return send_file('static/sw.js', mimetype='application/javascript')
+
 # Error handlers para prevenir crashes
 @app.errorhandler(404)
 def not_found_error(error):
