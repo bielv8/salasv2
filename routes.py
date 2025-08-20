@@ -104,6 +104,28 @@ def logout():
     flash('Logout realizado com sucesso!', 'success')
     return redirect(url_for('index'))
 
+@app.route('/install')
+def install_instructions():
+    """Página com instruções para instalar o aplicativo em diferentes dispositivos"""
+    return render_template('install_instructions.html')
+
+# Error handlers para prevenir crashes
+@app.errorhandler(404)
+def not_found_error(error):
+    """Página personalizada para erro 404"""
+    return render_template('errors/404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Página personalizada para erro 500"""
+    db.session.rollback()
+    return render_template('errors/500.html'), 500
+
+@app.errorhandler(403)
+def forbidden_error(error):
+    """Página personalizada para erro 403"""
+    return render_template('errors/403.html'), 403
+
 @app.route('/edit_classroom/<int:classroom_id>', methods=['GET', 'POST'])
 @require_admin_auth
 def edit_classroom(classroom_id):
@@ -170,16 +192,17 @@ def edit_classroom(classroom_id):
 
 @app.route('/download_excel/<int:classroom_id>')
 def download_excel(classroom_id):
-    classroom = Classroom.query.get_or_404(classroom_id)
-    
-    if not classroom.excel_filename:
-        flash('Nenhum arquivo Excel disponível para esta sala.', 'error')
-        return redirect(url_for('classroom_detail', classroom_id=classroom_id))
-    
     try:
+        classroom = Classroom.query.get_or_404(classroom_id)
+        
+        if not classroom.excel_filename:
+            flash('Nenhum arquivo Excel disponível para esta sala.', 'error')
+            return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+        
         file_path = os.path.join(UPLOAD_FOLDER, classroom.excel_filename)
         if os.path.exists(file_path):
-            return send_file(file_path, as_attachment=True, download_name=f"{classroom.name}_patrimonio.xlsx")
+            safe_filename = f"{classroom.name.replace(' ', '_')}_patrimonio.xlsx"
+            return send_file(file_path, as_attachment=True, download_name=safe_filename)
         else:
             flash('Arquivo Excel não encontrado.', 'error')
             return redirect(url_for('classroom_detail', classroom_id=classroom_id))
@@ -202,9 +225,9 @@ def upload_excel(classroom_id):
         flash('Nenhum arquivo selecionado.', 'error')
         return redirect(url_for('edit_classroom', classroom_id=classroom_id))
     
-    if excel_file and allowed_excel_file(excel_file.filename):
+    if excel_file and excel_file.filename and allowed_excel_file(excel_file.filename):
         try:
-            filename = secure_filename(excel_file.filename)
+            filename = secure_filename(excel_file.filename or '')
             unique_filename = f"{uuid.uuid4().hex}_{filename}"
             os.makedirs(UPLOAD_FOLDER, exist_ok=True)
             excel_file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
@@ -336,17 +359,19 @@ def add_classroom():
                     initial_start_date = None
                     initial_end_date = None
                     
-                    if request.form.get('initial_start_date'):
+                    start_date_value = request.form.get('initial_start_date')
+                    if start_date_value and start_date_value.strip():
                         try:
                             from datetime import datetime
-                            initial_start_date = datetime.strptime(request.form.get('initial_start_date'), '%Y-%m-%d').date()
+                            initial_start_date = datetime.strptime(start_date_value.strip(), '%Y-%m-%d').date()
                         except ValueError:
                             pass
                     
-                    if request.form.get('initial_end_date'):
+                    end_date_value = request.form.get('initial_end_date')
+                    if end_date_value and end_date_value.strip():
                         try:
                             from datetime import datetime
-                            initial_end_date = datetime.strptime(request.form.get('initial_end_date'), '%Y-%m-%d').date()
+                            initial_end_date = datetime.strptime(end_date_value.strip(), '%Y-%m-%d').date()
                         except ValueError:
                             pass
                     
@@ -436,13 +461,21 @@ def add_schedule():
         start_date_str = request.form.get('start_date', '')
         end_date_str = request.form.get('end_date', '')
         
-        # Parse dates
+        # Parse dates with error handling
         start_date = None
         end_date = None
-        if start_date_str:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        if end_date_str:
-            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        if start_date_str and start_date_str.strip():
+            try:
+                start_date = datetime.strptime(start_date_str.strip(), '%Y-%m-%d').date()
+            except ValueError:
+                flash('Data de início inválida.', 'error')
+                return redirect(url_for('schedule_management'))
+        if end_date_str and end_date_str.strip():
+            try:
+                end_date = datetime.strptime(end_date_str.strip(), '%Y-%m-%d').date()
+            except ValueError:
+                flash('Data de fim inválida.', 'error')
+                return redirect(url_for('schedule_management'))
         
         print(f"DEBUG: Adding schedule - classroom_id: {classroom_id}, days: {days}, shift: {shift}")
         
@@ -512,8 +545,26 @@ def delete_classroom(classroom_id):
         classroom = Classroom.query.get_or_404(classroom_id)
         classroom_name = classroom.name
         
-        # Delete all associated schedules first
+        # Delete associated files first
+        if classroom.image_filename:
+            try:
+                image_path = os.path.join(UPLOAD_FOLDER, classroom.image_filename)
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+            except Exception:
+                pass  # Continue even if file deletion fails
+        
+        if classroom.excel_filename:
+            try:
+                excel_path = os.path.join(UPLOAD_FOLDER, classroom.excel_filename)
+                if os.path.exists(excel_path):
+                    os.remove(excel_path)
+            except Exception:
+                pass  # Continue even if file deletion fails
+        
+        # Delete all associated schedules and incidents
         Schedule.query.filter_by(classroom_id=classroom_id).delete()
+        Incident.query.filter_by(classroom_id=classroom_id).delete()
         
         # Delete the classroom
         db.session.delete(classroom)
@@ -991,23 +1042,28 @@ def generate_availability_report_route():
 
 @app.route('/generate_qr/<int:classroom_id>')
 def generate_qr(classroom_id):
-    classroom = Classroom.query.get_or_404(classroom_id)
-    
-    # Generate the full URL for the classroom
-    classroom_url = request.url_root.rstrip('/') + url_for('classroom_detail', classroom_id=classroom_id)
-    
-    if generate_qr_code:
+    try:
+        classroom = Classroom.query.get_or_404(classroom_id)
+        
+        if not generate_qr_code:
+            flash('Geração de QR code não está disponível no momento.', 'error')
+            return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+        
+        # Generate the full URL for the classroom
+        classroom_url = request.url_root.rstrip('/') + url_for('classroom_detail', classroom_id=classroom_id)
+        
         qr_buffer = generate_qr_code(classroom_url, classroom.name)
-    else:
-        flash('Geração de QR code não está disponível no momento.', 'error')
+        safe_filename = f'qr_sala_{classroom.name.replace(" ", "_").replace("/", "_")}.png'
+        
+        return send_file(
+            io.BytesIO(qr_buffer.getvalue()),
+            mimetype='image/png',
+            as_attachment=True,
+            download_name=safe_filename
+        )
+    except Exception as e:
+        flash(f'Erro ao gerar QR code: {str(e)}', 'error')
         return redirect(url_for('classroom_detail', classroom_id=classroom_id))
-    
-    return send_file(
-        io.BytesIO(qr_buffer.getvalue()),
-        mimetype='image/png',
-        as_attachment=True,
-        download_name=f'qr_sala_{classroom.name.replace(" ", "_")}.png'
-    )
 
 # Exportação para Excel - versão corrigida
 @app.route('/export_excel')

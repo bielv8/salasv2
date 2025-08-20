@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Página não encontrada - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 text-center">
+            <div class="error-content">
+                <div class="mb-4">
+                    <i class="fas fa-search text-warning" style="font-size: 5rem;"></i>
+                </div>
+                <h1 class="display-4 text-warning">404</h1>
+                <h2 class="mb-3">Página não encontrada</h2>
+                <p class="lead mb-4">
+                    Desculpe, a página que você está procurando não existe ou foi movida.
+                </p>
+                <div class="mb-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary me-2">
+                        <i class="fas fa-home me-2"></i>Voltar ao Início
+                    </a>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                    </a>
+                </div>
+                
+                <div class="text-muted">
+                    <small>
+                        Se você acredita que isso é um erro, entre em contato com o administrador do sistema.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

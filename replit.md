@@ -4,6 +4,11 @@ This is a classroom management system for SENAI "Morvan Figueiredo" school built
 
 ## Recent Updates (August 2025)
 - **Migration to Replit Environment**: Successfully migrated from Replit Agent to standard Replit environment with improved security and Flask best practices - COMPLETED
+- **PWA Installation Feature**: Added discrete installation icon in footer with comprehensive instructions page for desktop, iOS, and Android installation
+- **Enhanced Error Handling**: Implemented custom 404, 500, and 403 error pages with proper exception handling to prevent server crashes
+- **Robust File Management**: Added comprehensive file cleanup on classroom deletion and improved error handling for file operations
+- **Security Improvements**: Fixed session secret configuration and added input validation for date parsing and file uploads
+- **PWA Manifest**: Created web app manifest for mobile installation support with proper meta tags and icons
 - **Availability System Bug Fix**: Fixed AttributeError in availability filtering system where 'schedule.course' should be 'schedule.course_name' - system now works precisely with dates, periods, and schedules
 - **Footer Update**: Updated copyright year to 2025 in all templates
 - **Enhanced Classroom Creation**: Added date fields (start_date/end_date) to initial schedule creation when adding new classrooms, matching the functionality of the full schedule management system - ensures precise availability tracking from the beginning

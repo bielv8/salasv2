@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Instalar Aplicativo - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-mobile-alt me-2"></i>
+                        Instalar Aplicativo
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="lead">Instale o Sistema de Gestão de Salas SENAI em seu dispositivo para acesso rápido e offline.</p>
+                    
+                    <!-- Android Instructions -->
+                    <div class="mb-4">
+                        <h5 class="text-success">
+                            <i class="fab fa-android me-2"></i>
+                            Android
+                        </h5>
+                        <ol>
+                            <li>Abra este site no <strong>Google Chrome</strong></li>
+                            <li>Toque no menu (⋮) no canto superior direito</li>
+                            <li>Selecione <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar aplicativo"</strong></li>
+                            <li>Confirme tocando em <strong>"Adicionar"</strong></li>
+                            <li>O ícone aparecerá na sua tela inicial</li>
+                        </ol>
+                    </div>
+
+                    <!-- iOS Instructions -->
+                    <div class="mb-4">
+                        <h5 class="text-primary">
+                            <i class="fab fa-apple me-2"></i>
+                            iOS (iPhone/iPad)
+                        </h5>
+                        <ol>
+                            <li>Abra este site no <strong>Safari</strong></li>
+                            <li>Toque no botão de compartilhar <i class="fas fa-share"></i> na parte inferior</li>
+                            <li>Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong></li>
+                            <li>Digite um nome para o aplicativo (opcional)</li>
+                            <li>Toque em <strong>"Adicionar"</strong></li>
+                            <li>O ícone aparecerá na sua tela inicial</li>
+                        </ol>
+                    </div>
+
+                    <!-- Desktop Instructions -->
+                    <div class="mb-4">
+                        <h5 class="text-info">
+                            <i class="fas fa-desktop me-2"></i>
+                            Desktop (Windows/Mac/Linux)
+                        </h5>
+                        <ol>
+                            <li>Abra este site no <strong>Google Chrome</strong>, <strong>Microsoft Edge</strong> ou <strong>Firefox</strong></li>
+                            <li>Procure pelo ícone de instalação <i class="fas fa-plus"></i> na barra de endereços</li>
+                            <li>Clique em <strong>"Instalar"</strong> quando a opção aparecer</li>
+                            <li>Ou vá no menu do navegador e selecione <strong>"Instalar [nome do site]"</strong></li>
+                            <li>O aplicativo será adicionado aos seus programas</li>
+                        </ol>
+                    </div>
+
+                    <!-- Benefits -->
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-star me-2"></i>
+                            Benefícios da Instalação
+                        </h6>
+                        <ul class="mb-0">
+                            <li>Acesso mais rápido sem abrir o navegador</li>
+                            <li>Ícone dedicado na tela inicial/desktop</li>
+                            <li>Experiência similar a um aplicativo nativo</li>
+                            <li>Funciona offline após a primeira visita</li>
+                            <li>Notificações push (quando disponíveis)</li>
+                        </ul>
+                    </div>
+
+                    <!-- Troubleshooting -->
+                    <div class="mt-4">
+                        <h6 class="text-warning">
+                            <i class="fas fa-question-circle me-2"></i>
+                            Problemas na Instalação?
+                        </h6>
+                        <ul>
+                            <li>Certifique-se de estar usando um navegador compatível (Chrome, Safari, Edge, Firefox)</li>
+                            <li>Verifique se está acessando via HTTPS (URL deve começar com https://)</li>
+                            <li>Alguns navegadores antigos podem não suportar esta funcionalidade</li>
+                            <li>Em caso de dúvidas, contate o suporte técnico</li>
+                        </ul>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-home me-2"></i>
+                            Voltar ao Início
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

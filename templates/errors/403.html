@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Acesso negado - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 text-center">
+            <div class="error-content">
+                <div class="mb-4">
+                    <i class="fas fa-lock text-warning" style="font-size: 5rem;"></i>
+                </div>
+                <h1 class="display-4 text-warning">403</h1>
+                <h2 class="mb-3">Acesso negado</h2>
+                <p class="lead mb-4">
+                    Você não tem permissão para acessar esta página. É necessário fazer login como administrador.
+                </p>
+                <div class="mb-4">
+                    <a href="{{ url_for('login') }}" class="btn btn-primary me-2">
+                        <i class="fas fa-sign-in-alt me-2"></i>Fazer Login
+                    </a>
+                    <a href="{{ url_for('index') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-home me-2"></i>Voltar ao Início
+                    </a>
+                </div>
+                
+                <div class="text-muted">
+                    <small>
+                        Se você é um administrador e está enfrentando problemas, entre em contato com o suporte técnico.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
