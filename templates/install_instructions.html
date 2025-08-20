@@ -149,45 +149,60 @@ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.
     
     // Listen for the beforeinstallprompt event
     window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('beforeinstallprompt event fired');
+        console.log('beforeinstallprompt event fired', e);
         // Prevent the mini-infobar from appearing on mobile
         e.preventDefault();
         // Stash the event so it can be triggered later
         deferredPrompt = e;
-        // Show the install button
-        installBtn.style.display = 'inline-block';
-        showStatus('📱 Aplicativo pronto para instalação!', 'success');
+        // Update button and status
+        installBtn.innerHTML = '<i class="fas fa-download me-2"></i>Instalar Automaticamente';
+        installBtn.classList.remove('btn-success');
+        installBtn.classList.add('btn-primary');
+        showStatus('📱 Instalação automática disponível!', 'success');
     });
+    
+    // Add timeout to show manual instructions if PWA event doesn't fire
+    setTimeout(() => {
+        if (!deferredPrompt) {
+            showStatus('💡 Instalação manual disponível via menu do navegador', 'info');
+        }
+    }, 3000);
 
     // Handle install button click
     installBtn.addEventListener('click', async () => {
+        console.log('Install button clicked, deferredPrompt:', deferredPrompt);
+        
         if (!deferredPrompt) {
             // Fallback instructions for manual installation
-            showStatus('💡 Para instalar: Menu do navegador > "Instalar aplicativo" ou "Adicionar à tela inicial"', 'info');
+            showStatus('💡 Para instalar manualmente:', 'info');
+            setTimeout(() => {
+                showStatus('📱 Chrome/Edge: Menu (⋮) → "Instalar aplicativo"', 'info');
+            }, 2000);
+            setTimeout(() => {
+                showStatus('📱 Safari: Compartilhar → "Adicionar à Tela de Início"', 'info');
+            }, 4000);
             return;
         }
 
-        // Hide the install button
-        installBtn.style.display = 'none';
         showStatus('🚀 Abrindo instalação...', 'info');
         
         try {
             // Show the install prompt
-            deferredPrompt.prompt();
+            await deferredPrompt.prompt();
             
             // Wait for the user to respond to the prompt
-            const { outcome } = await deferredPrompt.userChoice;
+            const choiceResult = await deferredPrompt.userChoice;
             
-            if (outcome === 'accepted') {
+            if (choiceResult.outcome === 'accepted') {
                 showStatus('✅ Aplicativo instalado com sucesso!', 'success');
+                installBtn.textContent = '✅ Instalado';
+                installBtn.disabled = true;
             } else {
-                showStatus('❌ Instalação cancelada', 'warning');
-                installBtn.style.display = 'inline-block'; // Show button again
+                showStatus('❌ Instalação cancelada pelo usuário', 'warning');
             }
         } catch (error) {
             console.error('Install error:', error);
-            showStatus('❌ Erro na instalação. Tente pelo menu do navegador.', 'danger');
-            installBtn.style.display = 'inline-block';
+            showStatus('❌ Erro na instalação: ' + error.message, 'danger');
         }
         
         // Clear the deferredPrompt
@@ -203,9 +218,17 @@ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.
 }
 
 function showStatus(message, type) {
+    console.log('Status:', message, type);
     statusMessage.textContent = message;
     installStatus.className = `alert alert-${type} text-center`;
     installStatus.style.display = 'block';
+    
+    // Auto-hide info messages after 5 seconds
+    if (type === 'info') {
+        setTimeout(() => {
+            installStatus.style.display = 'none';
+        }, 5000);
+    }
 }
 
 // Check if service worker is supported
