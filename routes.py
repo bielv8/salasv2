@@ -72,7 +72,7 @@ def classroom_detail(classroom_id):
     # Only show active schedules where courses haven't ended yet
     schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
         db.or_(
-            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date == None,  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     ).all()
@@ -114,7 +114,7 @@ def edit_classroom(classroom_id):
     # Only show active schedules where courses haven't ended yet
     schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
         db.or_(
-            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date == None,  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     ).all()
@@ -395,7 +395,7 @@ def schedule_management():
     # Only show active schedules where courses haven't ended yet
     schedules = Schedule.query.filter_by(is_active=True).filter(
         db.or_(
-            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date == None,  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     ).all()
@@ -546,7 +546,7 @@ def dashboard():
         classroom_query = classroom_query.filter(Classroom.software.ilike(f'%{software_filter}%'))
     if has_computers_filter:
         has_computers_bool = has_computers_filter.lower() == 'true'
-        classroom_query = classroom_query.filter(Classroom.has_computers.is_(has_computers_bool))
+        classroom_query = classroom_query.filter(Classroom.has_computers == has_computers_bool)
     if capacity_filter:
         capacity_ranges = {
             'small': (0, 20),
@@ -570,7 +570,7 @@ def dashboard():
     # Filter out expired courses - only show courses that haven't ended yet
     schedule_query = schedule_query.filter(
         db.or_(
-            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date == None,  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     )
@@ -637,7 +637,7 @@ def availability():
 
 def get_brazil_time():
     """Get current time in Brazil timezone (UTC-3)"""
-    if PYTZ_AVAILABLE:
+    if PYTZ_AVAILABLE and 'pytz' in globals():
         brazil_tz = pytz.timezone('America/Sao_Paulo')
         return datetime.now(brazil_tz)
     else:
@@ -996,7 +996,11 @@ def generate_qr(classroom_id):
     # Generate the full URL for the classroom
     classroom_url = request.url_root.rstrip('/') + url_for('classroom_detail', classroom_id=classroom_id)
     
-    qr_buffer = generate_qr_code(classroom_url, classroom.name)
+    if generate_qr_code:
+        qr_buffer = generate_qr_code(classroom_url, classroom.name)
+    else:
+        flash('Geração de QR code não está disponível no momento.', 'error')
+        return redirect(url_for('classroom_detail', classroom_id=classroom_id))
     
     return send_file(
         io.BytesIO(qr_buffer.getvalue()),
@@ -1009,6 +1013,11 @@ def generate_qr(classroom_id):
 @app.route('/export_excel')
 def export_excel():
     try:
+        # Check if openpyxl is available
+        if not openpyxl:
+            flash('Funcionalidade de Excel não está disponível no momento.', 'error')
+            return redirect(url_for('dashboard'))
+            
         # Create workbook and worksheet
         wb = openpyxl.Workbook()
         
@@ -1170,7 +1179,7 @@ def export_filtered_excel():
         # Remove floor filter as it doesn't exist in the model
         if has_computers_filter:
             has_computers_bool = has_computers_filter.lower() == 'true'
-            classroom_query = classroom_query.filter(Classroom.has_computers.is_(has_computers_bool))
+            classroom_query = classroom_query.filter(Classroom.has_computers == has_computers_bool)
         if capacity_filter:
             capacity_ranges = {
                 'small': (0, 20),
