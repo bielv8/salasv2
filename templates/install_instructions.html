@@ -93,7 +93,7 @@
 
                     <!-- Install Button -->
                     <div class="text-center mt-4 mb-4">
-                        <button id="installBtn" class="btn btn-success btn-lg me-3" style="display: none;">
+                        <button id="installBtn" class="btn btn-success btn-lg me-3">
                             <i class="fas fa-download me-2"></i>
                             Instalar Agora
                         </button>
@@ -126,7 +126,27 @@ const statusMessage = document.getElementById('statusMessage');
 // Check if app is already installed
 if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
     showStatus('✅ Aplicativo já instalado!', 'success');
+    installBtn.textContent = '✅ Já Instalado';
+    installBtn.disabled = true;
 } else {
+    // Show debug info
+    showStatus('🔍 Verificando compatibilidade PWA...', 'info');
+    
+    // Check PWA support
+    if ('serviceWorker' in navigator) {
+        showStatus('✅ PWA suportado! Aguardando evento de instalação...', 'info');
+    } else {
+        showStatus('⚠️ PWA limitado neste navegador. Use Chrome/Edge para melhor experiência.', 'warning');
+    }
+    
+    // Log additional debug info
+    console.log('Navigator details:', {
+        userAgent: navigator.userAgent,
+        standalone: navigator.standalone,
+        displayMode: window.matchMedia('(display-mode: standalone)').matches
+    });
+}
+    
     // Listen for the beforeinstallprompt event
     window.addEventListener('beforeinstallprompt', (e) => {
         console.log('beforeinstallprompt event fired');
@@ -136,30 +156,38 @@ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.
         deferredPrompt = e;
         // Show the install button
         installBtn.style.display = 'inline-block';
-        showStatus('📱 Aplicativo pronto para instalação!', 'info');
+        showStatus('📱 Aplicativo pronto para instalação!', 'success');
     });
 
     // Handle install button click
     installBtn.addEventListener('click', async () => {
         if (!deferredPrompt) {
-            showStatus('❌ Instalação não disponível neste navegador', 'warning');
+            // Fallback instructions for manual installation
+            showStatus('💡 Para instalar: Menu do navegador > "Instalar aplicativo" ou "Adicionar à tela inicial"', 'info');
             return;
         }
 
         // Hide the install button
         installBtn.style.display = 'none';
+        showStatus('🚀 Abrindo instalação...', 'info');
         
-        // Show the install prompt
-        deferredPrompt.prompt();
-        
-        // Wait for the user to respond to the prompt
-        const { outcome } = await deferredPrompt.userChoice;
-        
-        if (outcome === 'accepted') {
-            showStatus('✅ Aplicativo instalado com sucesso!', 'success');
-        } else {
-            showStatus('❌ Instalação cancelada', 'warning');
-            installBtn.style.display = 'inline-block'; // Show button again
+        try {
+            // Show the install prompt
+            deferredPrompt.prompt();
+            
+            // Wait for the user to respond to the prompt
+            const { outcome } = await deferredPrompt.userChoice;
+            
+            if (outcome === 'accepted') {
+                showStatus('✅ Aplicativo instalado com sucesso!', 'success');
+            } else {
+                showStatus('❌ Instalação cancelada', 'warning');
+                installBtn.style.display = 'inline-block'; // Show button again
+            }
+        } catch (error) {
+            console.error('Install error:', error);
+            showStatus('❌ Erro na instalação. Tente pelo menu do navegador.', 'danger');
+            installBtn.style.display = 'inline-block';
         }
         
         // Clear the deferredPrompt
