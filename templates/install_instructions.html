@@ -146,30 +146,30 @@ if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.
         displayMode: window.matchMedia('(display-mode: standalone)').matches
     });
 }
-    
-    // Listen for the beforeinstallprompt event
-    window.addEventListener('beforeinstallprompt', (e) => {
-        console.log('beforeinstallprompt event fired', e);
-        // Prevent the mini-infobar from appearing on mobile
-        e.preventDefault();
-        // Stash the event so it can be triggered later
-        deferredPrompt = e;
-        // Update button and status
-        installBtn.innerHTML = '<i class="fas fa-download me-2"></i>Instalar Automaticamente';
-        installBtn.classList.remove('btn-success');
-        installBtn.classList.add('btn-primary');
-        showStatus('📱 Instalação automática disponível!', 'success');
-    });
-    
-    // Add timeout to show manual instructions if PWA event doesn't fire
-    setTimeout(() => {
-        if (!deferredPrompt) {
-            showStatus('💡 Instalação manual disponível via menu do navegador', 'info');
-        }
-    }, 3000);
 
-    // Handle install button click
-    installBtn.addEventListener('click', async () => {
+// Listen for the beforeinstallprompt event
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('beforeinstallprompt event fired', e);
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later
+    deferredPrompt = e;
+    // Update button and status
+    installBtn.innerHTML = '<i class="fas fa-download me-2"></i>Instalar Automaticamente';
+    installBtn.classList.remove('btn-success');
+    installBtn.classList.add('btn-primary');
+    showStatus('📱 Instalação automática disponível!', 'success');
+});
+
+// Add timeout to show manual instructions if PWA event doesn't fire
+setTimeout(() => {
+    if (!deferredPrompt) {
+        showStatus('💡 Instalação manual disponível via menu do navegador', 'info');
+    }
+}, 3000);
+
+// Handle install button click
+installBtn.addEventListener('click', async () => {
         console.log('Install button clicked, deferredPrompt:', deferredPrompt);
         
         if (!deferredPrompt) {
