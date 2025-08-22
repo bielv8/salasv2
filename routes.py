@@ -80,8 +80,13 @@ def classroom_detail(classroom_id):
         )
     ).all()
     
-    # Get incidents for this classroom (active incidents that are not hidden from classroom)
-    incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True, hidden_from_classroom=False).order_by(Incident.created_at.desc()).all()
+    # Get incidents for this classroom (active incidents)
+    # Use try/except to handle missing hidden_from_classroom column gracefully
+    try:
+        incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True, hidden_from_classroom=False).order_by(Incident.created_at.desc()).all()
+    except Exception:
+        # Fallback if hidden_from_classroom column doesn't exist yet
+        incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).order_by(Incident.created_at.desc()).all()
     
     return render_template('classroom.html', classroom=classroom, schedules=schedules, incidents=incidents)
 
@@ -329,7 +334,12 @@ def hide_incident_from_classroom(incident_id):
     
     try:
         # Hide from classroom view only, keep visible in admin panel
-        incident.hidden_from_classroom = True
+        # Graceful handling if column doesn't exist yet
+        try:
+            incident.hidden_from_classroom = True
+        except Exception:
+            # If column doesn't exist, mark as inactive instead
+            incident.is_active = False
         db.session.commit()
         flash('Ocorrência removida da visualização da sala!', 'success')
     except Exception as e:
@@ -358,6 +368,29 @@ def delete_incident(incident_id):
         return redirect(url_for('classroom_detail', classroom_id=incident.classroom_id))
     else:
         return redirect(url_for('incidents_management'))
+
+@app.route('/admin/migrate_db')
+@require_admin_auth  
+def migrate_database():
+    """Rota para migrar banco de dados - adicionar colunas faltantes"""
+    try:
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            # Adicionar hidden_from_classroom
+            try:
+                conn.execute(text("ALTER TABLE incident ADD COLUMN IF NOT EXISTS hidden_from_classroom BOOLEAN DEFAULT FALSE"))
+                conn.commit()
+                flash('✅ Migração concluída com sucesso! Coluna hidden_from_classroom adicionada.', 'success')
+            except Exception as e:
+                if 'already exists' in str(e) or 'duplicate' in str(e):
+                    flash('✅ Coluna hidden_from_classroom já existe.', 'info')  
+                else:
+                    flash(f'❌ Erro na migração: {str(e)}', 'error')
+                    
+    except Exception as e:
+        flash(f'❌ Erro na migração: {str(e)}', 'error')
+        
+    return redirect(url_for('incidents_management'))
 
 @app.route('/incidents_management')
 @require_admin_auth
