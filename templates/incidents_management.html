@@ -36,6 +36,7 @@
                                     <th>Descrição</th>
                                     <th>Reportado por</th>
                                     <th>Data</th>
+                                    <th>Resposta Admin</th>
                                     <th>Status</th>
                                     <th>Ações</th>
                                 </tr>
@@ -63,6 +64,18 @@
                                     </td>
                                     <td>{{ incident.created_at.strftime('%d/%m/%Y às %H:%M') if incident.created_at else '' }}</td>
                                     <td>
+                                        {% if incident.admin_response %}
+                                            <div style="max-width: 200px;">
+                                                <small class="text-success">{{ incident.admin_response[:100] }}{% if incident.admin_response|length > 100 %}...{% endif %}</small>
+                                                {% if incident.response_date %}
+                                                <br><small class="text-muted">{{ incident.response_date.strftime('%d/%m/%Y') }}</small>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <small class="text-muted">Sem resposta</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
                                         {% if incident.is_resolved %}
                                             <span class="badge bg-success">
                                                 <i class="fas fa-check me-1"></i>Resolvida
@@ -80,8 +93,8 @@
                                                     data-bs-target="#responseModal{{ incident.id }}">
                                                 <i class="fas fa-reply me-1"></i>Responder
                                             </button>
-                                            <a href="mailto:{{ incident.reporter_email }}?subject=Resposta sobre ocorrência - {{ incident.classroom.name }}&body=Olá {{ incident.reporter_name }},%0A%0AEm relação à ocorrência relatada em {{ incident.classroom.name }}:%0A%0A{{ incident.description }}%0A%0A" 
-                                               class="btn btn-sm btn-outline-secondary">
+                                            <a href="https://outlook.com/mail/compose?to={{ incident.reporter_email }}&subject=Resposta sobre ocorrência - {{ incident.classroom.name }}&body=Olá {{ incident.reporter_name }},%0A%0AEm relação à ocorrência relatada em {{ incident.classroom.name }}:%0A%0A{{ incident.description }}%0A%0A{% if incident.admin_response %}%0A%0ANossa resposta:%0A{{ incident.admin_response }}{% endif %}" 
+                                               class="btn btn-sm btn-outline-secondary" target="_blank">
                                                 <i class="fas fa-envelope me-1"></i>Email
                                             </a>
                                             {% if not incident.is_resolved %}
