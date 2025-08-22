@@ -333,14 +333,41 @@ def hide_incident_from_classroom(incident_id):
     classroom_id = incident.classroom_id
     
     try:
-        # Hide from classroom view only, keep visible in admin panel
-        # Graceful handling if column doesn't exist yet
+        # Check if hidden_from_classroom column exists
+        from sqlalchemy import text
+        column_exists = False
         try:
-            incident.hidden_from_classroom = True
-        except Exception:
-            # If column doesn't exist, mark as inactive instead
+            with db.engine.connect() as conn:
+                if 'postgresql' in str(db.engine.url) or 'postgres' in str(db.engine.url):
+                    result = conn.execute(text("""
+                        SELECT column_name FROM information_schema.columns 
+                        WHERE table_name='incident' AND column_name='hidden_from_classroom'
+                    """))
+                    column_exists = result.fetchone() is not None
+                else:
+                    try:
+                        conn.execute(text("SELECT hidden_from_classroom FROM incident LIMIT 1"))
+                        column_exists = True
+                    except:
+                        column_exists = False
+        except:
+            column_exists = False
+        
+        # Hide incident using appropriate method
+        if column_exists:
+            # Use raw SQL to avoid SQLAlchemy issues
+            with db.engine.connect() as conn:
+                conn.execute(text("""
+                    UPDATE incident 
+                    SET hidden_from_classroom = true 
+                    WHERE id = :incident_id
+                """), {'incident_id': incident_id})
+                conn.commit()
+        else:
+            # Fallback: mark as inactive
             incident.is_active = False
-        db.session.commit()
+            db.session.commit()
+            
         flash('Ocorrência removida da visualização da sala!', 'success')
     except Exception as e:
         db.session.rollback()
@@ -402,58 +429,125 @@ def incidents_management():
         reporter_filter = request.args.get('reporter', '')
         classroom_filter = request.args.get('classroom', '')
         
-        # Defensive query handling for missing hidden_from_classroom column
-        try:
-            # Try with hidden_from_classroom filter (normal case)
-            query = Incident.query.filter_by(is_active=True).filter(
-                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
-            )
-        except Exception:
-            # Fallback if hidden_from_classroom column doesn't exist
-            query = Incident.query.filter_by(is_active=True)
+        # Use raw SQL to avoid SQLAlchemy model issues with missing columns
+        from sqlalchemy import text
         
-        # Apply filters
+        # Check if hidden_from_classroom column exists
+        column_exists = False
+        try:
+            with db.engine.connect() as conn:
+                if 'postgresql' in str(db.engine.url) or 'postgres' in str(db.engine.url):
+                    result = conn.execute(text("""
+                        SELECT column_name FROM information_schema.columns 
+                        WHERE table_name='incident' AND column_name='hidden_from_classroom'
+                    """))
+                    column_exists = result.fetchone() is not None
+                else:
+                    # SQLite check
+                    try:
+                        conn.execute(text("SELECT hidden_from_classroom FROM incident LIMIT 1"))
+                        column_exists = True
+                    except:
+                        column_exists = False
+        except:
+            column_exists = False
+        
+        # Build SQL query based on column existence
+        base_sql = """
+            SELECT id, classroom_id, reporter_name, reporter_email, description, 
+                   created_at, is_active, is_resolved, admin_response, response_date
+        """
+        
+        if column_exists:
+            base_sql = """
+                SELECT id, classroom_id, reporter_name, reporter_email, description, 
+                       created_at, is_active, is_resolved, admin_response, response_date,
+                       hidden_from_classroom
+            """
+            where_clause = "WHERE is_active = true AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)"
+        else:
+            where_clause = "WHERE is_active = true"
+        
+        # Add filters to WHERE clause
+        filter_conditions = []
+        params = {}
+        
         if status_filter == 'pending':
-            query = query.filter_by(is_resolved=False)
+            filter_conditions.append("is_resolved = false")
         elif status_filter == 'resolved':
-            query = query.filter_by(is_resolved=True)
+            filter_conditions.append("is_resolved = true")
         
         if reporter_filter:
-            query = query.filter(Incident.reporter_name.ilike(f'%{reporter_filter}%'))
+            filter_conditions.append("LOWER(reporter_name) LIKE LOWER(:reporter_filter)")
+            params['reporter_filter'] = f'%{reporter_filter}%'
         
         if classroom_filter:
             try:
                 classroom_id = int(classroom_filter)
-                query = query.filter_by(classroom_id=classroom_id)
+                filter_conditions.append("classroom_id = :classroom_id")
+                params['classroom_id'] = classroom_id
             except ValueError:
                 pass
         
-        incidents = query.order_by(Incident.created_at.desc()).all()
+        # Complete SQL query
+        if filter_conditions:
+            full_sql = f"{base_sql} FROM incident {where_clause} AND {' AND '.join(filter_conditions)} ORDER BY created_at DESC"
+        else:
+            full_sql = f"{base_sql} FROM incident {where_clause} ORDER BY created_at DESC"
         
-        # Get counts for badges (with defensive handling)
-        try:
-            pending_count = Incident.query.filter_by(is_active=True, is_resolved=False).filter(
-                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
-            ).count()
-            resolved_count = Incident.query.filter_by(is_active=True, is_resolved=True).filter(
-                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
-            ).count()
-        except Exception:
-            # Fallback counts
-            pending_count = Incident.query.filter_by(is_active=True, is_resolved=False).count()
-            resolved_count = Incident.query.filter_by(is_active=True, is_resolved=True).count()
+        # Execute query and convert to incident objects
+        with db.engine.connect() as conn:
+            result = conn.execute(text(full_sql), params)
+            incident_rows = result.fetchall()
         
-        # Get all classrooms for filter dropdown
+        incidents = []
+        for row in incident_rows:
+            incident = Incident.query.get(row[0])
+            if incident:
+                incidents.append(incident)
+        
+        # Get counts using safe SQL
+        with db.engine.connect() as conn:
+            if column_exists:
+                pending_result = conn.execute(text("""
+                    SELECT COUNT(*) FROM incident 
+                    WHERE is_active = true AND is_resolved = false 
+                    AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)
+                """))
+                resolved_result = conn.execute(text("""
+                    SELECT COUNT(*) FROM incident 
+                    WHERE is_active = true AND is_resolved = true 
+                    AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)
+                """))
+            else:
+                pending_result = conn.execute(text("""
+                    SELECT COUNT(*) FROM incident 
+                    WHERE is_active = true AND is_resolved = false
+                """))
+                resolved_result = conn.execute(text("""
+                    SELECT COUNT(*) FROM incident 
+                    WHERE is_active = true AND is_resolved = true
+                """))
+            
+            pending_count = pending_result.scalar()
+            resolved_count = resolved_result.scalar()
+        
+        # Get classrooms and reporters using safe queries
         classrooms = Classroom.query.all()
         
-        # Get unique reporters for filter (with defensive handling)
-        try:
-            reporters = db.session.query(Incident.reporter_name).filter_by(is_active=True).filter(
-                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
-            ).distinct().all()
-        except Exception:
-            reporters = db.session.query(Incident.reporter_name).filter_by(is_active=True).distinct().all()
-        reporters = [r[0] for r in reporters]
+        with db.engine.connect() as conn:
+            if column_exists:
+                reporters_result = conn.execute(text("""
+                    SELECT DISTINCT reporter_name FROM incident 
+                    WHERE is_active = true 
+                    AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)
+                """))
+            else:
+                reporters_result = conn.execute(text("""
+                    SELECT DISTINCT reporter_name FROM incident 
+                    WHERE is_active = true
+                """))
+            reporters = [row[0] for row in reporters_result.fetchall()]
         
         return render_template('incidents_management.html', 
                              incidents=incidents, 
@@ -530,31 +624,72 @@ def incidents_pdf_report():
         reporter_filter = request.args.get('reporter', '')
         classroom_filter = request.args.get('classroom', '')
         
-        # Base query for active incidents (defensive handling)
-        try:
-            query = Incident.query.filter_by(is_active=True).filter(
-                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
-            )
-        except Exception:
-            query = Incident.query.filter_by(is_active=True)
+        # Use raw SQL for PDF report to avoid column issues
+        from sqlalchemy import text
         
-        # Apply filters
+        # Check if hidden_from_classroom column exists
+        column_exists = False
+        try:
+            with db.engine.connect() as conn:
+                if 'postgresql' in str(db.engine.url) or 'postgres' in str(db.engine.url):
+                    result = conn.execute(text("""
+                        SELECT column_name FROM information_schema.columns 
+                        WHERE table_name='incident' AND column_name='hidden_from_classroom'
+                    """))
+                    column_exists = result.fetchone() is not None
+                else:
+                    try:
+                        conn.execute(text("SELECT hidden_from_classroom FROM incident LIMIT 1"))
+                        column_exists = True
+                    except:
+                        column_exists = False
+        except:
+            column_exists = False
+        
+        # Build safe SQL query
+        if column_exists:
+            where_clause = "WHERE is_active = true AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)"
+        else:
+            where_clause = "WHERE is_active = true"
+        
+        # Add filters
+        filter_conditions = []
+        params = {}
+        
         if status_filter == 'pending':
-            query = query.filter_by(is_resolved=False)
+            filter_conditions.append("is_resolved = false")
         elif status_filter == 'resolved':
-            query = query.filter_by(is_resolved=True)
+            filter_conditions.append("is_resolved = true")
         
         if reporter_filter:
-            query = query.filter(Incident.reporter_name.ilike(f'%{reporter_filter}%'))
+            filter_conditions.append("LOWER(reporter_name) LIKE LOWER(:reporter_filter)")
+            params['reporter_filter'] = f'%{reporter_filter}%'
         
         if classroom_filter:
             try:
                 classroom_id = int(classroom_filter)
-                query = query.filter_by(classroom_id=classroom_id)
+                filter_conditions.append("classroom_id = :classroom_id")
+                params['classroom_id'] = classroom_id
             except ValueError:
                 pass
         
-        incidents = query.order_by(Incident.created_at.desc()).all()
+        # Complete SQL
+        if filter_conditions:
+            full_sql = f"SELECT id FROM incident {where_clause} AND {' AND '.join(filter_conditions)} ORDER BY created_at DESC"
+        else:
+            full_sql = f"SELECT id FROM incident {where_clause} ORDER BY created_at DESC"
+        
+        # Get incident IDs and load objects
+        with db.engine.connect() as conn:
+            result = conn.execute(text(full_sql), params)
+            incident_ids = [row[0] for row in result.fetchall()]
+        
+        # Load incidents by ID to avoid column issues
+        incidents = []
+        for incident_id in incident_ids:
+            incident = Incident.query.get(incident_id)
+            if incident:
+                incidents.append(incident)
         
         # Generate PDF using ReportLab
         from reportlab.lib.pagesizes import letter, A4
