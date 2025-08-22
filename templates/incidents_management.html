@@ -25,6 +25,67 @@
                         <span class="badge bg-success">{{ resolved_count }} Resolvidas</span>
                     </div>
                 </div>
+                
+                <!-- Filters Section -->
+                <div class="card-body border-bottom">
+                    <form method="GET" action="{{ url_for('incidents_management') }}" class="row g-3">
+                        <div class="col-md-3">
+                            <label for="status_filter" class="form-label">Status</label>
+                            <select class="form-select" id="status_filter" name="status">
+                                <option value="">Todos</option>
+                                <option value="pending" {{ 'selected' if current_filters.status == 'pending' }}>Pendentes</option>
+                                <option value="resolved" {{ 'selected' if current_filters.status == 'resolved' }}>Resolvidas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="reporter_filter" class="form-label">Reportado por</label>
+                            <select class="form-select" id="reporter_filter" name="reporter">
+                                <option value="">Todos</option>
+                                {% for reporter in reporters %}
+                                <option value="{{ reporter }}" {{ 'selected' if current_filters.reporter == reporter }}>{{ reporter }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="classroom_filter" class="form-label">Sala</label>
+                            <select class="form-select" id="classroom_filter" name="classroom">
+                                <option value="">Todas</option>
+                                {% for classroom in classrooms %}
+                                <option value="{{ classroom.id }}" {{ 'selected' if current_filters.classroom == classroom.id|string }}>{{ classroom.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <div class="btn-group w-100">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-filter me-1"></i>Filtrar
+                                </button>
+                                <a href="{{ url_for('incidents_management') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times me-1"></i>Limpar
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- PDF Report Button -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <a href="{{ url_for('incidents_pdf_report', 
+                                status=current_filters.status,
+                                reporter=current_filters.reporter,
+                                classroom=current_filters.classroom
+                            ) }}" class="btn btn-outline-danger">
+                                <i class="fas fa-file-pdf me-2"></i>Gerar Relatório PDF
+                                {% if current_filters.status or current_filters.reporter or current_filters.classroom %}
+                                (Filtrado)
+                                {% else %}
+                                (Completo)
+                                {% endif %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="card-body">
                     {% if incidents %}
                     <div class="table-responsive">
@@ -107,7 +168,8 @@
                                             {% endif %}
                                             <form method="POST" action="{{ url_for('delete_incident', incident_id=incident.id) }}" 
                                                   style="display: inline;" 
-                                                  onsubmit="return confirm('Tem certeza que deseja excluir esta ocorrência?')">
+                                                  onsubmit="return confirm('Tem certeza que deseja excluir permanentemente esta ocorrência? Esta ação não pode ser desfeita.')">
+                                                <input type="hidden" name="referrer" value="incidents_management">
                                                 <button type="submit" class="btn btn-sm btn-outline-danger">
                                                     <i class="fas fa-trash"></i>
                                                 </button>

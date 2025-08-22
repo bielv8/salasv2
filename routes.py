@@ -77,8 +77,8 @@ def classroom_detail(classroom_id):
         )
     ).all()
     
-    # Get incidents for this classroom (including resolved ones)
-    incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).order_by(Incident.created_at.desc()).all()
+    # Get incidents for this classroom (excluding hidden ones)
+    incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True, hidden_from_classroom=False).order_by(Incident.created_at.desc()).all()
     
     return render_template('classroom.html', classroom=classroom, schedules=schedules, incidents=incidents)
 
@@ -317,34 +317,95 @@ def add_incident(classroom_id):
     
     return redirect(url_for('classroom_detail', classroom_id=classroom_id))
 
-@app.route('/delete_incident/<int:incident_id>', methods=['POST'])
+@app.route('/hide_incident_from_classroom/<int:incident_id>', methods=['POST'])
 @require_admin_auth
-def delete_incident(incident_id):
+def hide_incident_from_classroom(incident_id):
     incident = Incident.query.get_or_404(incident_id)
     classroom_id = incident.classroom_id
     
     try:
-        db.session.delete(incident)
+        incident.hidden_from_classroom = True
         db.session.commit()
-        flash('Ocorrência removida com sucesso!', 'success')
+        flash('Ocorrência removida da visualização da sala!', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'Erro ao remover ocorrência: {str(e)}', 'error')
+        flash(f'Erro ao ocultar ocorrência: {str(e)}', 'error')
     
     return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+
+@app.route('/delete_incident/<int:incident_id>', methods=['POST'])
+@require_admin_auth
+def delete_incident(incident_id):
+    incident = Incident.query.get_or_404(incident_id)
+    
+    # Check where we're coming from to redirect properly
+    referrer = request.form.get('referrer', 'incidents_management')
+    
+    try:
+        db.session.delete(incident)
+        db.session.commit()
+        flash('Ocorrência excluída permanentemente!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir ocorrência: {str(e)}', 'error')
+    
+    if referrer == 'classroom':
+        return redirect(url_for('classroom_detail', classroom_id=incident.classroom_id))
+    else:
+        return redirect(url_for('incidents_management'))
 
 @app.route('/incidents_management')
 @require_admin_auth
 def incidents_management():
-    """Admin panel for managing all incidents"""
-    incidents = Incident.query.filter_by(is_active=True).order_by(Incident.created_at.desc()).all()
+    """Admin panel for managing all incidents with filters"""
+    # Get filter parameters
+    status_filter = request.args.get('status', '')
+    reporter_filter = request.args.get('reporter', '')
+    classroom_filter = request.args.get('classroom', '')
+    
+    # Base query for active incidents
+    query = Incident.query.filter_by(is_active=True)
+    
+    # Apply filters
+    if status_filter == 'pending':
+        query = query.filter_by(is_resolved=False)
+    elif status_filter == 'resolved':
+        query = query.filter_by(is_resolved=True)
+    
+    if reporter_filter:
+        query = query.filter(Incident.reporter_name.ilike(f'%{reporter_filter}%'))
+    
+    if classroom_filter:
+        try:
+            classroom_id = int(classroom_filter)
+            query = query.filter_by(classroom_id=classroom_id)
+        except ValueError:
+            pass
+    
+    incidents = query.order_by(Incident.created_at.desc()).all()
+    
+    # Get counts for badges
     pending_count = Incident.query.filter_by(is_active=True, is_resolved=False).count()
     resolved_count = Incident.query.filter_by(is_active=True, is_resolved=True).count()
+    
+    # Get all classrooms for filter dropdown
+    classrooms = Classroom.query.all()
+    
+    # Get unique reporters for filter
+    reporters = db.session.query(Incident.reporter_name).filter_by(is_active=True).distinct().all()
+    reporters = [r[0] for r in reporters]
     
     return render_template('incidents_management.html', 
                          incidents=incidents, 
                          pending_count=pending_count, 
-                         resolved_count=resolved_count)
+                         resolved_count=resolved_count,
+                         classrooms=classrooms,
+                         reporters=reporters,
+                         current_filters={
+                             'status': status_filter,
+                             'reporter': reporter_filter,
+                             'classroom': classroom_filter
+                         })
 
 @app.route('/respond_incident/<int:incident_id>', methods=['POST'])
 @require_admin_auth
@@ -393,6 +454,184 @@ def resolve_incident(incident_id):
         flash(f'Erro ao resolver ocorrência: {str(e)}', 'error')
     
     return redirect(url_for('incidents_management'))
+
+@app.route('/incidents_pdf_report')
+@require_admin_auth
+def incidents_pdf_report():
+    """Generate PDF report of incidents with filters"""
+    try:
+        # Get the same filters as incidents_management
+        status_filter = request.args.get('status', '')
+        reporter_filter = request.args.get('reporter', '')
+        classroom_filter = request.args.get('classroom', '')
+        
+        # Base query for active incidents
+        query = Incident.query.filter_by(is_active=True)
+        
+        # Apply filters
+        if status_filter == 'pending':
+            query = query.filter_by(is_resolved=False)
+        elif status_filter == 'resolved':
+            query = query.filter_by(is_resolved=True)
+        
+        if reporter_filter:
+            query = query.filter(Incident.reporter_name.ilike(f'%{reporter_filter}%'))
+        
+        if classroom_filter:
+            try:
+                classroom_id = int(classroom_filter)
+                query = query.filter_by(classroom_id=classroom_id)
+            except ValueError:
+                pass
+        
+        incidents = query.order_by(Incident.created_at.desc()).all()
+        
+        # Generate PDF using ReportLab
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch
+        
+        # Create BytesIO buffer
+        buffer = io.BytesIO()
+        
+        # Create the PDF object
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        
+        # Container for the 'Flowable' objects
+        elements = []
+        
+        # Define styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=16, spaceAfter=30, textColor=colors.HexColor('#1f2937'))
+        subtitle_style = ParagraphStyle('CustomSubtitle', parent=styles['Heading2'], fontSize=12, spaceAfter=20, textColor=colors.HexColor('#374151'))
+        normal_style = styles['Normal']
+        
+        # Add title
+        title = Paragraph("Relatório de Ocorrências - SENAI Morvan Figueiredo", title_style)
+        elements.append(title)
+        
+        # Add generation date
+        generation_date = f"Gerado em: {get_brazil_time().strftime('%d/%m/%Y às %H:%M')}"
+        date_para = Paragraph(generation_date, normal_style)
+        elements.append(date_para)
+        elements.append(Spacer(1, 12))
+        
+        # Add filter info if any
+        filter_info = []
+        if status_filter:
+            filter_info.append(f"Status: {'Pendentes' if status_filter == 'pending' else 'Resolvidas'}")
+        if reporter_filter:
+            filter_info.append(f"Reportado por: {reporter_filter}")
+        if classroom_filter:
+            classroom = Classroom.query.get(int(classroom_filter))
+            if classroom:
+                filter_info.append(f"Sala: {classroom.name}")
+        
+        if filter_info:
+            filter_text = "Filtros aplicados: " + ", ".join(filter_info)
+            filter_para = Paragraph(filter_text, subtitle_style)
+            elements.append(filter_para)
+            elements.append(Spacer(1, 12))
+        
+        if incidents:
+            # Create table data
+            data = [['ID', 'Sala', 'Reportado por', 'Data', 'Status', 'Descrição']]
+            
+            for incident in incidents:
+                status = 'Resolvida' if incident.is_resolved else 'Pendente'
+                # Truncate description for table
+                description = incident.description[:50] + '...' if len(incident.description) > 50 else incident.description
+                data.append([
+                    f"#{incident.id}",
+                    incident.classroom.name,
+                    incident.reporter_name,
+                    incident.created_at.strftime('%d/%m/%Y') if incident.created_at else '',
+                    status,
+                    description
+                ])
+            
+            # Create table
+            table = Table(data, colWidths=[0.8*inch, 1.5*inch, 1.5*inch, 1*inch, 1*inch, 2.2*inch])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1f2937')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            
+            elements.append(table)
+            elements.append(Spacer(1, 20))
+            
+            # Add detailed incidents
+            detailed_title = Paragraph("Detalhes das Ocorrências", subtitle_style)
+            elements.append(detailed_title)
+            
+            for incident in incidents:
+                # Incident header
+                incident_header = f"Ocorrência #{incident.id} - {incident.classroom.name}"
+                header_para = Paragraph(incident_header, ParagraphStyle('IncidentHeader', parent=styles['Heading3'], fontSize=11, textColor=colors.HexColor('#1f2937')))
+                elements.append(header_para)
+                
+                # Incident details
+                details = f"""<b>Reportado por:</b> {incident.reporter_name} ({incident.reporter_email})<br/>
+                <b>Data:</b> {incident.created_at.strftime('%d/%m/%Y às %H:%M') if incident.created_at else 'Não informada'}<br/>
+                <b>Status:</b> {'Resolvida' if incident.is_resolved else 'Pendente'}<br/>
+                <b>Descrição:</b> {incident.description}<br/>"""
+                
+                if incident.admin_response:
+                    details += f"<b>Resposta do Admin:</b> {incident.admin_response}<br/>"
+                    if incident.response_date:
+                        details += f"<b>Data da Resposta:</b> {incident.response_date.strftime('%d/%m/%Y às %H:%M')}<br/>"
+                
+                details_para = Paragraph(details, normal_style)
+                elements.append(details_para)
+                elements.append(Spacer(1, 12))
+        else:
+            no_incidents = Paragraph("Nenhuma ocorrência encontrada com os filtros aplicados.", normal_style)
+            elements.append(no_incidents)
+        
+        # Add summary
+        total_incidents = len(incidents)
+        pending_incidents = len([i for i in incidents if not i.is_resolved])
+        resolved_incidents = len([i for i in incidents if i.is_resolved])
+        
+        summary = f"""<b>Resumo:</b><br/>
+        Total de ocorrências: {total_incidents}<br/>
+        Pendentes: {pending_incidents}<br/>
+        Resolvidas: {resolved_incidents}"""
+        
+        summary_para = Paragraph(summary, subtitle_style)
+        elements.append(Spacer(1, 20))
+        elements.append(summary_para)
+        
+        # Build PDF
+        doc.build(elements)
+        
+        # Get the value of the BytesIO buffer and create response
+        pdf_data = buffer.getvalue()
+        buffer.close()
+        
+        timestamp = get_brazil_time().strftime("%Y%m%d_%H%M%S")
+        filename = f'relatorio_ocorrencias_{timestamp}.pdf'
+        
+        response = make_response(pdf_data)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
+        
+        return response
+        
+    except Exception as e:
+        flash(f'Erro ao gerar relatório PDF: {str(e)}', 'error')
+        return redirect(url_for('incidents_management'))
 
 @app.route('/add_classroom', methods=['GET', 'POST'])
 @require_admin_auth
