@@ -123,6 +123,7 @@ class Incident(db.Model):
         self.reporter_email = reporter_email
         self.description = description
         self.is_resolved = False
+        self.hidden_from_classroom = False
     
     def to_dict(self):
         return {
