@@ -182,14 +182,7 @@
                                 </span>
                                 {% endif %}
                                 {% if session.admin_authenticated %}
-                                <form method="POST" action="{{ url_for('hide_incident_from_classroom', incident_id=incident.id) }}" 
-                                      style="display: inline;" 
-                                      onsubmit="return confirm('Tem certeza que deseja ocultar esta ocorrência da visualização da sala? (Ela ainda aparecerá no painel administrativo)')">
-                                    <input type="hidden" name="referrer" value="classroom">
-                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Ocultar da sala">
-                                        <i class="fas fa-eye-slash"></i>
-                                    </button>
-                                </form>
+                                <!-- Botão de ocultar removido -->
                                 {% endif %}
                             </div>
                             
