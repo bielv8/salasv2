@@ -9,6 +9,9 @@ try:
     PYTZ_AVAILABLE = True
 except ImportError:
     PYTZ_AVAILABLE = False
+    # Fallback timezone handling
+    from datetime import timezone
+    pytz = None
 import io
 from urllib.parse import urljoin
 from werkzeug.utils import secure_filename
@@ -17,10 +20,12 @@ import uuid
 # Import optional dependencies with error handling
 try:
     from pdf_generator import generate_classroom_pdf, generate_general_report, generate_availability_report
+    PDF_AVAILABLE = True
 except ImportError as e:
     import logging
     logging.warning(f"PDF generation not available: {e}")
     generate_classroom_pdf = generate_general_report = generate_availability_report = None
+    PDF_AVAILABLE = False
 
 try:
     from qr_generator import generate_qr_code
@@ -32,10 +37,12 @@ except ImportError as e:
 try:
     import openpyxl
     from openpyxl.styles import Font, Alignment, PatternFill
+    EXCEL_AVAILABLE = True
 except ImportError as e:
     import logging
     logging.warning(f"Excel functionality not available: {e}")
-    openpyxl = None
+    openpyxl = Font = Alignment = PatternFill = None
+    EXCEL_AVAILABLE = False
 
 ADMIN_PASSWORD = "senai103103"
 # All files are now stored in PostgreSQL database, no local file storage
@@ -81,12 +88,35 @@ def classroom_detail(classroom_id):
     ).all()
     
     # Get incidents for this classroom (active incidents)
-    # Use try/except to handle missing hidden_from_classroom column gracefully
+    # Use defensive query handling for PostgreSQL compatibility
     try:
-        incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True, hidden_from_classroom=False).order_by(Incident.created_at.desc()).all()
-    except Exception:
-        # Fallback if hidden_from_classroom column doesn't exist yet
-        incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).order_by(Incident.created_at.desc()).all()
+        from sqlalchemy import text
+        # Check if hidden_from_classroom column exists
+        with db.engine.connect() as conn:
+            if 'postgresql' in str(db.engine.url) or 'postgres' in str(db.engine.url):
+                result = conn.execute(text("""
+                    SELECT column_name FROM information_schema.columns 
+                    WHERE table_name='incident' AND column_name='hidden_from_classroom'
+                """))
+                column_exists = result.fetchone() is not None
+            else:
+                try:
+                    conn.execute(text("SELECT hidden_from_classroom FROM incident LIMIT 1"))
+                    column_exists = True
+                except:
+                    column_exists = False
+        
+        if column_exists:
+            incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
+                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom.is_(None))
+            ).order_by(Incident.created_at.desc()).all()
+        else:
+            incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).order_by(Incident.created_at.desc()).all()
+    except Exception as e:
+        # Ultimate fallback - empty incidents list
+        incidents = []
+        import logging
+        logging.warning(f"Incident query error: {e}")
     
     return render_template('classroom.html', classroom=classroom, schedules=schedules, incidents=incidents)
 
@@ -1252,13 +1282,17 @@ def availability():
 
 def get_brazil_time():
     """Get current time in Brazil timezone (UTC-3)"""
-    if PYTZ_AVAILABLE and 'pytz' in globals():
-        brazil_tz = pytz.timezone('America/Sao_Paulo')
-        return datetime.now(brazil_tz)
-    else:
-        # Fallback: subtract 3 hours from UTC to approximate Brazil time
-        utc_time = datetime.utcnow()
-        return utc_time - timedelta(hours=3)
+    try:
+        if PYTZ_AVAILABLE and pytz and 'pytz' in globals():
+            brazil_tz = pytz.timezone('America/Sao_Paulo')
+            return datetime.now(brazil_tz)
+        else:
+            # Fallback: subtract 3 hours from UTC to approximate Brazil time
+            utc_time = datetime.utcnow()
+            return utc_time - timedelta(hours=3)
+    except Exception:
+        # Ultimate fallback - just use UTC
+        return datetime.utcnow()
 
 def get_current_shift():
     """Get the current shift based on Brazil time"""
