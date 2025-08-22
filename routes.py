@@ -75,7 +75,7 @@ def classroom_detail(classroom_id):
     # Only show active schedules where courses haven't ended yet
     schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
         db.or_(
-            Schedule.end_date == None,  # No end date specified
+            Schedule.end_date.is_(None),  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     ).all()
@@ -149,7 +149,7 @@ def edit_classroom(classroom_id):
     # Only show active schedules where courses haven't ended yet
     schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
         db.or_(
-            Schedule.end_date == None,  # No end date specified
+            Schedule.end_date.is_(None),  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     ).all()
@@ -1001,7 +1001,7 @@ def schedule_management():
     # Only show active schedules where courses haven't ended yet
     schedules = Schedule.query.filter_by(is_active=True).filter(
         db.or_(
-            Schedule.end_date == None,  # No end date specified
+            Schedule.end_date.is_(None),  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     ).all()
@@ -1185,7 +1185,7 @@ def dashboard():
     # Filter out expired courses - only show courses that haven't ended yet
     schedule_query = schedule_query.filter(
         db.or_(
-            Schedule.end_date == None,  # No end date specified
+            Schedule.end_date.is_(None),  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     )
