@@ -355,21 +355,6 @@ def add_incident(classroom_id):
         logging.error(f'Erro ao registrar ocorrência: {str(e)}')
         flash('Erro ao registrar ocorrência. Tente novamente.', 'error')
         return redirect(url_for('classroom_detail', classroom_id=classroom_id))
-                    'reporter_name': reporter_name,
-                    'reporter_email': reporter_email,
-                    'description': description,
-                    'created_at': brazil_time,
-                    'is_active': True
-                })
-                conn.commit()
-        
-        flash(f'Ocorrência registrada com sucesso! Obrigado, {reporter_name}.', 'success')
-        
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Erro ao registrar ocorrência: {str(e)}', 'error')
-    
-    return redirect(url_for('classroom_detail', classroom_id=classroom_id))
 
 @app.route('/hide_incident_from_classroom/<int:incident_id>', methods=['POST'])
 @require_admin_auth
