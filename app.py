@@ -37,11 +37,12 @@ with app.app_context():
         print(f"Testing database connection to: {app.config['SQLALCHEMY_DATABASE_URI'][:20]}...")
         with db.engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        print("Database connection successful!")
+        import logging
+        logging.info("Database connection successful!")
         
         # Create tables if they don't exist
         db.create_all()
-        print("Tables created/verified successfully!")
+        logging.info("Tables created/verified successfully!")
         
         # Add new columns if they don't exist (for existing databases)
         try:
@@ -82,7 +83,8 @@ with app.app_context():
                     pass  # Column already exists
                 conn.commit()
         except Exception as migration_error:
-            print(f"Database migration error (non-critical): {migration_error}")
+            import logging
+            logging.warning(f"Database migration error (non-critical): {migration_error}")
             import traceback
             traceback.print_exc()
         
@@ -134,15 +136,16 @@ with app.app_context():
                     db.session.add(classroom)
                 
                 db.session.commit()
-                print("Sample classrooms created successfully!")
+                logging.info("Sample classrooms created successfully!")
             except Exception as e:
-                print(f"Error creating sample data: {e}")
+                logging.error(f"Error creating sample data: {e}")
                 db.session.rollback()
         else:
-            print("Database already has data, skipping sample creation")
+            logging.info("Database already has data, skipping sample creation")
             
     except Exception as e:
-        print(f"CRITICAL ERROR initializing database: {str(e)}")
+        import logging
+        logging.error(f"CRITICAL ERROR initializing database: {str(e)}")
         import traceback
         traceback.print_exc()
         # Continue anyway, routes might still work
@@ -151,5 +154,6 @@ with app.app_context():
 try:
     import routes
 except Exception as e:
-    print(f"Error importing routes: {str(e)}")
+    import logging
+    logging.error(f"Error importing routes: {str(e)}")
     raise e

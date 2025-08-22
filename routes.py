@@ -18,20 +18,23 @@ import uuid
 try:
     from pdf_generator import generate_classroom_pdf, generate_general_report, generate_availability_report
 except ImportError as e:
-    print(f"PDF generation not available: {e}")
+    import logging
+    logging.warning(f"PDF generation not available: {e}")
     generate_classroom_pdf = generate_general_report = generate_availability_report = None
 
 try:
     from qr_generator import generate_qr_code
 except ImportError as e:
-    print(f"QR code generation not available: {e}")
+    import logging
+    logging.warning(f"QR code generation not available: {e}")
     generate_qr_code = None
 
 try:
     import openpyxl
     from openpyxl.styles import Font, Alignment, PatternFill
 except ImportError as e:
-    print(f"Excel functionality not available: {e}")
+    import logging
+    logging.warning(f"Excel functionality not available: {e}")
     openpyxl = None
 
 ADMIN_PASSWORD = "senai103103"
@@ -146,7 +149,8 @@ def edit_classroom(classroom_id):
         )
     ).all()
     
-    print(f"DEBUG: Edit classroom showing {len(schedules)} active/current schedules for classroom {classroom_id} (expired courses hidden)")
+    import logging
+    logging.debug(f"Edit classroom showing {len(schedules)} active/current schedules for classroom {classroom_id} (expired courses hidden)")
     
     if request.method == 'POST':
         try:
@@ -358,54 +362,60 @@ def delete_incident(incident_id):
 @require_admin_auth
 def incidents_management():
     """Admin panel for managing all incidents with filters"""
-    # Get filter parameters
-    status_filter = request.args.get('status', '')
-    reporter_filter = request.args.get('reporter', '')
-    classroom_filter = request.args.get('classroom', '')
-    
-    # Base query for active incidents
-    query = Incident.query.filter_by(is_active=True)
-    
-    # Apply filters
-    if status_filter == 'pending':
-        query = query.filter_by(is_resolved=False)
-    elif status_filter == 'resolved':
-        query = query.filter_by(is_resolved=True)
-    
-    if reporter_filter:
-        query = query.filter(Incident.reporter_name.ilike(f'%{reporter_filter}%'))
-    
-    if classroom_filter:
-        try:
-            classroom_id = int(classroom_filter)
-            query = query.filter_by(classroom_id=classroom_id)
-        except ValueError:
-            pass
-    
-    incidents = query.order_by(Incident.created_at.desc()).all()
-    
-    # Get counts for badges
-    pending_count = Incident.query.filter_by(is_active=True, is_resolved=False).count()
-    resolved_count = Incident.query.filter_by(is_active=True, is_resolved=True).count()
-    
-    # Get all classrooms for filter dropdown
-    classrooms = Classroom.query.all()
-    
-    # Get unique reporters for filter
-    reporters = db.session.query(Incident.reporter_name).filter_by(is_active=True).distinct().all()
-    reporters = [r[0] for r in reporters]
-    
-    return render_template('incidents_management.html', 
-                         incidents=incidents, 
-                         pending_count=pending_count, 
-                         resolved_count=resolved_count,
-                         classrooms=classrooms,
-                         reporters=reporters,
-                         current_filters={
-                             'status': status_filter,
-                             'reporter': reporter_filter,
-                             'classroom': classroom_filter
-                         })
+    try:
+        # Get filter parameters
+        status_filter = request.args.get('status', '')
+        reporter_filter = request.args.get('reporter', '')
+        classroom_filter = request.args.get('classroom', '')
+        
+        # Base query for active incidents
+        query = Incident.query.filter_by(is_active=True)
+        
+        # Apply filters
+        if status_filter == 'pending':
+            query = query.filter_by(is_resolved=False)
+        elif status_filter == 'resolved':
+            query = query.filter_by(is_resolved=True)
+        
+        if reporter_filter:
+            query = query.filter(Incident.reporter_name.ilike(f'%{reporter_filter}%'))
+        
+        if classroom_filter:
+            try:
+                classroom_id = int(classroom_filter)
+                query = query.filter_by(classroom_id=classroom_id)
+            except ValueError:
+                pass
+        
+        incidents = query.order_by(Incident.created_at.desc()).all()
+        
+        # Get counts for badges
+        pending_count = Incident.query.filter_by(is_active=True, is_resolved=False).count()
+        resolved_count = Incident.query.filter_by(is_active=True, is_resolved=True).count()
+        
+        # Get all classrooms for filter dropdown
+        classrooms = Classroom.query.all()
+        
+        # Get unique reporters for filter
+        reporters = db.session.query(Incident.reporter_name).filter_by(is_active=True).distinct().all()
+        reporters = [r[0] for r in reporters]
+        
+        return render_template('incidents_management.html', 
+                             incidents=incidents, 
+                             pending_count=pending_count, 
+                             resolved_count=resolved_count,
+                             classrooms=classrooms,
+                             reporters=reporters,
+                             current_filters={
+                                 'status': status_filter,
+                                 'reporter': reporter_filter,
+                                 'classroom': classroom_filter
+                             })
+    except Exception as e:
+        import logging
+        logging.error(f'Erro na gestão de ocorrências: {str(e)}')
+        flash(f'Erro ao carregar gestão de ocorrências: {str(e)}', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/respond_incident/<int:incident_id>', methods=['POST'])
 @require_admin_auth
@@ -667,7 +677,8 @@ def migrate_uploads_to_db():
                             classroom.image_mimetype = mime_map.get(ext, 'image/jpeg')
                             migrated_count += 1
                     except Exception as e:
-                        print(f"Erro ao migrar imagem {classroom.image_filename}: {e}")
+                        import logging
+                        logging.error(f"Erro ao migrar imagem {classroom.image_filename}: {e}")
             
             # Check if classroom has excel_filename but no excel_data
             # Also check Excel files with any uploads pattern
@@ -680,7 +691,8 @@ def migrate_uploads_to_db():
                             classroom.excel_mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                             migrated_count += 1
                     except Exception as e:
-                        print(f"Erro ao migrar Excel {classroom.excel_filename}: {e}")
+                        import logging
+                        logging.error(f"Erro ao migrar Excel {classroom.excel_filename}: {e}")
         
         db.session.commit()
         flash(f'Migração concluída! {migrated_count} arquivos movidos para o banco PostgreSQL.', 'success')

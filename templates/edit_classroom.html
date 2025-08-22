@@ -278,7 +278,9 @@ Nova Sala - SENAI Morvan Figueiredo
                                                     <td>{{ schedule.instructor or 'Não informado' }}</td>
                                                     <td>
                                                         <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                                onclick="confirmDeleteSchedule({{ schedule.id }}, '{{ schedule.course_name }}')">
+                                                                data-schedule-id="{{ schedule.id }}" 
+                                                                data-course-name="{{ schedule.course_name|e }}"
+                                                                onclick="confirmDeleteScheduleClick(this)">
                                                             <i class="fas fa-trash"></i>
                                                         </button>
                                                     </td>
@@ -517,16 +519,18 @@ document.addEventListener('DOMContentLoaded', function() {
 {% if classroom %}
 // Delete confirmation function
 function confirmDelete() {
-    if (confirm('Tem certeza que deseja excluir a sala "{{ classroom.name }}"?\n\nEsta ação não pode ser desfeita e também excluirá todos os horários associados a esta sala.')) {
+    if (confirm('Tem certeza que deseja excluir esta sala? Esta ação não pode ser desfeita e também excluirá todos os horários associados.')) {
         document.getElementById('deleteForm').submit();
     }
 }
 
 // Delete schedule confirmation function
-function confirmDeleteSchedule(scheduleId, courseName) {
-    if (confirm(`Tem certeza que deseja remover o horário do curso "${courseName}"? Esta ação não pode ser desfeita!`)) {
+function confirmDeleteScheduleClick(button) {
+    const scheduleId = button.getAttribute('data-schedule-id');
+    const courseName = button.getAttribute('data-course-name');
+    if (confirm('Tem certeza que deseja remover o horário do curso "' + courseName + '"? Esta ação não pode ser desfeita!')) {
         const form = document.getElementById('deleteScheduleForm');
-        form.action = `/delete_schedule/${scheduleId}`;
+        form.action = '/delete_schedule/' + scheduleId;
         form.submit();
     }
 }
