@@ -334,19 +334,57 @@ def add_incident(classroom_id):
             flash('Todos os campos são obrigatórios para registrar uma ocorrência.', 'error')
             return redirect(url_for('classroom_detail', classroom_id=classroom_id))
         
-        # Create incident using Brazil time
-        incident = Incident(
-            classroom_id=classroom_id,
-            reporter_name=reporter_name,
-            reporter_email=reporter_email,
-            description=description
-        )
+        # Defensive incident creation for PostgreSQL compatibility
+        from sqlalchemy import text
         
-        # Override created_at with Brazil time
-        incident.created_at = get_brazil_time().replace(tzinfo=None)
+        # Check if hidden_from_classroom column exists
+        column_exists = False
+        try:
+            with db.engine.connect() as conn:
+                if 'postgresql' in str(db.engine.url) or 'postgres' in str(db.engine.url):
+                    result = conn.execute(text("""
+                        SELECT column_name FROM information_schema.columns 
+                        WHERE table_name='incident' AND column_name='hidden_from_classroom'
+                    """))
+                    column_exists = result.fetchone() is not None
+                else:
+                    try:
+                        conn.execute(text("SELECT hidden_from_classroom FROM incident LIMIT 1"))
+                        column_exists = True
+                    except:
+                        column_exists = False
+        except:
+            column_exists = False
         
-        db.session.add(incident)
-        db.session.commit()
+        brazil_time = get_brazil_time().replace(tzinfo=None)
+        
+        if column_exists:
+            # Use normal SQLAlchemy object creation
+            incident = Incident(
+                classroom_id=classroom_id,
+                reporter_name=reporter_name,
+                reporter_email=reporter_email,
+                description=description
+            )
+            incident.created_at = brazil_time
+            db.session.add(incident)
+            db.session.commit()
+        else:
+            # Use direct SQL insert without the problematic columns
+            with db.engine.connect() as conn:
+                result = conn.execute(text("""
+                    INSERT INTO incident (classroom_id, reporter_name, reporter_email, description, created_at, is_active)
+                    VALUES (:classroom_id, :reporter_name, :reporter_email, :description, :created_at, :is_active)
+                    RETURNING id
+                """), {
+                    'classroom_id': classroom_id,
+                    'reporter_name': reporter_name,
+                    'reporter_email': reporter_email,
+                    'description': description,
+                    'created_at': brazil_time,
+                    'is_active': True
+                })
+                conn.commit()
         
         flash(f'Ocorrência registrada com sucesso! Obrigado, {reporter_name}.', 'success')
         

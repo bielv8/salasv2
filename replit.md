@@ -3,6 +3,8 @@
 This is a classroom management system for SENAI "Morvan Figueiredo" school built with Flask. The system provides a digital map of classrooms showing their details, equipment, capacity, and availability. It includes features for viewing classroom information, managing schedules, generating reports, QR code generation for easy access to classroom details, advanced dashboard with filters, and Excel export functionality.
 
 ## Recent Updates (August 2025)
+- **PostgreSQL Compatibility Fix**: Implemented defensive database operations that work seamlessly with both PostgreSQL (Railway) and SQLite (local). System now detects column existence and adapts queries automatically - RESOLVED
+- **Defensive Incident Creation**: Fixed UndefinedColumn errors in PostgreSQL by implementing smart INSERT operations that work with or without `hidden_from_classroom` column - TESTED AND WORKING
 - **PWA Installation Ready for Deploy**: Implemented complete PWA functionality with automatic install button - works fully in deployed environment (limitations in preview mode)
 - **Migration to Replit Environment**: Successfully migrated from Replit Agent to standard Replit environment with improved security and Flask best practices - COMPLETED
 - **PWA Installation Feature**: Added discrete installation icon in footer with comprehensive instructions page for desktop, iOS, and Android installation
