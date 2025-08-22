@@ -11,8 +11,8 @@ class Classroom(db.Model):
     block = db.Column(db.String(50), nullable=False)
     image_filename = db.Column(db.String(255), default='')  # Store filename instead of URL
     excel_filename = db.Column(db.String(255), default='')  # Store Excel filename
-    image_data = db.Column(db.LargeBinary)  # Store image data in PostgreSQL
-    excel_data = db.Column(db.LargeBinary)  # Store Excel file data in PostgreSQL
+    image_data = db.Column(db.LargeBinary)  # Store image data in PostgreSQL (BYTEA)
+    excel_data = db.Column(db.LargeBinary)  # Store Excel file data in PostgreSQL (BYTEA)
     image_mimetype = db.Column(db.String(100))  # Store image MIME type
     excel_mimetype = db.Column(db.String(100))  # Store Excel MIME type
     admin_password = db.Column(db.String(255), default='')  # Admin password for classroom access

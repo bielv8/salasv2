@@ -32,20 +32,28 @@ with app.app_context():
         # Import models to ensure tables are created
         import models
         
+        # Test database connection first
+        from sqlalchemy import text
+        print(f"Testing database connection to: {app.config['SQLALCHEMY_DATABASE_URI'][:20]}...")
+        with db.engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print("Database connection successful!")
+        
         # Create tables if they don't exist
         db.create_all()
+        print("Tables created/verified successfully!")
         
         # Add new columns if they don't exist (for existing databases)
         try:
             from sqlalchemy import text
             with db.engine.connect() as conn:
-                # Check if new columns exist, if not add them
+                # Check if new columns exist, if not add them (PostgreSQL compatible)
                 try:
-                    conn.execute(text("ALTER TABLE classroom ADD COLUMN image_data BLOB"))
+                    conn.execute(text("ALTER TABLE classroom ADD COLUMN image_data BYTEA"))
                 except:
                     pass  # Column already exists
                 try:
-                    conn.execute(text("ALTER TABLE classroom ADD COLUMN excel_data BLOB"))
+                    conn.execute(text("ALTER TABLE classroom ADD COLUMN excel_data BYTEA"))
                 except:
                     pass  # Column already exists
                 try:
@@ -57,7 +65,7 @@ with app.app_context():
                 except:
                     pass  # Column already exists
                 try:
-                    conn.execute(text("ALTER TABLE incident ADD COLUMN is_resolved BOOLEAN DEFAULT 0"))
+                    conn.execute(text("ALTER TABLE incident ADD COLUMN is_resolved BOOLEAN DEFAULT FALSE"))
                 except:
                     pass  # Column already exists
                 try:
@@ -65,12 +73,14 @@ with app.app_context():
                 except:
                     pass  # Column already exists
                 try:
-                    conn.execute(text("ALTER TABLE incident ADD COLUMN response_date DATETIME"))
+                    conn.execute(text("ALTER TABLE incident ADD COLUMN response_date TIMESTAMP"))
                 except:
                     pass  # Column already exists
                 conn.commit()
         except Exception as migration_error:
             print(f"Database migration error (non-critical): {migration_error}")
+            import traceback
+            traceback.print_exc()
         
         # Initialize sample data ONLY if no classrooms exist
         existing_classrooms = models.Classroom.query.first()
@@ -128,7 +138,9 @@ with app.app_context():
             print("Database already has data, skipping sample creation")
             
     except Exception as e:
-        print(f"Error initializing database: {str(e)}")
+        print(f"CRITICAL ERROR initializing database: {str(e)}")
+        import traceback
+        traceback.print_exc()
         # Continue anyway, routes might still work
 
 # Import routes after app initialization to avoid circular imports
