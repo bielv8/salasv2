@@ -159,29 +159,25 @@ def edit_classroom(classroom_id):
             classroom.block = request.form.get('block', '')
             classroom.admin_password = request.form.get('admin_password', '')
             
-            # Handle image upload with proper null checking
+            # Handle image upload with PostgreSQL storage
             if 'image' in request.files:
                 file = request.files['image']
                 if file and file.filename and file.filename != '' and allowed_file(file.filename):
                     filename = secure_filename(file.filename)
-                    # Add unique identifier to prevent conflicts
-                    unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                    # Ensure upload directory exists
-                    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-                    file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
-                    classroom.image_filename = unique_filename
+                    # Store file data in database
+                    classroom.image_data = file.read()
+                    classroom.image_mimetype = file.mimetype
+                    classroom.image_filename = filename
             
-            # Handle Excel file upload
+            # Handle Excel file upload with PostgreSQL storage
             if 'excel_file' in request.files:
                 excel_file = request.files['excel_file']
                 if excel_file and excel_file.filename and excel_file.filename != '' and allowed_excel_file(excel_file.filename):
                     filename = secure_filename(excel_file.filename)
-                    # Add unique identifier to prevent conflicts
-                    unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                    # Ensure upload directory exists
-                    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-                    excel_file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
-                    classroom.excel_filename = unique_filename
+                    # Store file data in database
+                    classroom.excel_data = excel_file.read()
+                    classroom.excel_mimetype = excel_file.mimetype
+                    classroom.excel_filename = filename
                     
             classroom.updated_at = datetime.utcnow()
             
@@ -200,20 +196,39 @@ def download_excel(classroom_id):
     try:
         classroom = Classroom.query.get_or_404(classroom_id)
         
-        if not classroom.excel_filename:
+        if not classroom.excel_data:
             flash('Nenhum arquivo Excel disponível para esta sala.', 'error')
             return redirect(url_for('classroom_detail', classroom_id=classroom_id))
         
-        file_path = os.path.join(UPLOAD_FOLDER, classroom.excel_filename)
-        if os.path.exists(file_path):
-            safe_filename = f"{classroom.name.replace(' ', '_')}_patrimonio.xlsx"
-            return send_file(file_path, as_attachment=True, download_name=safe_filename)
-        else:
-            flash('Arquivo Excel não encontrado.', 'error')
-            return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+        safe_filename = f"{classroom.name.replace(' ', '_')}_patrimonio.xlsx"
+        return send_file(
+            io.BytesIO(classroom.excel_data),
+            mimetype=classroom.excel_mimetype or 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=safe_filename
+        )
     except Exception as e:
         flash(f'Erro ao baixar arquivo: {str(e)}', 'error')
         return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+
+@app.route('/image/<int:classroom_id>')
+def serve_image(classroom_id):
+    """Serve images from PostgreSQL database"""
+    try:
+        classroom = Classroom.query.get_or_404(classroom_id)
+        
+        if not classroom.image_data:
+            # Return default image or 404
+            from flask import abort
+            abort(404)
+        
+        return send_file(
+            io.BytesIO(classroom.image_data),
+            mimetype=classroom.image_mimetype or 'image/jpeg'
+        )
+    except Exception as e:
+        from flask import abort
+        abort(404)
 
 @app.route('/upload_excel/<int:classroom_id>', methods=['POST'])
 @require_admin_auth
@@ -233,17 +248,11 @@ def upload_excel(classroom_id):
     if excel_file and excel_file.filename and allowed_excel_file(excel_file.filename):
         try:
             filename = secure_filename(excel_file.filename or '')
-            unique_filename = f"{uuid.uuid4().hex}_{filename}"
-            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-            excel_file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
             
-            # Remove old Excel file if exists
-            if classroom.excel_filename:
-                old_file_path = os.path.join(UPLOAD_FOLDER, classroom.excel_filename)
-                if os.path.exists(old_file_path):
-                    os.remove(old_file_path)
-            
-            classroom.excel_filename = unique_filename
+            # Store file data in database
+            classroom.excel_data = excel_file.read()
+            classroom.excel_mimetype = excel_file.mimetype
+            classroom.excel_filename = filename
             classroom.updated_at = datetime.utcnow()
             db.session.commit()
             
@@ -323,23 +332,83 @@ def delete_incident(incident_id):
     
     return redirect(url_for('classroom_detail', classroom_id=classroom_id))
 
+@app.route('/incidents_management')
+@require_admin_auth
+def incidents_management():
+    """Admin panel for managing all incidents"""
+    incidents = Incident.query.filter_by(is_active=True).order_by(Incident.created_at.desc()).all()
+    pending_count = Incident.query.filter_by(is_active=True, is_resolved=False).count()
+    resolved_count = Incident.query.filter_by(is_active=True, is_resolved=True).count()
+    
+    return render_template('incidents_management.html', 
+                         incidents=incidents, 
+                         pending_count=pending_count, 
+                         resolved_count=resolved_count)
+
+@app.route('/respond_incident/<int:incident_id>', methods=['POST'])
+@require_admin_auth
+def respond_incident(incident_id):
+    """Admin response to an incident"""
+    incident = Incident.query.get_or_404(incident_id)
+    
+    try:
+        admin_response = request.form.get('admin_response', '').strip()
+        mark_resolved = request.form.get('mark_resolved') == '1'
+        
+        if not admin_response:
+            flash('A resposta não pode estar vazia.', 'error')
+            return redirect(url_for('incidents_management'))
+        
+        incident.admin_response = admin_response
+        incident.response_date = get_brazil_time().replace(tzinfo=None)
+        
+        if mark_resolved:
+            incident.is_resolved = True
+        
+        db.session.commit()
+        
+        status_msg = "e marcada como resolvida" if mark_resolved else ""
+        flash(f'Resposta enviada com sucesso {status_msg}!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao enviar resposta: {str(e)}', 'error')
+    
+    return redirect(url_for('incidents_management'))
+
+@app.route('/resolve_incident/<int:incident_id>', methods=['POST'])
+@require_admin_auth
+def resolve_incident(incident_id):
+    """Mark an incident as resolved"""
+    incident = Incident.query.get_or_404(incident_id)
+    
+    try:
+        incident.is_resolved = True
+        incident.response_date = get_brazil_time().replace(tzinfo=None)
+        db.session.commit()
+        flash('Ocorrência marcada como resolvida!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao resolver ocorrência: {str(e)}', 'error')
+    
+    return redirect(url_for('incidents_management'))
+
 @app.route('/add_classroom', methods=['GET', 'POST'])
 @require_admin_auth
 def add_classroom():
     if request.method == 'POST':
         try:
-            # Handle image upload
+            # Handle image upload with PostgreSQL storage
+            image_data = None
+            image_mimetype = None
             image_filename = ''
             if 'image' in request.files:
                 file = request.files['image']
                 if file and file.filename and file.filename != '' and allowed_file(file.filename):
                     filename = secure_filename(file.filename)
-                    # Add unique identifier to prevent conflicts
-                    unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                    # Ensure upload directory exists
-                    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-                    file.save(os.path.join(UPLOAD_FOLDER, unique_filename))
-                    image_filename = unique_filename
+                    image_data = file.read()
+                    image_mimetype = file.mimetype
+                    image_filename = filename
             
             classroom = Classroom(
                 name=request.form.get('name', ''),
@@ -349,6 +418,8 @@ def add_classroom():
                 description=request.form.get('description', ''),
                 block=request.form.get('block', ''),
                 image_filename=image_filename,
+                image_data=image_data,
+                image_mimetype=image_mimetype,
                 admin_password=request.form.get('admin_password', '')
             )
             
@@ -549,23 +620,6 @@ def delete_classroom(classroom_id):
     try:
         classroom = Classroom.query.get_or_404(classroom_id)
         classroom_name = classroom.name
-        
-        # Delete associated files first
-        if classroom.image_filename:
-            try:
-                image_path = os.path.join(UPLOAD_FOLDER, classroom.image_filename)
-                if os.path.exists(image_path):
-                    os.remove(image_path)
-            except Exception:
-                pass  # Continue even if file deletion fails
-        
-        if classroom.excel_filename:
-            try:
-                excel_path = os.path.join(UPLOAD_FOLDER, classroom.excel_filename)
-                if os.path.exists(excel_path):
-                    os.remove(excel_path)
-            except Exception:
-                pass  # Continue even if file deletion fails
         
         # Delete all associated schedules and incidents
         Schedule.query.filter_by(classroom_id=classroom_id).delete()

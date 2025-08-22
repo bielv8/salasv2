@@ -35,6 +35,43 @@ with app.app_context():
         # Create tables if they don't exist
         db.create_all()
         
+        # Add new columns if they don't exist (for existing databases)
+        try:
+            from sqlalchemy import text
+            with db.engine.connect() as conn:
+                # Check if new columns exist, if not add them
+                try:
+                    conn.execute(text("ALTER TABLE classroom ADD COLUMN image_data BLOB"))
+                except:
+                    pass  # Column already exists
+                try:
+                    conn.execute(text("ALTER TABLE classroom ADD COLUMN excel_data BLOB"))
+                except:
+                    pass  # Column already exists
+                try:
+                    conn.execute(text("ALTER TABLE classroom ADD COLUMN image_mimetype VARCHAR(100)"))
+                except:
+                    pass  # Column already exists
+                try:
+                    conn.execute(text("ALTER TABLE classroom ADD COLUMN excel_mimetype VARCHAR(100)"))
+                except:
+                    pass  # Column already exists
+                try:
+                    conn.execute(text("ALTER TABLE incident ADD COLUMN is_resolved BOOLEAN DEFAULT 0"))
+                except:
+                    pass  # Column already exists
+                try:
+                    conn.execute(text("ALTER TABLE incident ADD COLUMN admin_response TEXT"))
+                except:
+                    pass  # Column already exists
+                try:
+                    conn.execute(text("ALTER TABLE incident ADD COLUMN response_date DATETIME"))
+                except:
+                    pass  # Column already exists
+                conn.commit()
+        except Exception as migration_error:
+            print(f"Database migration error (non-critical): {migration_error}")
+        
         # Initialize sample data ONLY if no classrooms exist
         existing_classrooms = models.Classroom.query.first()
         if not existing_classrooms:

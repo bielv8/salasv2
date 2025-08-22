@@ -11,6 +11,10 @@ class Classroom(db.Model):
     block = db.Column(db.String(50), nullable=False)
     image_filename = db.Column(db.String(255), default='')  # Store filename instead of URL
     excel_filename = db.Column(db.String(255), default='')  # Store Excel filename
+    image_data = db.Column(db.LargeBinary)  # Store image data in PostgreSQL
+    excel_data = db.Column(db.LargeBinary)  # Store Excel file data in PostgreSQL
+    image_mimetype = db.Column(db.String(100))  # Store image MIME type
+    excel_mimetype = db.Column(db.String(100))  # Store Excel MIME type
     admin_password = db.Column(db.String(255), default='')  # Admin password for classroom access
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -105,12 +109,34 @@ class Incident(db.Model):
     description = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+    is_resolved = db.Column(db.Boolean, default=False)
+    admin_response = db.Column(db.Text)
+    response_date = db.Column(db.DateTime)
+    
+    # Relationship with classroom
+    classroom = db.relationship('Classroom', backref='incidents')
     
     def __init__(self, classroom_id=0, reporter_name='', reporter_email='', description=''):
         self.classroom_id = classroom_id
         self.reporter_name = reporter_name
         self.reporter_email = reporter_email
         self.description = description
+        self.is_resolved = False
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'classroom_id': self.classroom_id,
+            'classroom_name': self.classroom.name if self.classroom else 'Sala não encontrada',
+            'reporter_name': self.reporter_name,
+            'reporter_email': self.reporter_email,
+            'description': self.description,
+            'created_at': self.created_at.strftime('%d/%m/%Y às %H:%M') if self.created_at else '',
+            'is_active': self.is_active,
+            'is_resolved': self.is_resolved,
+            'admin_response': self.admin_response,
+            'response_date': self.response_date.strftime('%d/%m/%Y às %H:%M') if self.response_date else ''
+        }
     
     def __repr__(self):
         return f'<Incident {self.id} - {self.reporter_name}>'

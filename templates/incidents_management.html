@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Painel de Ocorrências - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Início</a></li>
+                    <li class="breadcrumb-item active">Painel de Ocorrências</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0"><i class="fas fa-exclamation-triangle me-2 text-warning"></i>Painel de Ocorrências</h3>
+                    <div>
+                        <span class="badge bg-danger me-2">{{ pending_count }} Pendentes</span>
+                        <span class="badge bg-success">{{ resolved_count }} Resolvidas</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if incidents %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Sala</th>
+                                    <th>Descrição</th>
+                                    <th>Reportado por</th>
+                                    <th>Data</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for incident in incidents %}
+                                <tr class="{{ 'table-success' if incident.is_resolved else 'table-warning' }}">
+                                    <td>#{{ incident.id }}</td>
+                                    <td>
+                                        <a href="{{ url_for('classroom_detail', classroom_id=incident.classroom_id) }}" 
+                                           class="text-decoration-none">
+                                            {{ incident.classroom.name }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <div class="incident-description" style="max-width: 200px;">
+                                            {{ incident.description[:100] }}{% if incident.description|length > 100 %}...{% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ incident.reporter_name }}</strong><br>
+                                            <small class="text-muted">{{ incident.reporter_email }}</small>
+                                        </div>
+                                    </td>
+                                    <td>{{ incident.created_at.strftime('%d/%m/%Y às %H:%M') if incident.created_at else '' }}</td>
+                                    <td>
+                                        {% if incident.is_resolved %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i>Resolvida
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-clock me-1"></i>Pendente
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#responseModal{{ incident.id }}">
+                                                <i class="fas fa-reply me-1"></i>Responder
+                                            </button>
+                                            <a href="mailto:{{ incident.reporter_email }}?subject=Resposta sobre ocorrência - {{ incident.classroom.name }}&body=Olá {{ incident.reporter_name }},%0A%0AEm relação à ocorrência relatada em {{ incident.classroom.name }}:%0A%0A{{ incident.description }}%0A%0A" 
+                                               class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-envelope me-1"></i>Email
+                                            </a>
+                                            {% if not incident.is_resolved %}
+                                            <form method="POST" action="{{ url_for('resolve_incident', incident_id=incident.id) }}" 
+                                                  style="display: inline;">
+                                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                                    <i class="fas fa-check me-1"></i>Resolver
+                                                </button>
+                                            </form>
+                                            {% endif %}
+                                            <form method="POST" action="{{ url_for('delete_incident', incident_id=incident.id) }}" 
+                                                  style="display: inline;" 
+                                                  onsubmit="return confirm('Tem certeza que deseja excluir esta ocorrência?')">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                        <h5>Nenhuma ocorrência registrada</h5>
+                        <p class="text-muted">Quando alguém registrar uma ocorrência, ela aparecerá aqui.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Response Modals -->
+{% for incident in incidents %}
+<div class="modal fade" id="responseModal{{ incident.id }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-reply me-2"></i>Responder Ocorrência #{{ incident.id }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('respond_incident', incident_id=incident.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <h6><i class="fas fa-info-circle me-2"></i>Detalhes da Ocorrência</h6>
+                        <div class="bg-light p-3 rounded mb-3">
+                            <p><strong>Sala:</strong> {{ incident.classroom.name }}</p>
+                            <p><strong>Reportado por:</strong> {{ incident.reporter_name }} ({{ incident.reporter_email }})</p>
+                            <p><strong>Data:</strong> {{ incident.created_at.strftime('%d/%m/%Y às %H:%M') if incident.created_at else '' }}</p>
+                            <p><strong>Descrição:</strong></p>
+                            <p>{{ incident.description }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if incident.admin_response %}
+                    <div class="mb-3">
+                        <h6><i class="fas fa-comment me-2"></i>Resposta Anterior</h6>
+                        <div class="bg-info bg-opacity-10 p-3 rounded mb-3">
+                            <p>{{ incident.admin_response }}</p>
+                            <small class="text-muted">Respondido em: {{ incident.response_date.strftime('%d/%m/%Y às %H:%M') if incident.response_date else '' }}</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label for="admin_response{{ incident.id }}" class="form-label">Nova Resposta</label>
+                        <textarea class="form-control" id="admin_response{{ incident.id }}" name="admin_response" 
+                                  rows="4" placeholder="Digite sua resposta..." required></textarea>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="mark_resolved{{ incident.id }}" 
+                               name="mark_resolved" value="1">
+                        <label class="form-check-label" for="mark_resolved{{ incident.id }}">
+                            Marcar como resolvida após responder
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Enviar Resposta
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
