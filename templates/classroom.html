@@ -167,38 +167,20 @@
                 </div>
                 <div class="card-body">
                     {% if incidents %}
-                    <div class="incident-list">
+                    <div class="incident-chat">
                         {% for incident in incidents %}
-                        <div class="incident-item border-bottom pb-3 mb-3 {{ 'bg-success bg-opacity-10' if incident.is_resolved else '' }}">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <div class="flex-grow-1">
-                                    <div class="d-flex align-items-start mb-2">
-                                        {% if incident.is_resolved %}
-                                        <span class="badge bg-success me-2 mt-1">
-                                            <i class="fas fa-check me-1"></i>Resolvida
-                                        </span>
-                                        {% else %}
-                                        <span class="badge bg-warning me-2 mt-1">
-                                            <i class="fas fa-clock me-1"></i>Pendente
-                                        </span>
-                                        {% endif %}
-                                        <div class="flex-grow-1">
-                                            <p class="mb-1 {{ 'text-muted' if incident.is_resolved else '' }}">{{ incident.description }}</p>
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">
-                                        <strong>{{ incident.reporter_name }}</strong> ({{ incident.reporter_email }})
-                                        - {{ incident.created_at.strftime('%d/%m/%Y às %H:%M') if incident.created_at else 'Data não informada' }}
-                                        {% if incident.is_resolved and incident.response_date %}
-                                        <br><strong>Resolvida em:</strong> {{ incident.response_date.strftime('%d/%m/%Y às %H:%M') }}
-                                        {% endif %}
-                                    </small>
-                                    {% if incident.admin_response %}
-                                    <div class="mt-2 p-2 bg-info bg-opacity-10 rounded">
-                                        <small><strong>Resposta do Admin:</strong> {{ incident.admin_response }}</small>
-                                    </div>
-                                    {% endif %}
-                                </div>
+                        <div class="incident-conversation mb-4 p-3 border rounded {{ 'bg-success bg-opacity-5' if incident.is_resolved else 'bg-warning bg-opacity-5' }}">
+                            <!-- Status Header -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                {% if incident.is_resolved %}
+                                <span class="badge bg-success">
+                                    <i class="fas fa-check me-1"></i>Ocorrência Resolvida
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning">
+                                    <i class="fas fa-clock me-1"></i>Aguardando Resposta
+                                </span>
+                                {% endif %}
                                 {% if session.admin_authenticated %}
                                 <form method="POST" action="{{ url_for('delete_incident', incident_id=incident.id) }}" 
                                       style="display: inline;" 
@@ -209,6 +191,52 @@
                                 </form>
                                 {% endif %}
                             </div>
+                            
+                            <!-- Original Message (User) -->
+                            <div class="message-user mb-3">
+                                <div class="d-flex align-items-start">
+                                    <div class="avatar bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; min-width: 40px;">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <div class="message-content flex-grow-1">
+                                        <div class="message-header mb-1">
+                                            <strong class="text-primary">{{ incident.reporter_name }}</strong>
+                                            <small class="text-muted ms-2">{{ incident.created_at.strftime('%d/%m/%Y às %H:%M') if incident.created_at else 'Data não informada' }}</small>
+                                        </div>
+                                        <div class="message-body bg-light p-3 rounded">
+                                            <p class="mb-0">{{ incident.description }}</p>
+                                        </div>
+                                        <small class="text-muted">{{ incident.reporter_email }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Admin Response (if exists) -->
+                            {% if incident.admin_response %}
+                            <div class="message-admin">
+                                <div class="d-flex align-items-start">
+                                    <div class="avatar bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; min-width: 40px;">
+                                        <i class="fas fa-user-shield"></i>
+                                    </div>
+                                    <div class="message-content flex-grow-1">
+                                        <div class="message-header mb-1">
+                                            <strong class="text-success">Administrador</strong>
+                                            <small class="text-muted ms-2">{{ incident.response_date.strftime('%d/%m/%Y às %H:%M') if incident.response_date else 'Data não informada' }}</small>
+                                        </div>
+                                        <div class="message-body bg-success bg-opacity-10 p-3 rounded border-start border-success border-3">
+                                            <p class="mb-0">{{ incident.admin_response }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <!-- No response yet -->
+                            {% if not incident.is_resolved %}
+                            <div class="text-center text-muted py-2">
+                                <i class="fas fa-hourglass-half me-2"></i>Aguardando resposta da administração...
+                            </div>
+                            {% endif %}
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>
