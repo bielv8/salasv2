@@ -35,7 +35,7 @@ except ImportError as e:
     openpyxl = None
 
 ADMIN_PASSWORD = "senai103103"
-UPLOAD_FOLDER = 'static/uploads'
+# All files are now stored in PostgreSQL database, no local file storage
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 ALLOWED_EXCEL_EXTENSIONS = {'xlsx', 'xls'}
 
@@ -632,6 +632,64 @@ def incidents_pdf_report():
     except Exception as e:
         flash(f'Erro ao gerar relatório PDF: {str(e)}', 'error')
         return redirect(url_for('incidents_management'))
+
+
+@app.route('/migrate_uploads_to_db')
+@require_admin_auth
+def migrate_uploads_to_db():
+    """Migrate any remaining files from uploads folder to PostgreSQL database"""
+    try:
+        import os
+        uploads_folder = 'static/uploads'
+        migrated_count = 0
+        
+        if not os.path.exists(uploads_folder):
+            flash('Pasta uploads não encontrada - todos os arquivos já estão no banco.', 'info')
+            return redirect(url_for('dashboard'))
+        
+        # Get all classrooms that might have old file references
+        classrooms = Classroom.query.all()
+        
+        for classroom in classrooms:
+            # Check if classroom has image_filename but no image_data
+            if classroom.image_filename and not classroom.image_data:
+                old_image_path = os.path.join(uploads_folder, classroom.image_filename)
+                if os.path.exists(old_image_path):
+                    try:
+                        with open(old_image_path, 'rb') as f:
+                            classroom.image_data = f.read()
+                            # Determine mimetype from extension
+                            ext = classroom.image_filename.lower().split('.')[-1]
+                            mime_map = {
+                                'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+                                'png': 'image/png', 'gif': 'image/gif'
+                            }
+                            classroom.image_mimetype = mime_map.get(ext, 'image/jpeg')
+                            migrated_count += 1
+                    except Exception as e:
+                        print(f"Erro ao migrar imagem {classroom.image_filename}: {e}")
+            
+            # Check if classroom has excel_filename but no excel_data
+            # Also check Excel files with any uploads pattern
+            if classroom.excel_filename and not classroom.excel_data:
+                old_excel_path = os.path.join(uploads_folder, classroom.excel_filename)
+                if os.path.exists(old_excel_path):
+                    try:
+                        with open(old_excel_path, 'rb') as f:
+                            classroom.excel_data = f.read()
+                            classroom.excel_mimetype = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                            migrated_count += 1
+                    except Exception as e:
+                        print(f"Erro ao migrar Excel {classroom.excel_filename}: {e}")
+        
+        db.session.commit()
+        flash(f'Migração concluída! {migrated_count} arquivos movidos para o banco PostgreSQL.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro durante migração: {str(e)}', 'error')
+    
+    return redirect(url_for('dashboard'))
 
 @app.route('/add_classroom', methods=['GET', 'POST'])
 @require_admin_auth
