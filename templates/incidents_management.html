@@ -21,7 +21,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="mb-0"><i class="fas fa-exclamation-triangle me-2 text-warning"></i>Painel de Ocorrências</h3>
                     <div>
-                        <span class="badge bg-danger me-2">{{ pending_count }} Pendentes</span>
+                        <span class="badge bg-warning text-dark me-2">{{ pending_count }} Em Andamento</span>
                         <span class="badge bg-success">{{ resolved_count }} Resolvidas</span>
                     </div>
                 </div>
@@ -33,7 +33,7 @@
                             <label for="status_filter" class="form-label">Status</label>
                             <select class="form-select" id="status_filter" name="status">
                                 <option value="">Todos</option>
-                                <option value="pending" {{ 'selected' if current_filters.status == 'pending' }}>Pendentes</option>
+                                <option value="pending" {{ 'selected' if current_filters.status == 'pending' }}>Em Andamento</option>
                                 <option value="resolved" {{ 'selected' if current_filters.status == 'resolved' }}>Resolvidas</option>
                             </select>
                         </div>
@@ -142,8 +142,8 @@
                                                 <i class="fas fa-check me-1"></i>Resolvida
                                             </span>
                                         {% else %}
-                                            <span class="badge bg-danger">
-                                                <i class="fas fa-clock me-1"></i>Pendente
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-hourglass-half me-1"></i>Em Andamento
                                             </span>
                                         {% endif %}
                                     </td>
