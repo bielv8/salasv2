@@ -68,8 +68,12 @@ Nova Sala - SENAI Morvan Figueiredo
                             {% if classroom and classroom.image_filename %}
                             <div class="mt-2">
                                 <small class="text-muted">Imagem atual:</small>
-                                <img src="{{ url_for('static', filename='uploads/' + classroom.image_filename) }}" 
+                                {% if classroom.image_data %}
+                                <img src="{{ url_for('serve_image', classroom_id=classroom.id) }}" 
                                      alt="Imagem atual" class="img-thumbnail" style="max-width: 150px; max-height: 100px;">
+                                {% else %}
+                                <div class="text-muted">Nenhuma imagem salva</div>
+                                {% endif %}
                             </div>
                             {% endif %}
                         </div>

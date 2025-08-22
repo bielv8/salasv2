@@ -92,7 +92,13 @@
              data-instructors="{% for schedule in classroom.schedules %}{{ schedule.instructor|lower }} {% endfor %}">
             <div class="card h-100 clean-card">
                 {% if classroom.image_filename %}
-                <img src="{{ url_for('static', filename='uploads/' + classroom.image_filename) }}" class="classroom-image" alt="{{ classroom.name }}">
+                {% if classroom.image_data %}
+                <img src="{{ url_for('serve_image', classroom_id=classroom.id) }}" class="classroom-image" alt="{{ classroom.name }}">
+                {% else %}
+                <div class="no-image-placeholder d-flex align-items-center justify-content-center">
+                    <i class="fas fa-image text-muted fa-2x"></i>
+                </div>
+                {% endif %}
                 {% else %}
                 <div class="classroom-image-placeholder">
                     <i class="fas fa-door-open"></i>

@@ -82,7 +82,13 @@
             <div class="card classroom-card h-100">
                 <!-- Room Image -->
                 {% if room.image_filename %}
-                <img src="{{ url_for('static', filename='uploads/' + room.image_filename) }}" class="classroom-image" alt="{{ room.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                {% if room.image_data %}
+                <img src="{{ url_for('serve_image', classroom_id=room.id) }}" class="classroom-image" alt="{{ room.name }}">
+                {% else %}
+                <div class="no-image-placeholder d-flex align-items-center justify-content-center">
+                    <i class="fas fa-image text-muted fa-2x"></i>
+                </div>
+                {% endif %}
                 <div class="classroom-image-placeholder" style="display: none;">
                     <i class="fas fa-chalkboard-teacher"></i>
                 </div>
@@ -164,7 +170,13 @@
             <div class="card classroom-card h-100 border-danger">
                 <!-- Room Image -->
                 {% if room.image_filename %}
-                <img src="{{ url_for('static', filename='uploads/' + room.image_filename) }}" class="classroom-image" alt="{{ room.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                {% if room.image_data %}
+                <img src="{{ url_for('serve_image', classroom_id=room.id) }}" class="classroom-image" alt="{{ room.name }}">
+                {% else %}
+                <div class="no-image-placeholder d-flex align-items-center justify-content-center">
+                    <i class="fas fa-image text-muted fa-2x"></i>
+                </div>
+                {% endif %}
                 <div class="classroom-image-placeholder" style="display: none;">
                     <i class="fas fa-chalkboard-teacher"></i>
                 </div>
