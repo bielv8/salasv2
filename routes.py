@@ -87,36 +87,53 @@ def classroom_detail(classroom_id):
         )
     ).all()
     
-    # Get incidents for this classroom (active incidents)
-    # Use defensive query handling for PostgreSQL compatibility
+    # Get incidents for this classroom using raw SQL to avoid SQLAlchemy column issues
+    incidents = []
     try:
         from sqlalchemy import text
-        # Check if hidden_from_classroom column exists
         with db.engine.connect() as conn:
-            if 'postgresql' in str(db.engine.url) or 'postgres' in str(db.engine.url):
-                result = conn.execute(text("""
-                    SELECT column_name FROM information_schema.columns 
-                    WHERE table_name='incident' AND column_name='hidden_from_classroom'
-                """))
-                column_exists = result.fetchone() is not None
-            else:
-                try:
-                    conn.execute(text("SELECT hidden_from_classroom FROM incident LIMIT 1"))
-                    column_exists = True
-                except:
-                    column_exists = False
-        
-        if column_exists:
-            incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
-                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom.is_(None))
-            ).order_by(Incident.created_at.desc()).all()
-        else:
-            incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).order_by(Incident.created_at.desc()).all()
+            # First ensure the column exists
+            try:
+                conn.execute(text("ALTER TABLE incident ADD COLUMN IF NOT EXISTS hidden_from_classroom BOOLEAN DEFAULT FALSE"))
+                conn.commit()
+            except:
+                pass
+            
+            # Use safe SQL query
+            result = conn.execute(text("""
+                SELECT id, classroom_id, reporter_name, reporter_email, description, 
+                       created_at, is_active, is_resolved, admin_response, response_date,
+                       COALESCE(hidden_from_classroom, FALSE) as hidden_from_classroom
+                FROM incident 
+                WHERE classroom_id = :classroom_id 
+                  AND is_active = TRUE 
+                  AND COALESCE(hidden_from_classroom, FALSE) = FALSE
+                ORDER BY created_at DESC
+            """), {'classroom_id': classroom_id})
+            
+            incident_data = result.fetchall()
+            
+            # Convert to Incident-like objects for template compatibility
+            class IncidentProxy:
+                def __init__(self, row):
+                    self.id = row[0]
+                    self.classroom_id = row[1]
+                    self.reporter_name = row[2]
+                    self.reporter_email = row[3]
+                    self.description = row[4]
+                    self.created_at = row[5]
+                    self.is_active = row[6]
+                    self.is_resolved = row[7]
+                    self.admin_response = row[8]
+                    self.response_date = row[9]
+                    self.hidden_from_classroom = row[10]
+            
+            incidents = [IncidentProxy(row) for row in incident_data]
+            
     except Exception as e:
-        # Ultimate fallback - empty incidents list
-        incidents = []
         import logging
-        logging.warning(f"Incident query error: {e}")
+        logging.error(f"Incident query error: {e}")
+        incidents = []
     
     return render_template('classroom.html', classroom=classroom, schedules=schedules, incidents=incidents)
 
@@ -383,20 +400,22 @@ def hide_incident_from_classroom(incident_id):
         except:
             column_exists = False
         
-        # Hide incident using appropriate method
-        if column_exists:
-            # Use raw SQL to avoid SQLAlchemy issues
-            with db.engine.connect() as conn:
-                conn.execute(text("""
-                    UPDATE incident 
-                    SET hidden_from_classroom = true 
-                    WHERE id = :incident_id
-                """), {'incident_id': incident_id})
+        # Hide incident using raw SQL with column creation if needed
+        with db.engine.connect() as conn:
+            # Ensure column exists first
+            try:
+                conn.execute(text("ALTER TABLE incident ADD COLUMN IF NOT EXISTS hidden_from_classroom BOOLEAN DEFAULT FALSE"))
                 conn.commit()
-        else:
-            # Fallback: mark as inactive
-            incident.is_active = False
-            db.session.commit()
+            except:
+                pass
+                
+            # Use raw SQL to avoid SQLAlchemy issues
+            conn.execute(text("""
+                UPDATE incident 
+                SET hidden_from_classroom = true 
+                WHERE id = :incident_id
+            """), {'incident_id': incident_id})
+            conn.commit()
             
         flash('Ocorrência removida da visualização da sala!', 'success')
     except Exception as e:
@@ -462,41 +481,13 @@ def incidents_management():
         # Use raw SQL to avoid SQLAlchemy model issues with missing columns
         from sqlalchemy import text
         
-        # Check if hidden_from_classroom column exists
-        column_exists = False
-        try:
-            with db.engine.connect() as conn:
-                if 'postgresql' in str(db.engine.url) or 'postgres' in str(db.engine.url):
-                    result = conn.execute(text("""
-                        SELECT column_name FROM information_schema.columns 
-                        WHERE table_name='incident' AND column_name='hidden_from_classroom'
-                    """))
-                    column_exists = result.fetchone() is not None
-                else:
-                    # SQLite check
-                    try:
-                        conn.execute(text("SELECT hidden_from_classroom FROM incident LIMIT 1"))
-                        column_exists = True
-                    except:
-                        column_exists = False
-        except:
-            column_exists = False
-        
-        # Build SQL query based on column existence
+        # Use simplified SQL with COALESCE to handle missing column gracefully
         base_sql = """
             SELECT id, classroom_id, reporter_name, reporter_email, description, 
-                   created_at, is_active, is_resolved, admin_response, response_date
+                   created_at, is_active, is_resolved, admin_response, response_date,
+                   COALESCE(hidden_from_classroom, FALSE) as hidden_from_classroom
         """
-        
-        if column_exists:
-            base_sql = """
-                SELECT id, classroom_id, reporter_name, reporter_email, description, 
-                       created_at, is_active, is_resolved, admin_response, response_date,
-                       hidden_from_classroom
-            """
-            where_clause = "WHERE is_active = true AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)"
-        else:
-            where_clause = "WHERE is_active = true"
+        where_clause = "WHERE is_active = true AND COALESCE(hidden_from_classroom, FALSE) = FALSE"
         
         # Add filters to WHERE clause
         filter_conditions = []
@@ -527,37 +518,58 @@ def incidents_management():
         
         # Execute query and convert to incident objects
         with db.engine.connect() as conn:
+            # Ensure column exists first
+            try:
+                conn.execute(text("ALTER TABLE incident ADD COLUMN IF NOT EXISTS hidden_from_classroom BOOLEAN DEFAULT FALSE"))
+                conn.commit()
+            except:
+                pass
+                
             result = conn.execute(text(full_sql), params)
             incident_rows = result.fetchall()
         
-        incidents = []
-        for row in incident_rows:
-            incident = Incident.query.get(row[0])
-            if incident:
-                incidents.append(incident)
+        # Convert to Incident-like objects for template compatibility
+        class IncidentProxy:
+            def __init__(self, row):
+                self.id = row[0]
+                self.classroom_id = row[1]
+                self.reporter_name = row[2]
+                self.reporter_email = row[3]
+                self.description = row[4]
+                self.created_at = row[5]
+                self.is_active = row[6]
+                self.is_resolved = row[7]
+                self.admin_response = row[8]
+                self.response_date = row[9]
+                if len(row) > 10:
+                    self.hidden_from_classroom = row[10]
+                else:
+                    self.hidden_from_classroom = False
+                
+                # Add classroom relationship
+                self.classroom = Classroom.query.get(self.classroom_id)
         
-        # Get counts using safe SQL
+        incidents = [IncidentProxy(row) for row in incident_rows]
+        
+        # Get counts using safe SQL with COALESCE
         with db.engine.connect() as conn:
-            if column_exists:
-                pending_result = conn.execute(text("""
-                    SELECT COUNT(*) FROM incident 
-                    WHERE is_active = true AND is_resolved = false 
-                    AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)
-                """))
-                resolved_result = conn.execute(text("""
-                    SELECT COUNT(*) FROM incident 
-                    WHERE is_active = true AND is_resolved = true 
-                    AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)
-                """))
-            else:
-                pending_result = conn.execute(text("""
-                    SELECT COUNT(*) FROM incident 
-                    WHERE is_active = true AND is_resolved = false
-                """))
-                resolved_result = conn.execute(text("""
-                    SELECT COUNT(*) FROM incident 
-                    WHERE is_active = true AND is_resolved = true
-                """))
+            # Ensure column exists first
+            try:
+                conn.execute(text("ALTER TABLE incident ADD COLUMN IF NOT EXISTS hidden_from_classroom BOOLEAN DEFAULT FALSE"))
+                conn.commit()
+            except:
+                pass
+                
+            pending_result = conn.execute(text("""
+                SELECT COUNT(*) FROM incident 
+                WHERE is_active = true AND is_resolved = false 
+                AND COALESCE(hidden_from_classroom, FALSE) = FALSE
+            """))
+            resolved_result = conn.execute(text("""
+                SELECT COUNT(*) FROM incident 
+                WHERE is_active = true AND is_resolved = true 
+                AND COALESCE(hidden_from_classroom, FALSE) = FALSE
+            """))
             
             pending_count = pending_result.scalar()
             resolved_count = resolved_result.scalar()
@@ -566,17 +578,11 @@ def incidents_management():
         classrooms = Classroom.query.all()
         
         with db.engine.connect() as conn:
-            if column_exists:
-                reporters_result = conn.execute(text("""
-                    SELECT DISTINCT reporter_name FROM incident 
-                    WHERE is_active = true 
-                    AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)
-                """))
-            else:
-                reporters_result = conn.execute(text("""
-                    SELECT DISTINCT reporter_name FROM incident 
-                    WHERE is_active = true
-                """))
+            reporters_result = conn.execute(text("""
+                SELECT DISTINCT reporter_name FROM incident 
+                WHERE is_active = true 
+                AND COALESCE(hidden_from_classroom, FALSE) = FALSE
+            """))
             reporters = [row[0] for row in reporters_result.fetchall()]
         
         return render_template('incidents_management.html', 
@@ -657,30 +663,8 @@ def incidents_pdf_report():
         # Use raw SQL for PDF report to avoid column issues
         from sqlalchemy import text
         
-        # Check if hidden_from_classroom column exists
-        column_exists = False
-        try:
-            with db.engine.connect() as conn:
-                if 'postgresql' in str(db.engine.url) or 'postgres' in str(db.engine.url):
-                    result = conn.execute(text("""
-                        SELECT column_name FROM information_schema.columns 
-                        WHERE table_name='incident' AND column_name='hidden_from_classroom'
-                    """))
-                    column_exists = result.fetchone() is not None
-                else:
-                    try:
-                        conn.execute(text("SELECT hidden_from_classroom FROM incident LIMIT 1"))
-                        column_exists = True
-                    except:
-                        column_exists = False
-        except:
-            column_exists = False
-        
-        # Build safe SQL query
-        if column_exists:
-            where_clause = "WHERE is_active = true AND (hidden_from_classroom = false OR hidden_from_classroom IS NULL)"
-        else:
-            where_clause = "WHERE is_active = true"
+        # Use simplified SQL with COALESCE for PDF report
+        where_clause = "WHERE is_active = true AND COALESCE(hidden_from_classroom, FALSE) = FALSE"
         
         # Add filters
         filter_conditions = []
@@ -709,17 +693,44 @@ def incidents_pdf_report():
         else:
             full_sql = f"SELECT id FROM incident {where_clause} ORDER BY created_at DESC"
         
-        # Get incident IDs and load objects
+        # Get incident data directly to avoid SQLAlchemy issues
         with db.engine.connect() as conn:
-            result = conn.execute(text(full_sql), params)
-            incident_ids = [row[0] for row in result.fetchall()]
+            # Ensure column exists first
+            try:
+                conn.execute(text("ALTER TABLE incident ADD COLUMN IF NOT EXISTS hidden_from_classroom BOOLEAN DEFAULT FALSE"))
+                conn.commit()
+            except:
+                pass
+                
+            # Get full incident data
+            full_data_sql = f"""
+                SELECT id, classroom_id, reporter_name, reporter_email, description, 
+                       created_at, is_active, is_resolved, admin_response, response_date
+                FROM incident {where_clause}
+            """
+            if filter_conditions:
+                full_data_sql += f" AND {' AND '.join(filter_conditions)}"
+            full_data_sql += " ORDER BY created_at DESC"
+            
+            result = conn.execute(text(full_data_sql), params)
+            incident_data = result.fetchall()
         
-        # Load incidents by ID to avoid column issues
-        incidents = []
-        for incident_id in incident_ids:
-            incident = Incident.query.get(incident_id)
-            if incident:
-                incidents.append(incident)
+        # Convert to incident-like objects
+        class IncidentProxy:
+            def __init__(self, row):
+                self.id = row[0]
+                self.classroom_id = row[1]
+                self.reporter_name = row[2]
+                self.reporter_email = row[3]
+                self.description = row[4]
+                self.created_at = row[5]
+                self.is_active = row[6]
+                self.is_resolved = row[7]
+                self.admin_response = row[8]
+                self.response_date = row[9]
+                self.classroom = Classroom.query.get(self.classroom_id)
+        
+        incidents = [IncidentProxy(row) for row in incident_data]
         
         # Generate PDF using ReportLab
         from reportlab.lib.pagesizes import letter, A4
