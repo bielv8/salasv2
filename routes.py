@@ -80,8 +80,8 @@ def classroom_detail(classroom_id):
         )
     ).all()
     
-    # Get incidents for this classroom (active incidents only)
-    incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).order_by(Incident.created_at.desc()).all()
+    # Get incidents for this classroom (active incidents that are not hidden from classroom)
+    incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True, hidden_from_classroom=False).order_by(Incident.created_at.desc()).all()
     
     return render_template('classroom.html', classroom=classroom, schedules=schedules, incidents=incidents)
 
@@ -328,8 +328,8 @@ def hide_incident_from_classroom(incident_id):
     classroom_id = incident.classroom_id
     
     try:
-        # Instead of hiding, we'll mark as inactive temporarily
-        incident.is_active = False
+        # Hide from classroom view only, keep visible in admin panel
+        incident.hidden_from_classroom = True
         db.session.commit()
         flash('Ocorrência removida da visualização da sala!', 'success')
     except Exception as e:

@@ -109,7 +109,7 @@ class Incident(db.Model):
     description = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
-    # hidden_from_classroom = db.Column(db.Boolean, default=False)  # Temporarily disabled for Railway compatibility
+    hidden_from_classroom = db.Column(db.Boolean, default=False)
     is_resolved = db.Column(db.Boolean, default=False)
     admin_response = db.Column(db.Text)
     response_date = db.Column(db.DateTime)
