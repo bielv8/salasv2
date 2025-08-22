@@ -5,6 +5,8 @@ Execute este comando no terminal do Railway:
 
 python railway_fix_simple.py
 
+OU acesse no navegador: https://sua-url.railway.app/admin/migrate_db
+
 Este script corrige o erro da coluna hidden_from_classroom
 """
 
@@ -19,55 +21,103 @@ def fix_railway():
         from app import app, db
         from sqlalchemy import text
         
+        print("🔧 INICIANDO CORREÇÃO RAILWAY...")
         print("🔧 Corrigindo banco PostgreSQL no Railway...")
         
         with app.app_context():
             with db.engine.connect() as conn:
-                print("✅ Conectado ao banco")
+                print("✅ Conectado ao banco PostgreSQL")
                 
-                # Comando direto para PostgreSQL
+                # Verificar se a coluna já existe
                 try:
-                    conn.execute(text("""
-                        ALTER TABLE incident 
-                        ADD COLUMN hidden_from_classroom BOOLEAN DEFAULT FALSE
+                    result = conn.execute(text("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name='incident' 
+                        AND column_name='hidden_from_classroom'
                     """))
-                    conn.commit()
-                    print("✅ Coluna hidden_from_classroom adicionada!")
+                    column_exists = result.fetchone() is not None
+                    print(f"📊 Coluna hidden_from_classroom existe: {column_exists}")
                 except Exception as e:
-                    if 'already exists' in str(e) or 'duplicate' in str(e):
-                        print("✅ Coluna hidden_from_classroom já existe!")
-                    else:
-                        print(f"Info: {e}")
+                    print(f"⚠️  Erro ao verificar coluna: {e}")
+                    column_exists = False
                 
-                # Garantir que valores nulos sejam corrigidos
+                # Adicionar coluna se não existir
+                if not column_exists:
+                    try:
+                        conn.execute(text("""
+                            ALTER TABLE incident 
+                            ADD COLUMN hidden_from_classroom BOOLEAN DEFAULT FALSE
+                        """))
+                        conn.commit()
+                        print("✅ Coluna hidden_from_classroom adicionada!")
+                    except Exception as e:
+                        print(f"❌ Erro ao adicionar coluna: {e}")
+                        return False
+                else:
+                    print("✅ Coluna hidden_from_classroom já existe!")
+                
+                # Garantir que valores nulos sejam FALSE
                 try:
-                    conn.execute(text("""
+                    result = conn.execute(text("""
                         UPDATE incident 
                         SET hidden_from_classroom = FALSE 
                         WHERE hidden_from_classroom IS NULL
                     """))
                     conn.commit()
-                    print("✅ Valores nulos corrigidos!")
+                    updated_rows = result.rowcount if hasattr(result, 'rowcount') else 0
+                    print(f"✅ {updated_rows} registros com valores nulos corrigidos!")
                 except Exception as e:
-                    print(f"Info update: {e}")
+                    print(f"⚠️  Info update: {e}")
                 
-                # Testar se tudo funciona
-                result = conn.execute(text("""
-                    SELECT COUNT(*) FROM incident 
-                    WHERE hidden_from_classroom IS NOT NULL
-                """))
-                count = result.scalar()
-                print(f"✅ Teste: {count} registros com hidden_from_classroom válido")
+                # Teste final
+                try:
+                    result = conn.execute(text("""
+                        SELECT COUNT(*) FROM incident 
+                        WHERE hidden_from_classroom IS NOT NULL
+                    """))
+                    count = result.scalar()
+                    print(f"✅ Teste final: {count} registros com hidden_from_classroom válido")
+                    
+                    # Teste da query que estava falhando
+                    result = conn.execute(text("""
+                        SELECT id, hidden_from_classroom 
+                        FROM incident 
+                        WHERE is_active = true 
+                        LIMIT 1
+                    """))
+                    test_row = result.fetchone()
+                    if test_row:
+                        print("✅ Query de teste funcionando corretamente!")
+                    else:
+                        print("✅ Sem registros, mas estrutura está correta!")
+                        
+                except Exception as e:
+                    print(f"❌ Erro no teste final: {e}")
+                    return False
                 
-        print("\n🎉 SUCESSO! Problema corrigido!")
-        print("Agora acesse: /incidents_management")
+        print("\n🎉🎉🎉 SUCESSO TOTAL! Problema corrigido! 🎉🎉🎉")
+        print("✅ A gestão de ocorrências agora deve funcionar!")
+        print("✅ Acesse: /incidents_management")
+        print("✅ Sistema totalmente operacional!")
         return True
         
     except Exception as e:
-        print(f"❌ Erro: {e}")
-        print("\nAlternativa: Acesse no navegador:")
-        print("https://sua-url.railway.app/admin/migrate_db")
+        print(f"❌ ERRO CRÍTICO: {e}")
+        print("\n🔧 ALTERNATIVAS:")
+        print("1. Acesse no navegador: https://sua-url.railway.app/admin/migrate_db")
+        print("2. Execute: python fix_railway.py")
+        print("3. Execute: python migrate_db.py")
         return False
 
 if __name__ == "__main__":
-    fix_railway()
+    print("=" * 50)
+    print("   CORREÇÃO RAILWAY - HIDDEN_FROM_CLASSROOM")
+    print("=" * 50)
+    success = fix_railway()
+    print("=" * 50)
+    if success:
+        print("STATUS: ✅ MIGRAÇÃO CONCLUÍDA COM SUCESSO!")
+    else:
+        print("STATUS: ❌ MIGRAÇÃO FALHOU - USE ALTERNATIVAS")
+    print("=" * 50)

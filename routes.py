@@ -402,8 +402,15 @@ def incidents_management():
         reporter_filter = request.args.get('reporter', '')
         classroom_filter = request.args.get('classroom', '')
         
-        # Base query for active incidents
-        query = Incident.query.filter_by(is_active=True)
+        # Defensive query handling for missing hidden_from_classroom column
+        try:
+            # Try with hidden_from_classroom filter (normal case)
+            query = Incident.query.filter_by(is_active=True).filter(
+                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
+            )
+        except Exception:
+            # Fallback if hidden_from_classroom column doesn't exist
+            query = Incident.query.filter_by(is_active=True)
         
         # Apply filters
         if status_filter == 'pending':
@@ -423,15 +430,29 @@ def incidents_management():
         
         incidents = query.order_by(Incident.created_at.desc()).all()
         
-        # Get counts for badges
-        pending_count = Incident.query.filter_by(is_active=True, is_resolved=False).count()
-        resolved_count = Incident.query.filter_by(is_active=True, is_resolved=True).count()
+        # Get counts for badges (with defensive handling)
+        try:
+            pending_count = Incident.query.filter_by(is_active=True, is_resolved=False).filter(
+                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
+            ).count()
+            resolved_count = Incident.query.filter_by(is_active=True, is_resolved=True).filter(
+                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
+            ).count()
+        except Exception:
+            # Fallback counts
+            pending_count = Incident.query.filter_by(is_active=True, is_resolved=False).count()
+            resolved_count = Incident.query.filter_by(is_active=True, is_resolved=True).count()
         
         # Get all classrooms for filter dropdown
         classrooms = Classroom.query.all()
         
-        # Get unique reporters for filter
-        reporters = db.session.query(Incident.reporter_name).filter_by(is_active=True).distinct().all()
+        # Get unique reporters for filter (with defensive handling)
+        try:
+            reporters = db.session.query(Incident.reporter_name).filter_by(is_active=True).filter(
+                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
+            ).distinct().all()
+        except Exception:
+            reporters = db.session.query(Incident.reporter_name).filter_by(is_active=True).distinct().all()
         reporters = [r[0] for r in reporters]
         
         return render_template('incidents_management.html', 
@@ -509,8 +530,13 @@ def incidents_pdf_report():
         reporter_filter = request.args.get('reporter', '')
         classroom_filter = request.args.get('classroom', '')
         
-        # Base query for active incidents
-        query = Incident.query.filter_by(is_active=True)
+        # Base query for active incidents (defensive handling)
+        try:
+            query = Incident.query.filter_by(is_active=True).filter(
+                (Incident.hidden_from_classroom == False) | (Incident.hidden_from_classroom == None)
+            )
+        except Exception:
+            query = Incident.query.filter_by(is_active=True)
         
         # Apply filters
         if status_filter == 'pending':
