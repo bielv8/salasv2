@@ -77,7 +77,7 @@ def classroom_detail(classroom_id):
         )
     ).all()
     
-    # Get incidents for this classroom
+    # Get incidents for this classroom (including resolved ones)
     incidents = Incident.query.filter_by(classroom_id=classroom_id, is_active=True).order_by(Incident.created_at.desc()).all()
     
     return render_template('classroom.html', classroom=classroom, schedules=schedules, incidents=incidents)
