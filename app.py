@@ -77,10 +77,18 @@ with app.app_context():
                     conn.execute(text("ALTER TABLE incident ADD COLUMN response_date TIMESTAMP"))
                 except:
                     pass  # Column already exists
+                # Add hidden_from_classroom column with better error handling
                 try:
-                    conn.execute(text("ALTER TABLE incident ADD COLUMN hidden_from_classroom BOOLEAN DEFAULT FALSE"))
-                except:
-                    pass  # Column already exists
+                    # For PostgreSQL
+                    conn.execute(text("ALTER TABLE incident ADD COLUMN IF NOT EXISTS hidden_from_classroom BOOLEAN DEFAULT FALSE"))
+                    conn.commit()
+                except Exception:
+                    try:
+                        # For SQLite and other databases
+                        conn.execute(text("ALTER TABLE incident ADD COLUMN hidden_from_classroom BOOLEAN DEFAULT FALSE"))
+                        conn.commit()
+                    except Exception:
+                        pass  # Column already exists
                 conn.commit()
         except Exception as migration_error:
             import logging
