@@ -79,16 +79,37 @@ with app.app_context():
                     pass  # Column already exists
                 # Add hidden_from_classroom column with better error handling
                 try:
-                    # For PostgreSQL
-                    conn.execute(text("ALTER TABLE incident ADD COLUMN IF NOT EXISTS hidden_from_classroom BOOLEAN DEFAULT FALSE"))
-                    conn.commit()
-                except Exception:
-                    try:
-                        # For SQLite and other databases
+                    # Different checks for different database types
+                    db_url_str = str(db.engine.url)
+                    column_exists = False
+                    
+                    if 'postgresql' in db_url_str or 'postgres' in db_url_str:
+                        # PostgreSQL check
+                        try:
+                            result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='incident' AND column_name='hidden_from_classroom'"))
+                            column_exists = result.fetchone() is not None
+                        except:
+                            column_exists = False
+                    else:
+                        # SQLite check - try to select the column
+                        try:
+                            conn.execute(text("SELECT hidden_from_classroom FROM incident LIMIT 1"))
+                            column_exists = True
+                        except:
+                            column_exists = False
+                    
+                    if not column_exists:
+                        # Add the column
                         conn.execute(text("ALTER TABLE incident ADD COLUMN hidden_from_classroom BOOLEAN DEFAULT FALSE"))
                         conn.commit()
-                    except Exception:
-                        pass  # Column already exists
+                        logging.info("✅ Added hidden_from_classroom column")
+                    else:
+                        logging.info("✅ hidden_from_classroom column already exists")
+                        
+                except Exception as col_error:
+                    # Final fallback: ignore if column already exists error
+                    logging.warning(f"Column migration info: {col_error}")
+                    pass
                 conn.commit()
         except Exception as migration_error:
             import logging

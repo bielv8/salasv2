@@ -25,11 +25,20 @@ def fix_railway_database():
                 if 'postgres' in db_url:
                     print("✅ PostgreSQL detectado")
                     
+                    # Verificar se coluna existe primeiro
+                    try:
+                        check_result = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name='incident' AND column_name='hidden_from_classroom'"))
+                        column_exists = check_result.fetchone() is not None
+                        print(f"Coluna hidden_from_classroom existe: {column_exists}")
+                    except:
+                        column_exists = False
+                    
                     # Comando específico para PostgreSQL
-                    sql_commands = [
-                        "ALTER TABLE incident ADD COLUMN IF NOT EXISTS hidden_from_classroom BOOLEAN DEFAULT FALSE;",
-                        "UPDATE incident SET hidden_from_classroom = FALSE WHERE hidden_from_classroom IS NULL;"
-                    ]
+                    sql_commands = []
+                    if not column_exists:
+                        sql_commands.append("ALTER TABLE incident ADD COLUMN hidden_from_classroom BOOLEAN DEFAULT FALSE;")
+                    
+                    sql_commands.append("UPDATE incident SET hidden_from_classroom = FALSE WHERE hidden_from_classroom IS NULL;")
                     
                     for cmd in sql_commands:
                         try:
