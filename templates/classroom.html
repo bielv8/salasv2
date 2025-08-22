@@ -169,15 +169,15 @@
                     {% if incidents %}
                     <div class="incident-chat">
                         {% for incident in incidents %}
-                        <div class="incident-conversation mb-4 p-3 border rounded {{ 'bg-success bg-opacity-5' if incident.is_resolved else 'bg-warning bg-opacity-5' }}">
+                        <div class="incident-conversation mb-4 p-3 border rounded {{ 'bg-light bg-opacity-50' if incident.is_resolved else 'bg-secondary bg-opacity-10' }}">
                             <!-- Status Header -->
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 {% if incident.is_resolved %}
-                                <span class="badge bg-success">
+                                <span class="badge bg-secondary text-white">
                                     <i class="fas fa-check me-1"></i>Ocorrência Resolvida
                                 </span>
                                 {% else %}
-                                <span class="badge bg-warning">
+                                <span class="badge bg-light text-dark border">
                                     <i class="fas fa-clock me-1"></i>Aguardando Resposta
                                 </span>
                                 {% endif %}
