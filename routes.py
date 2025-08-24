@@ -964,10 +964,13 @@ def add_classroom():
                 description=request.form.get('description', ''),
                 block=request.form.get('block', ''),
                 image_filename=image_filename,
-                image_data=image_data,
-                image_mimetype=image_mimetype,
                 admin_password=request.form.get('admin_password', '')
             )
+            
+            # Set image data after creation
+            if image_data:
+                classroom.image_data = image_data
+                classroom.image_mimetype = image_mimetype
             
             db.session.add(classroom)
             db.session.commit()
