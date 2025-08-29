@@ -152,23 +152,31 @@
 
                     <!-- Action Buttons (only for pending requests) -->
                     {% if req.status == 'pending' %}
-                    <form action="{{ url_for('admin_schedule_request_action', request_id=req.id) }}" method="POST">
-                        <div class="mb-3">
-                            <label for="admin_notes_{{ req.id }}" class="form-label">Observações do Admin (opcional):</label>
-                            <textarea class="form-control" id="admin_notes_{{ req.id }}" name="admin_notes" rows="2" 
-                                      placeholder="Adicione observações sobre a decisão..."></textarea>
-                        </div>
-                        <div class="d-flex gap-2">
-                            <button type="submit" name="action" value="approve" class="btn btn-success flex-fill" 
-                                    onclick="return confirm('Confirma a aprovação desta solicitação?')">
+                    <div class="mb-3">
+                        <label class="form-label">Observações do Admin (opcional):</label>
+                        <textarea class="form-control" id="admin_notes_{{ req.id }}" rows="2" 
+                                  placeholder="Adicione observações sobre a decisão..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <!-- Approve Form -->
+                        <form action="{{ url_for('admin_schedule_request_action', request_id=req.id) }}" method="POST" class="flex-fill">
+                            <input type="hidden" name="action" value="approve">
+                            <input type="hidden" name="admin_notes" value="" id="approve_notes_{{ req.id }}">
+                            <button type="submit" class="btn btn-success w-100" 
+                                    onclick="document.getElementById('approve_notes_{{ req.id }}').value = document.getElementById('admin_notes_{{ req.id }}').value; return confirm('Confirma a aprovação desta solicitação?')">
                                 <i class="fas fa-check me-2"></i>Aprovar
                             </button>
-                            <button type="submit" name="action" value="reject" class="btn btn-danger flex-fill"
-                                    onclick="return confirm('Confirma a rejeição desta solicitação?')">
+                        </form>
+                        <!-- Reject Form -->
+                        <form action="{{ url_for('admin_schedule_request_action', request_id=req.id) }}" method="POST" class="flex-fill">
+                            <input type="hidden" name="action" value="reject">
+                            <input type="hidden" name="admin_notes" value="" id="reject_notes_{{ req.id }}">
+                            <button type="submit" class="btn btn-danger w-100"
+                                    onclick="document.getElementById('reject_notes_{{ req.id }}').value = document.getElementById('admin_notes_{{ req.id }}').value; return confirm('Confirma a rejeição desta solicitação?')">
                                 <i class="fas fa-times me-2"></i>Rejeitar
                             </button>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                     {% endif %}
                 </div>
             </div>
