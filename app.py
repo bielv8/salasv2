@@ -22,6 +22,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:/
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
+    "connect_args": {"client_encoding": "utf8"} if "postgresql" in os.environ.get("DATABASE_URL", "") else {}
 }
 
 # initialize the app with the extension
