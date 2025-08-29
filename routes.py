@@ -2096,10 +2096,10 @@ def admin_schedule_requests():
     if status_filter and status_filter != 'all':
         query = query.filter(ScheduleRequest.status == status_filter)
     
-    requests = query.order_by(ScheduleRequest.created_at.desc()).all()
+    schedule_requests = query.order_by(ScheduleRequest.created_at.desc()).all()
     
     return render_template('admin_schedule_requests.html', 
-                         requests=requests, 
+                         requests=schedule_requests, 
                          current_status=status_filter)
 
 @app.route('/admin/schedule_request/<int:request_id>/action', methods=['POST'])
