@@ -121,13 +121,14 @@ with app.app_context():
         existing_classrooms = models.Classroom.query.first()
         if not existing_classrooms:
             try:
+                # Create sample classrooms with explicit UTF-8 encoding
                 sample_classrooms = [
                     {
-                        'name': 'Laboratório de Jogos Digitais',
+                        'name': 'Laboratorio de Jogos Digitais',
                         'capacity': 34,
                         'has_computers': True,
                         'software': 'Unity, Unreal Engine, Blender',
-                        'description': 'Laboratório especializado para desenvolvimento de jogos digitais.',
+                        'description': 'Laboratorio especializado para desenvolvimento de jogos digitais.',
                         'block': 'Oficina 1',
                         'image_filename': ''
                     },
@@ -168,6 +169,8 @@ with app.app_context():
                 logging.info("Sample classrooms created successfully!")
             except Exception as e:
                 logging.error(f"Error creating sample data: {e}")
+                import traceback
+                traceback.print_exc()
                 db.session.rollback()
         else:
             logging.info("Database already has data, skipping sample creation")
