@@ -2111,6 +2111,10 @@ def admin_schedule_request_action(request_id):
         action = request.form.get('action')
         admin_notes = request.form.get('admin_notes', '').strip()
         
+        # Debug: log the action received
+        import logging
+        logging.info(f"Schedule request action received: '{action}' for request {request_id}")
+        
         if action == 'approve':
             # Create schedule entries for approved request
             try:
@@ -2137,28 +2141,35 @@ def admin_schedule_request_action(request_id):
                     )
                     db.session.add(new_schedule)
                 
+                # Update request status before final commit
                 schedule_request.status = 'approved'
+                schedule_request.admin_notes = admin_notes
+                schedule_request.reviewed_at = get_brazil_time()
+                schedule_request.reviewed_by = 'Admin'
+                
+                # Commit all changes together
+                db.session.commit()
                 flash(f'Solicitação aprovada! {len(dates_to_schedule)} horário(s) adicionado(s) ao sistema.', 'success')
+                return redirect(url_for('admin_schedule_requests'))
                 
             except Exception as e:
                 import logging
                 logging.error(f"Error creating schedules from approved request: {str(e)}")
-                flash('Erro ao criar horários no sistema. Solicitação não foi aprovada.', 'error')
+                logging.error(f"Request data: {schedule_request.__dict__}")
+                db.session.rollback()
+                flash(f'Erro ao criar horários no sistema: {str(e)}', 'error')
                 return redirect(url_for('admin_schedule_requests'))
                 
         elif action == 'reject':
             schedule_request.status = 'rejected'
+            schedule_request.admin_notes = admin_notes
+            schedule_request.reviewed_at = get_brazil_time()
+            schedule_request.reviewed_by = 'Admin'
+            db.session.commit()
             flash('Solicitação rejeitada.', 'info')
         else:
             flash('Ação inválida.', 'error')
             return redirect(url_for('admin_schedule_requests'))
-        
-        # Update request with admin info
-        schedule_request.admin_notes = admin_notes
-        schedule_request.reviewed_at = get_brazil_time()
-        schedule_request.reviewed_by = 'Admin'  # Could be improved with proper user management
-        
-        db.session.commit()
         
     except Exception as e:
         import logging
