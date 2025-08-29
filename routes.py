@@ -2075,7 +2075,7 @@ def submit_schedule_request():
         db.session.add(schedule_request)
         db.session.commit()
         
-        flash('Solicitação enviada com sucesso! Você receberá uma resposta por email.', 'success')
+        flash('Solicitação enviada com sucesso! qualquer duvida procure a gestão', 'success')
         return redirect(url_for('classroom_detail', classroom_id=classroom_id))
         
     except Exception as e:
