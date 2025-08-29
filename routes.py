@@ -2108,11 +2108,16 @@ def admin_schedule_request_action(request_id):
     """Admin action to approve or reject schedule requests"""
     try:
         schedule_request = ScheduleRequest.query.get_or_404(request_id)
+        # Debug: log all form data received
+        import logging
+        logging.info(f"Form data received: {dict(request.form)}")
+        logging.info(f"Request method: {request.method}")
+        logging.info(f"Content type: {request.content_type}")
+        
         action = request.form.get('action')
         admin_notes = request.form.get('admin_notes', '').strip()
         
         # Debug: log the action received
-        import logging
         logging.info(f"Schedule request action received: '{action}' for request {request_id}")
         
         if action == 'approve':
