@@ -48,14 +48,6 @@
                                     <label for="requester_email" class="form-label">Email *</label>
                                     <input type="email" class="form-control" id="requester_email" name="requester_email" required>
                                 </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="requester_phone" class="form-label">Telefone</label>
-                                    <input type="tel" class="form-control" id="requester_phone" name="requester_phone" placeholder="(XX) XXXXX-XXXX">
-                                </div>
-                                <div class="col-md-6 mb-3">
-                                    <label for="organization" class="form-label">Organização/Empresa</label>
-                                    <input type="text" class="form-control" id="organization" name="organization">
-                                </div>
                             </div>
                         </div>
 
@@ -112,23 +104,65 @@
                             <div id="bulk_dates_section" style="display: none;">
                                 <div class="alert alert-warning">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Solicitação em Massa:</strong> Adicione todas as datas que você precisa da sala. 
-                                    O turno e horário serão os mesmos para todas as datas.
+                                    <strong>Solicitação em Massa:</strong> Selecione o período e os dias da semana. 
+                                    O turno e horário serão os mesmos para todas as datas selecionadas.
                                 </div>
+                                
+                                <!-- Period Selection -->
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="start_date_bulk" class="form-label">Data Inicial *</label>
+                                        <input type="date" class="form-control" id="start_date_bulk" name="start_date_bulk">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="end_date_bulk" class="form-label">Data Final *</label>
+                                        <input type="date" class="form-control" id="end_date_bulk" name="end_date_bulk">
+                                    </div>
+                                </div>
+
+                                <!-- Days of Week Selection -->
                                 <div class="mb-3">
-                                    <label class="form-label">Datas Solicitadas *</label>
-                                    <div id="dates_container">
-                                        <div class="input-group mb-2">
-                                            <input type="date" class="form-control" name="additional_dates[]">
-                                            <button type="button" class="btn btn-outline-danger" onclick="removeDate(this)" disabled>
-                                                <i class="fas fa-trash"></i>
-                                            </button>
+                                    <label class="form-label">Dias da Semana *</label>
+                                    <div class="row">
+                                        <div class="col-md-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="monday" name="weekdays[]" value="0">
+                                                <label class="form-check-label" for="monday">Segunda</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="tuesday" name="weekdays[]" value="1">
+                                                <label class="form-check-label" for="tuesday">Terça</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="wednesday" name="weekdays[]" value="2">
+                                                <label class="form-check-label" for="wednesday">Quarta</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="thursday" name="weekdays[]" value="3">
+                                                <label class="form-check-label" for="thursday">Quinta</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="friday" name="weekdays[]" value="4">
+                                                <label class="form-check-label" for="friday">Sexta</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="saturday" name="weekdays[]" value="5">
+                                                <label class="form-check-label" for="saturday">Sábado</label>
+                                            </div>
                                         </div>
                                     </div>
-                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addDate()">
-                                        <i class="fas fa-plus me-1"></i>Adicionar Data
-                                    </button>
                                 </div>
+
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
                                         <label for="bulk_shift" class="form-label">Turno (todas as datas) *</label>

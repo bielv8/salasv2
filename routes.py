@@ -1986,8 +1986,6 @@ def submit_schedule_request():
         classroom_id = request.form.get('classroom_id')
         requester_name = request.form.get('requester_name', '').strip()
         requester_email = request.form.get('requester_email', '').strip()
-        requester_phone = request.form.get('requester_phone', '').strip()
-        organization = request.form.get('organization', '').strip()
         event_name = request.form.get('event_name', '').strip()
         description = request.form.get('description', '').strip()
         
@@ -2000,30 +1998,45 @@ def submit_schedule_request():
         is_bulk_request = request.form.get('is_bulk_request') == 'on'
         
         if is_bulk_request:
-            # Process multiple dates
-            additional_dates = []
-            date_fields = request.form.getlist('additional_dates[]')
-            for date_str in date_fields:
-                if date_str.strip():
-                    try:
-                        parsed_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-                        additional_dates.append({
-                            'date': date_str,
-                            'day_of_week': parsed_date.weekday()
-                        })
-                    except ValueError:
-                        continue
+            # Process date range with weekday selection
+            start_date_str = request.form.get('start_date_bulk', '').strip()
+            end_date_str = request.form.get('end_date_bulk', '').strip()
+            weekdays = request.form.getlist('weekdays[]')
+            
+            if not start_date_str or not end_date_str or not weekdays:
+                flash('Erro: Por favor, selecione o período e os dias da semana.', 'error')
+                return redirect(url_for('request_schedule', classroom_id=classroom_id))
+            
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                weekdays = [int(w) for w in weekdays]
+            except ValueError:
+                flash('Erro: Formato de data inválido.', 'error')
+                return redirect(url_for('request_schedule', classroom_id=classroom_id))
+            
+            if start_date > end_date:
+                flash('Erro: A data inicial deve ser anterior à data final.', 'error')
+                return redirect(url_for('request_schedule', classroom_id=classroom_id))
+            
+            # Generate all dates based on period and selected weekdays
+            generated_dates = []
+            current_date = start_date
+            while current_date <= end_date:
+                if current_date.weekday() in weekdays:
+                    generated_dates.append(current_date.strftime('%Y-%m-%d'))
+                current_date += timedelta(days=1)
+            
+            if not generated_dates:
+                flash('Erro: Nenhuma data válida foi gerada com os critérios selecionados.', 'error')
+                return redirect(url_for('request_schedule', classroom_id=classroom_id))
             
             # Use the first date as primary date
-            if additional_dates:
-                primary_date = datetime.strptime(additional_dates[0]['date'], '%Y-%m-%d').date()
-                primary_day_of_week = additional_dates[0]['day_of_week']
-                
-                # Store other dates as JSON
-                other_dates = json.dumps([d['date'] for d in additional_dates[1:]])
-            else:
-                flash('Erro: Nenhuma data válida foi fornecida.', 'error')
-                return redirect(url_for('request_schedule', classroom_id=classroom_id))
+            primary_date = datetime.strptime(generated_dates[0], '%Y-%m-%d').date()
+            primary_day_of_week = primary_date.weekday()
+            
+            # Store other dates as JSON
+            other_dates = json.dumps(generated_dates[1:]) if len(generated_dates) > 1 else None
         else:
             # Single date request
             requested_date_str = request.form.get('requested_date', '').strip()
@@ -2049,8 +2062,6 @@ def submit_schedule_request():
             classroom_id=int(classroom_id),
             requester_name=requester_name,
             requester_email=requester_email,
-            requester_phone=requester_phone,
-            organization=organization,
             event_name=event_name,
             description=description,
             requested_date=primary_date,

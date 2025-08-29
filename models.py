@@ -175,14 +175,14 @@ class ScheduleRequest(db.Model):
     # Relationship with classroom
     classroom = db.relationship('Classroom', backref='schedule_requests')
     
-    def __init__(self, classroom_id=0, requester_name='', requester_email='', requester_phone='', 
-                 organization='', event_name='', description='', requested_date=None, 
+    def __init__(self, classroom_id=0, requester_name='', requester_email='', 
+                 event_name='', description='', requested_date=None, 
                  day_of_week=0, shift='', start_time='', end_time='', additional_dates=''):
         self.classroom_id = classroom_id
         self.requester_name = requester_name
         self.requester_email = requester_email
-        self.requester_phone = requester_phone
-        self.organization = organization
+        self.requester_phone = ''  # Keep for compatibility but not required
+        self.organization = ''  # Keep for compatibility but not required
         self.event_name = event_name
         self.description = description
         self.requested_date = requested_date
@@ -200,8 +200,6 @@ class ScheduleRequest(db.Model):
             'classroom_name': self.classroom.name if self.classroom else 'Sala não encontrada',
             'requester_name': self.requester_name,
             'requester_email': self.requester_email,
-            'requester_phone': self.requester_phone,
-            'organization': self.organization,
             'event_name': self.event_name,
             'description': self.description,
             'requested_date': self.requested_date.strftime('%d/%m/%Y') if self.requested_date else '',
