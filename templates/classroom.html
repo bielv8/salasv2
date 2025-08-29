@@ -257,6 +257,9 @@
                         <a href="{{ url_for('generate_qr', classroom_id=classroom.id) }}" class="btn btn-outline-secondary">
                             <i class="fas fa-qrcode me-2"></i>Gerar QR Code
                         </a>
+                        <a href="{{ url_for('request_schedule', classroom_id=classroom.id) }}" class="btn btn-outline-success">
+                            <i class="fas fa-calendar-plus me-2"></i>Solicitar Horário
+                        </a>
                         <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#incidentModal">
                             <i class="fas fa-exclamation-triangle me-2"></i>Registrar Ocorrência
                         </button>

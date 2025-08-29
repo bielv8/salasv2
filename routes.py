@@ -1,8 +1,9 @@
 import os
 import sys
+import json
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app import app, db
-from models import Classroom, Schedule, Incident
+from models import Classroom, Schedule, Incident, ScheduleRequest
 from datetime import datetime, timedelta
 try:
     import pytz
@@ -1196,6 +1197,7 @@ def dashboard():
     capacity_filter = request.args.get('capacity', '')
     day_filter = request.args.get('day', '')
     shift_filter = request.args.get('shift', '')
+    week_filter = request.args.get('week', '')  # New week filter parameter
     
     # Build classroom query with filters
     classroom_query = Classroom.query
@@ -1224,15 +1226,51 @@ def dashboard():
     # Build schedule query with filters - ONLY SHOW ACTIVE/CURRENT COURSES
     current_date = get_brazil_time().date()
     
+    # Calculate week dates for filtering
+    if week_filter:
+        try:
+            # Parse the week filter date (format: YYYY-MM-DD)
+            week_start_date = datetime.strptime(week_filter, '%Y-%m-%d').date()
+            # Get Monday of that week
+            days_since_monday = week_start_date.weekday()
+            week_monday = week_start_date - timedelta(days=days_since_monday)
+            week_sunday = week_monday + timedelta(days=6)
+        except (ValueError, TypeError):
+            # If invalid date, use current week
+            days_since_monday = current_date.weekday()
+            week_monday = current_date - timedelta(days=days_since_monday)
+            week_sunday = week_monday + timedelta(days=6)
+    else:
+        # Default to current week
+        days_since_monday = current_date.weekday()
+        week_monday = current_date - timedelta(days=days_since_monday)
+        week_sunday = week_monday + timedelta(days=6)
+    
     schedule_query = Schedule.query.filter_by(is_active=True)
     
-    # Filter out expired courses - only show courses that haven't ended yet
-    schedule_query = schedule_query.filter(
-        db.or_(
-            Schedule.end_date.is_(None),  # No end date specified
-            Schedule.end_date >= current_date  # Course hasn't ended yet
+    # Filter out expired courses - only show courses that haven't ended yet OR courses running in the selected week
+    if week_filter:
+        # For week filter, show courses that are active during the selected week
+        schedule_query = schedule_query.filter(
+            db.and_(
+                db.or_(
+                    Schedule.start_date.is_(None),  # No start date specified
+                    Schedule.start_date <= week_sunday  # Course started before or during the week
+                ),
+                db.or_(
+                    Schedule.end_date.is_(None),  # No end date specified
+                    Schedule.end_date >= week_monday  # Course ends after or during the week
+                )
+            )
         )
-    )
+    else:
+        # For normal view, only show courses that haven't ended yet
+        schedule_query = schedule_query.filter(
+            db.or_(
+                Schedule.end_date.is_(None),  # No end date specified
+                Schedule.end_date >= current_date  # Course hasn't ended yet
+            )
+        )
     
     if day_filter:
         schedule_query = schedule_query.filter(Schedule.day_of_week == int(day_filter))
@@ -1287,7 +1325,13 @@ def dashboard():
                              'has_computers': has_computers_filter,
                              'capacity': capacity_filter,
                              'day': day_filter,
-                             'shift': shift_filter
+                             'shift': shift_filter,
+                             'week': week_filter
+                         },
+                         week_dates={
+                             'monday': week_monday,
+                             'sunday': week_sunday,
+                             'formatted': f"{week_monday.strftime('%d/%m')} - {week_sunday.strftime('%d/%m/%Y')}"
                          })
 
 @app.route('/availability')
@@ -1926,3 +1970,211 @@ def export_filtered_excel():
     except Exception as e:
         flash(f'Erro ao gerar Excel filtrado: {str(e)}', 'error')
         return redirect(url_for('dashboard'))
+
+# Schedule Request Routes (for non-logged-in users)
+@app.route('/request_schedule/<int:classroom_id>')
+def request_schedule(classroom_id):
+    """Show schedule request form for a specific classroom"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    return render_template('request_schedule.html', classroom=classroom)
+
+@app.route('/submit_schedule_request', methods=['POST'])
+def submit_schedule_request():
+    """Process schedule request form submission"""
+    try:
+        # Get form data
+        classroom_id = request.form.get('classroom_id')
+        requester_name = request.form.get('requester_name', '').strip()
+        requester_email = request.form.get('requester_email', '').strip()
+        requester_phone = request.form.get('requester_phone', '').strip()
+        organization = request.form.get('organization', '').strip()
+        event_name = request.form.get('event_name', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        # Schedule details
+        shift = request.form.get('shift', '').strip()
+        start_time = request.form.get('start_time', '').strip()
+        end_time = request.form.get('end_time', '').strip()
+        
+        # Check for bulk request (multiple dates)
+        is_bulk_request = request.form.get('is_bulk_request') == 'on'
+        
+        if is_bulk_request:
+            # Process multiple dates
+            additional_dates = []
+            date_fields = request.form.getlist('additional_dates[]')
+            for date_str in date_fields:
+                if date_str.strip():
+                    try:
+                        parsed_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                        additional_dates.append({
+                            'date': date_str,
+                            'day_of_week': parsed_date.weekday()
+                        })
+                    except ValueError:
+                        continue
+            
+            # Use the first date as primary date
+            if additional_dates:
+                primary_date = datetime.strptime(additional_dates[0]['date'], '%Y-%m-%d').date()
+                primary_day_of_week = additional_dates[0]['day_of_week']
+                
+                # Store other dates as JSON
+                other_dates = json.dumps([d['date'] for d in additional_dates[1:]])
+            else:
+                flash('Erro: Nenhuma data válida foi fornecida.', 'error')
+                return redirect(url_for('request_schedule', classroom_id=classroom_id))
+        else:
+            # Single date request
+            requested_date_str = request.form.get('requested_date', '').strip()
+            if not requested_date_str:
+                flash('Erro: Data é obrigatória.', 'error')
+                return redirect(url_for('request_schedule', classroom_id=classroom_id))
+            
+            try:
+                primary_date = datetime.strptime(requested_date_str, '%Y-%m-%d').date()
+                primary_day_of_week = primary_date.weekday()
+                other_dates = ''
+            except ValueError:
+                flash('Erro: Data inválida.', 'error')
+                return redirect(url_for('request_schedule', classroom_id=classroom_id))
+        
+        # Validate required fields
+        if not all([requester_name, requester_email, event_name, description, shift, start_time, end_time]):
+            flash('Erro: Todos os campos obrigatórios devem ser preenchidos.', 'error')
+            return redirect(url_for('request_schedule', classroom_id=classroom_id))
+        
+        # Create schedule request
+        schedule_request = ScheduleRequest(
+            classroom_id=int(classroom_id),
+            requester_name=requester_name,
+            requester_email=requester_email,
+            requester_phone=requester_phone,
+            organization=organization,
+            event_name=event_name,
+            description=description,
+            requested_date=primary_date,
+            day_of_week=primary_day_of_week,
+            shift=shift,
+            start_time=start_time,
+            end_time=end_time,
+            additional_dates=other_dates
+        )
+        
+        db.session.add(schedule_request)
+        db.session.commit()
+        
+        flash('Solicitação enviada com sucesso! Você receberá uma resposta por email.', 'success')
+        return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error submitting schedule request: {str(e)}")
+        db.session.rollback()
+        flash('Erro ao enviar solicitação. Tente novamente.', 'error')
+        return redirect(url_for('request_schedule', classroom_id=classroom_id))
+
+# Admin routes for managing schedule requests
+@app.route('/admin/schedule_requests')
+@require_admin_auth
+def admin_schedule_requests():
+    """Admin page to view and manage schedule requests"""
+    status_filter = request.args.get('status', 'pending')
+    
+    query = ScheduleRequest.query
+    if status_filter and status_filter != 'all':
+        query = query.filter(ScheduleRequest.status == status_filter)
+    
+    requests = query.order_by(ScheduleRequest.created_at.desc()).all()
+    
+    return render_template('admin_schedule_requests.html', 
+                         requests=requests, 
+                         current_status=status_filter)
+
+@app.route('/admin/schedule_request/<int:request_id>/action', methods=['POST'])
+@require_admin_auth
+def admin_schedule_request_action(request_id):
+    """Admin action to approve or reject schedule requests"""
+    try:
+        schedule_request = ScheduleRequest.query.get_or_404(request_id)
+        action = request.form.get('action')
+        admin_notes = request.form.get('admin_notes', '').strip()
+        
+        if action == 'approve':
+            # Create schedule entries for approved request
+            try:
+                # Parse additional dates if they exist
+                dates_to_schedule = [schedule_request.requested_date]
+                if schedule_request.additional_dates:
+                    additional_dates = json.loads(schedule_request.additional_dates)
+                    for date_str in additional_dates:
+                        dates_to_schedule.append(datetime.strptime(date_str, '%Y-%m-%d').date())
+                
+                # Create schedule entries for each date
+                for schedule_date in dates_to_schedule:
+                    new_schedule = Schedule(
+                        classroom_id=schedule_request.classroom_id,
+                        day_of_week=schedule_date.weekday(),
+                        shift=schedule_request.shift,
+                        course_name=schedule_request.event_name,
+                        instructor=schedule_request.requester_name,
+                        start_time=schedule_request.start_time,
+                        end_time=schedule_request.end_time,
+                        start_date=schedule_date,
+                        end_date=schedule_date,  # Single day event
+                        is_active=True
+                    )
+                    db.session.add(new_schedule)
+                
+                schedule_request.status = 'approved'
+                flash(f'Solicitação aprovada! {len(dates_to_schedule)} horário(s) adicionado(s) ao sistema.', 'success')
+                
+            except Exception as e:
+                import logging
+                logging.error(f"Error creating schedules from approved request: {str(e)}")
+                flash('Erro ao criar horários no sistema. Solicitação não foi aprovada.', 'error')
+                return redirect(url_for('admin_schedule_requests'))
+                
+        elif action == 'reject':
+            schedule_request.status = 'rejected'
+            flash('Solicitação rejeitada.', 'info')
+        else:
+            flash('Ação inválida.', 'error')
+            return redirect(url_for('admin_schedule_requests'))
+        
+        # Update request with admin info
+        schedule_request.admin_notes = admin_notes
+        schedule_request.reviewed_at = get_brazil_time()
+        schedule_request.reviewed_by = 'Admin'  # Could be improved with proper user management
+        
+        db.session.commit()
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error processing schedule request action: {str(e)}")
+        db.session.rollback()
+        flash('Erro ao processar solicitação.', 'error')
+    
+    return redirect(url_for('admin_schedule_requests'))
+
+# Template filters for proper data formatting
+@app.template_filter('from_json')
+def from_json(value):
+    """Convert JSON string to Python object"""
+    if not value:
+        return []
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+@app.template_filter('dateformat')
+def dateformat(value):
+    """Format date string to Brazilian format"""
+    try:
+        if isinstance(value, str):
+            date_obj = datetime.strptime(value, '%Y-%m-%d').date()
+            return date_obj.strftime('%d/%m/%Y')
+        return value
+    except (ValueError, TypeError):
+        return value

@@ -101,6 +101,19 @@
                             <option value="night" {{ 'selected' if current_filters.shift == 'night' else '' }}>Noite</option>
                         </select>
                     </div>
+                    <div class="col-md-2">
+                        <label for="week" class="form-label">Semana</label>
+                        <input type="date" class="form-control" id="week" name="week" 
+                               value="{{ current_filters.week }}" 
+                               title="Selecione qualquer dia da semana desejada">
+                        <small class="form-text text-muted">
+                            {% if week_dates %}
+                                Exibindo: {{ week_dates.formatted }}
+                            {% else %}
+                                Semana atual
+                            {% endif %}
+                        </small>
+                    </div>
                     <div class="col-12">
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-search me-2"></i>Aplicar Filtros

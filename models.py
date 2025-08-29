@@ -142,3 +142,80 @@ class Incident(db.Model):
     
     def __repr__(self):
         return f'<Incident {self.id} - {self.reporter_name}>'
+
+class ScheduleRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classroom.id'), nullable=False)
+    requester_name = db.Column(db.String(100), nullable=False)
+    requester_email = db.Column(db.String(100), nullable=False)
+    requester_phone = db.Column(db.String(20), default='')
+    organization = db.Column(db.String(100), default='')
+    event_name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    
+    # Schedule details
+    requested_date = db.Column(db.Date, nullable=False)
+    day_of_week = db.Column(db.Integer, nullable=False)  # 0=Monday, 1=Tuesday, ..., 6=Sunday
+    shift = db.Column(db.String(20), nullable=False)  # morning, afternoon, fullday, night
+    start_time = db.Column(db.String(10), nullable=False)
+    end_time = db.Column(db.String(10), nullable=False)
+    
+    # Bulk request support - for multiple dates
+    additional_dates = db.Column(db.Text, default='')  # JSON string with additional dates
+    
+    # Status tracking
+    status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
+    admin_notes = db.Column(db.Text, default='')
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    reviewed_at = db.Column(db.DateTime)
+    reviewed_by = db.Column(db.String(100), default='')
+    
+    # Relationship with classroom
+    classroom = db.relationship('Classroom', backref='schedule_requests')
+    
+    def __init__(self, classroom_id=0, requester_name='', requester_email='', requester_phone='', 
+                 organization='', event_name='', description='', requested_date=None, 
+                 day_of_week=0, shift='', start_time='', end_time='', additional_dates=''):
+        self.classroom_id = classroom_id
+        self.requester_name = requester_name
+        self.requester_email = requester_email
+        self.requester_phone = requester_phone
+        self.organization = organization
+        self.event_name = event_name
+        self.description = description
+        self.requested_date = requested_date
+        self.day_of_week = day_of_week
+        self.shift = shift
+        self.start_time = start_time
+        self.end_time = end_time
+        self.additional_dates = additional_dates
+        self.status = 'pending'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'classroom_id': self.classroom_id,
+            'classroom_name': self.classroom.name if self.classroom else 'Sala não encontrada',
+            'requester_name': self.requester_name,
+            'requester_email': self.requester_email,
+            'requester_phone': self.requester_phone,
+            'organization': self.organization,
+            'event_name': self.event_name,
+            'description': self.description,
+            'requested_date': self.requested_date.strftime('%d/%m/%Y') if self.requested_date else '',
+            'day_of_week': self.day_of_week,
+            'shift': self.shift,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'additional_dates': self.additional_dates,
+            'status': self.status,
+            'admin_notes': self.admin_notes,
+            'created_at': self.created_at.strftime('%d/%m/%Y às %H:%M') if self.created_at else '',
+            'reviewed_at': self.reviewed_at.strftime('%d/%m/%Y às %H:%M') if self.reviewed_at else '',
+            'reviewed_by': self.reviewed_by
+        }
+    
+    def __repr__(self):
+        return f'<ScheduleRequest {self.id} - {self.event_name}>'

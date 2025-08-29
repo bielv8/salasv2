@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Solicitações de Horários - Admin - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1><i class="fas fa-calendar-check me-2 text-primary"></i>Solicitações de Horários</h1>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Voltar ao Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h5 class="mb-0">Filtrar por Status:</h5>
+                </div>
+                <div class="col-md-6">
+                    <div class="btn-group w-100" role="group">
+                        <a href="{{ url_for('admin_schedule_requests', status='pending') }}" 
+                           class="btn {{ 'btn-warning' if current_status == 'pending' else 'btn-outline-warning' }}">
+                            <i class="fas fa-clock me-1"></i>Pendentes
+                        </a>
+                        <a href="{{ url_for('admin_schedule_requests', status='approved') }}" 
+                           class="btn {{ 'btn-success' if current_status == 'approved' else 'btn-outline-success' }}">
+                            <i class="fas fa-check me-1"></i>Aprovadas
+                        </a>
+                        <a href="{{ url_for('admin_schedule_requests', status='rejected') }}" 
+                           class="btn {{ 'btn-danger' if current_status == 'rejected' else 'btn-outline-danger' }}">
+                            <i class="fas fa-times me-1"></i>Rejeitadas
+                        </a>
+                        <a href="{{ url_for('admin_schedule_requests', status='all') }}" 
+                           class="btn {{ 'btn-primary' if current_status == 'all' else 'btn-outline-primary' }}">
+                            <i class="fas fa-list me-1"></i>Todas
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requests List -->
+    {% if requests %}
+    <div class="row">
+        {% for req in requests %}
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100 
+                {% if req.status == 'pending' %}border-warning
+                {% elif req.status == 'approved' %}border-success
+                {% elif req.status == 'rejected' %}border-danger
+                {% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-school me-2"></i>{{ req.classroom.name }}
+                    </h6>
+                    <span class="badge 
+                        {% if req.status == 'pending' %}bg-warning text-dark
+                        {% elif req.status == 'approved' %}bg-success
+                        {% elif req.status == 'rejected' %}bg-danger
+                        {% endif %}">
+                        {% if req.status == 'pending' %}Pendente
+                        {% elif req.status == 'approved' %}Aprovada
+                        {% elif req.status == 'rejected' %}Rejeitada
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <!-- Event Info -->
+                    <div class="mb-3">
+                        <h6><i class="fas fa-calendar-alt me-2 text-primary"></i>{{ req.event_name }}</h6>
+                        <p class="text-muted mb-2">{{ req.description }}</p>
+                    </div>
+
+                    <!-- Requester Info -->
+                    <div class="row mb-3">
+                        <div class="col-sm-6">
+                            <small class="text-muted">Solicitante:</small><br>
+                            <strong>{{ req.requester_name }}</strong><br>
+                            <a href="mailto:{{ req.requester_email }}" class="text-decoration-none">{{ req.requester_email }}</a>
+                            {% if req.requester_phone %}
+                            <br><i class="fas fa-phone me-1"></i>{{ req.requester_phone }}
+                            {% endif %}
+                            {% if req.organization %}
+                            <br><small class="text-muted">{{ req.organization }}</small>
+                            {% endif %}
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted">Solicitado em:</small><br>
+                            <strong>{{ req.created_at.strftime('%d/%m/%Y às %H:%M') }}</strong>
+                        </div>
+                    </div>
+
+                    <!-- Schedule Details -->
+                    <div class="alert alert-light">
+                        <div class="row">
+                            <div class="col-sm-6">
+                                <strong><i class="fas fa-calendar me-1"></i>Data:</strong><br>
+                                {{ req.requested_date.strftime('%d/%m/%Y') }}
+                                {% if req.additional_dates %}
+                                    {% set additional = req.additional_dates | from_json %}
+                                    {% if additional %}
+                                    <br><small class="text-muted">+ {{ additional | length }} data(s) adicional(is)</small>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            <div class="col-sm-6">
+                                <strong><i class="fas fa-clock me-1"></i>Horário:</strong><br>
+                                {{ req.start_time }} - {{ req.end_time }}<br>
+                                <small class="text-muted">
+                                    {% if req.shift == 'morning' %}Manhã
+                                    {% elif req.shift == 'afternoon' %}Tarde
+                                    {% elif req.shift == 'night' %}Noite
+                                    {% elif req.shift == 'fullday' %}Integral
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                        {% if req.additional_dates %}
+                            {% set additional = req.additional_dates | from_json %}
+                            {% if additional %}
+                            <hr>
+                            <strong>Datas Adicionais:</strong><br>
+                            {% for date in additional %}
+                                <span class="badge bg-secondary me-1">{{ date | dateformat }}</span>
+                            {% endfor %}
+                            {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Admin Response -->
+                    {% if req.status != 'pending' %}
+                    <div class="alert alert-info">
+                        <strong>Resposta do Admin:</strong><br>
+                        {% if req.admin_notes %}
+                            {{ req.admin_notes }}
+                        {% else %}
+                            <em>Nenhuma observação adicional</em>
+                        {% endif %}
+                        <br><small class="text-muted">
+                            Respondido por {{ req.reviewed_by }} em {{ req.reviewed_at.strftime('%d/%m/%Y às %H:%M') if req.reviewed_at else 'Data não disponível' }}
+                        </small>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Buttons (only for pending requests) -->
+                    {% if req.status == 'pending' %}
+                    <form action="{{ url_for('admin_schedule_request_action', request_id=req.id) }}" method="POST">
+                        <div class="mb-3">
+                            <label for="admin_notes_{{ req.id }}" class="form-label">Observações do Admin (opcional):</label>
+                            <textarea class="form-control" id="admin_notes_{{ req.id }}" name="admin_notes" rows="2" 
+                                      placeholder="Adicione observações sobre a decisão..."></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" name="action" value="approve" class="btn btn-success flex-fill" 
+                                    onclick="return confirm('Confirma a aprovação desta solicitação?')">
+                                <i class="fas fa-check me-2"></i>Aprovar
+                            </button>
+                            <button type="submit" name="action" value="reject" class="btn btn-danger flex-fill"
+                                    onclick="return confirm('Confirma a rejeição desta solicitação?')">
+                                <i class="fas fa-times me-2"></i>Rejeitar
+                            </button>
+                        </div>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+        <h4 class="text-muted">Nenhuma solicitação encontrada</h4>
+        <p class="text-muted">
+            {% if current_status == 'pending' %}
+                Não há solicitações pendentes no momento.
+            {% elif current_status == 'approved' %}
+                Não há solicitações aprovadas para exibir.
+            {% elif current_status == 'rejected' %}
+                Não há solicitações rejeitadas para exibir.
+            {% else %}
+                Não há solicitações de horários no sistema.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Helper function to format dates (if needed)
+function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pt-BR');
+}
+</script>
+{% endblock %}

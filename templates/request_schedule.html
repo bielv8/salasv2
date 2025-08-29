@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}Solicitar Horário - {{ classroom.name }} - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="fas fa-calendar-plus me-2 text-primary"></i>
+                        Solicitar Uso da Sala: {{ classroom.name }}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <!-- Classroom Info -->
+                    <div class="alert alert-info">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong><i class="fas fa-building"></i> Bloco:</strong> {{ classroom.block }}<br>
+                                <strong><i class="fas fa-users"></i> Capacidade:</strong> {{ classroom.capacity }} pessoas
+                            </div>
+                            <div class="col-md-6">
+                                <strong><i class="fas fa-desktop"></i> Computadores:</strong> {{ "Sim" if classroom.has_computers else "Não" }}<br>
+                                <strong><i class="fas fa-laptop-code"></i> Softwares:</strong> {{ classroom.software or "Não especificado" }}
+                            </div>
+                        </div>
+                        {% if classroom.description %}
+                        <div class="mt-2">
+                            <strong><i class="fas fa-info-circle"></i> Descrição:</strong> {{ classroom.description }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <form action="{{ url_for('submit_schedule_request') }}" method="POST" id="requestForm">
+                        <input type="hidden" name="classroom_id" value="{{ classroom.id }}">
+                        
+                        <!-- Personal Information -->
+                        <div class="mb-4">
+                            <h5><i class="fas fa-user me-2"></i>Dados do Solicitante</h5>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="requester_name" class="form-label">Nome Completo *</label>
+                                    <input type="text" class="form-control" id="requester_name" name="requester_name" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="requester_email" class="form-label">Email *</label>
+                                    <input type="email" class="form-control" id="requester_email" name="requester_email" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="requester_phone" class="form-label">Telefone</label>
+                                    <input type="tel" class="form-control" id="requester_phone" name="requester_phone" placeholder="(XX) XXXXX-XXXX">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="organization" class="form-label">Organização/Empresa</label>
+                                    <input type="text" class="form-control" id="organization" name="organization">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Event Information -->
+                        <div class="mb-4">
+                            <h5><i class="fas fa-calendar-alt me-2"></i>Informações do Evento</h5>
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label for="event_name" class="form-label">Nome do Evento/Curso *</label>
+                                    <input type="text" class="form-control" id="event_name" name="event_name" required>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label for="description" class="form-label">Descrição da Atividade *</label>
+                                    <textarea class="form-control" id="description" name="description" rows="3" required 
+                                              placeholder="Descreva o que será realizado na sala..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Schedule Information -->
+                        <div class="mb-4">
+                            <h5><i class="fas fa-clock me-2"></i>Horário Solicitado</h5>
+                            
+                            <!-- Bulk Request Option -->
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="is_bulk_request" name="is_bulk_request" onchange="toggleBulkRequest()">
+                                <label class="form-check-label" for="is_bulk_request">
+                                    <strong>Solicitar para múltiplas datas</strong>
+                                    <small class="text-muted d-block">Marque esta opção se precisar da sala em vários dias</small>
+                                </label>
+                            </div>
+
+                            <!-- Single Date Option -->
+                            <div id="single_date_section">
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <label for="requested_date" class="form-label">Data *</label>
+                                        <input type="date" class="form-control" id="requested_date" name="requested_date" required>
+                                    </div>
+                                    <div class="col-md-4 mb-3">
+                                        <label for="shift" class="form-label">Turno *</label>
+                                        <select class="form-select" id="shift" name="shift" required>
+                                            <option value="">Selecione o turno</option>
+                                            <option value="morning">Manhã (7:30-12:00)</option>
+                                            <option value="afternoon">Tarde (13:00-18:00)</option>
+                                            <option value="night">Noite (18:30-22:30)</option>
+                                            <option value="fullday">Integral (8:00-17:00)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Multiple Dates Option -->
+                            <div id="bulk_dates_section" style="display: none;">
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Solicitação em Massa:</strong> Adicione todas as datas que você precisa da sala. 
+                                    O turno e horário serão os mesmos para todas as datas.
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Datas Solicitadas *</label>
+                                    <div id="dates_container">
+                                        <div class="input-group mb-2">
+                                            <input type="date" class="form-control" name="additional_dates[]">
+                                            <button type="button" class="btn btn-outline-danger" onclick="removeDate(this)" disabled>
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addDate()">
+                                        <i class="fas fa-plus me-1"></i>Adicionar Data
+                                    </button>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="bulk_shift" class="form-label">Turno (todas as datas) *</label>
+                                        <select class="form-select" id="bulk_shift" name="bulk_shift">
+                                            <option value="">Selecione o turno</option>
+                                            <option value="morning">Manhã (7:30-12:00)</option>
+                                            <option value="afternoon">Tarde (13:00-18:00)</option>
+                                            <option value="night">Noite (18:30-22:30)</option>
+                                            <option value="fullday">Integral (8:00-17:00)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Time Details -->
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="start_time" class="form-label">Horário de Início *</label>
+                                    <input type="time" class="form-control" id="start_time" name="start_time" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="end_time" class="form-label">Horário de Término *</label>
+                                    <input type="time" class="form-control" id="end_time" name="end_time" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Important Notice -->
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-exclamation-triangle me-2"></i>Importante:</h6>
+                            <ul class="mb-0">
+                                <li>Esta é uma <strong>solicitação</strong> que será analisada pela administração</li>
+                                <li>Você receberá uma resposta por email sobre a aprovação ou rejeição</li>
+                                <li>Solicitações devem ser feitas com <strong>antecedência mínima de 48 horas</strong></li>
+                                <li>Certifique-se de que o email está correto para receber a resposta</li>
+                            </ul>
+                        </div>
+
+                        <!-- Submit Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Voltar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane me-2"></i>Enviar Solicitação
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleBulkRequest() {
+    const isBulk = document.getElementById('is_bulk_request').checked;
+    const singleSection = document.getElementById('single_date_section');
+    const bulkSection = document.getElementById('bulk_dates_section');
+    const requestedDate = document.getElementById('requested_date');
+    const shift = document.getElementById('shift');
+    const bulkShift = document.getElementById('bulk_shift');
+    
+    if (isBulk) {
+        singleSection.style.display = 'none';
+        bulkSection.style.display = 'block';
+        requestedDate.required = false;
+        shift.required = false;
+        bulkShift.required = true;
+        
+        // Update shift name for bulk request
+        bulkShift.name = 'shift';
+        shift.name = 'shift_disabled';
+    } else {
+        singleSection.style.display = 'block';
+        bulkSection.style.display = 'none';
+        requestedDate.required = true;
+        shift.required = true;
+        bulkShift.required = false;
+        
+        // Restore normal shift name
+        shift.name = 'shift';
+        bulkShift.name = 'bulk_shift';
+    }
+}
+
+function addDate() {
+    const container = document.getElementById('dates_container');
+    const newDate = document.createElement('div');
+    newDate.className = 'input-group mb-2';
+    newDate.innerHTML = `
+        <input type="date" class="form-control" name="additional_dates[]" required>
+        <button type="button" class="btn btn-outline-danger" onclick="removeDate(this)">
+            <i class="fas fa-trash"></i>
+        </button>
+    `;
+    container.appendChild(newDate);
+    updateRemoveButtons();
+}
+
+function removeDate(button) {
+    button.closest('.input-group').remove();
+    updateRemoveButtons();
+}
+
+function updateRemoveButtons() {
+    const dateInputs = document.querySelectorAll('#dates_container .input-group');
+    dateInputs.forEach((input, index) => {
+        const removeBtn = input.querySelector('button');
+        removeBtn.disabled = dateInputs.length === 1;
+    });
+}
+
+// Set minimum date to today
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('requested_date').setAttribute('min', today);
+    
+    // Set min date for bulk request dates
+    document.addEventListener('click', function(e) {
+        if (e.target.type === 'date' && e.target.name === 'additional_dates[]') {
+            e.target.setAttribute('min', today);
+        }
+    });
+});
+</script>
+{% endblock %}
