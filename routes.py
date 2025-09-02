@@ -1211,9 +1211,9 @@ def dashboard():
     # Build classroom query with filters
     classroom_query = Classroom.query
     if block_filter:
-        classroom_query = classroom_query.filter(Classroom.block.like(f'%{block_filter}%'))
+        classroom_query = classroom_query.filter(Classroom.block.contains(block_filter))
     if software_filter:
-        classroom_query = classroom_query.filter(Classroom.software.like(f'%{software_filter}%'))
+        classroom_query = classroom_query.filter(Classroom.software.contains(software_filter))
     if has_computers_filter:
         has_computers_bool = has_computers_filter.lower() == 'true'
         classroom_query = classroom_query.filter(Classroom.has_computers == has_computers_bool)
@@ -2279,6 +2279,17 @@ def virtual_assistant():
         logging.error(f"Error in virtual assistant: {str(e)}")
         return jsonify({'error': 'Erro interno do servidor. Tente novamente.'}), 500
 
+def get_time_greeting(hour):
+    """Return contextual greeting based on time of day"""
+    if 5 <= hour < 12:
+        return "Bom dia! ☀️"
+    elif 12 <= hour < 18:
+        return "Boa tarde! 🌤️"
+    elif 18 <= hour < 22:
+        return "Boa noite! 🌆"
+    else:
+        return "Oi! 🌙"
+
 def process_user_question(user_message, classrooms, schedules, current_time, current_date, current_hour, current_weekday):
     """Process user question and return appropriate response"""
     
@@ -2332,7 +2343,8 @@ def process_user_question(user_message, classrooms, schedules, current_time, cur
             'senai', 'escola', 'instituição', 'instituicao', 'sobre', 'história', 'historia', 'morvan', 'figueiredo'
         ]
     
-        # Check if question is about current availability
+        # Enhanced intelligent context detection
+        # Check if question is about current availability with context awareness
         if any(keyword in user_message for keyword in availability_keywords):
             return get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday)
         
@@ -2364,9 +2376,9 @@ def process_user_question(user_message, classrooms, schedules, current_time, cur
         elif any(keyword in user_message for keyword in help_keywords):
             return get_general_help_response()
         
-        # Use ChatGPT for questions not covered by predefined responses
+        # Enhanced fallback with intelligent context detection
         else:
-            return get_chatgpt_response(user_message, classrooms, schedules, current_time)
+            return get_smart_fallback_response(user_message, classrooms, schedules, current_time)
             
     except Exception as e:
         import logging
@@ -2374,89 +2386,247 @@ def process_user_question(user_message, classrooms, schedules, current_time, cur
         return "❌ Desculpe, ocorreu um erro ao processar sua pergunta. Tente uma pergunta mais simples ou use as opções sugeridas."
 
 def get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday):
-    """Return information about currently available rooms"""
-    available_rooms = []
-    
-    for classroom in classrooms:
-        is_occupied = False
-        current_schedule = None
+    """Return information about currently available rooms with intelligent context"""
+    try:
+        available_rooms = []
+        occupied_rooms = []
         
-        for schedule in schedules:
-            if schedule.classroom_id == classroom.id:
-                # Check if current time falls within this schedule
-                if (schedule.weekday == current_weekday and 
-                    schedule.start_time <= current_hour < schedule.end_time):
-                    is_occupied = True
-                    current_schedule = schedule
-                    break
+        for classroom in classrooms:
+            is_occupied = False
+            current_schedule = None
+            
+            for schedule in schedules:
+                if hasattr(schedule, 'classroom_id') and schedule.classroom_id == classroom.id:
+                    # Check if current time falls within this schedule
+                    if (hasattr(schedule, 'weekday') and schedule.weekday == current_weekday and 
+                        hasattr(schedule, 'start_time') and hasattr(schedule, 'end_time') and
+                        schedule.start_time <= current_hour < schedule.end_time):
+                        is_occupied = True
+                        current_schedule = schedule
+                        break
+            
+            if not is_occupied:
+                available_rooms.append(classroom)
+            else:
+                occupied_rooms.append((classroom, current_schedule))
         
-        if not is_occupied:
-            available_rooms.append(classroom)
-    
-    if available_rooms:
-        response = f"🟢 **Salas disponíveis agora ({current_time.strftime('%H:%M')}):**\n\n"
-        for room in available_rooms:
-            response += f"• **{room.name}** ({room.block})\n"
-            response += f"  - Capacidade: {room.capacity} pessoas\n"
-            if room.software:
-                response += f"  - Software: {room.software}\n"
-            response += "\n"
-    else:
-        response = f"🔴 **Todas as salas estão ocupadas no momento ({current_time.strftime('%H:%M')})**\n\n"
-        response += "Salas do SENAI Morvan Figueiredo:\n"
-        for room in classrooms:
-            response += f"• **{room.name}** ({room.block}) - {room.capacity} pessoas\n"
-    
-    return response
+        # Generate intelligent, conversational response
+        time_greeting = get_time_greeting(current_hour)
+        
+        if available_rooms:
+            response = f"{time_greeting} 😊\n\n"
+            response += f"🟢 **Ótimas notícias! Temos {len(available_rooms)} sala{'s' if len(available_rooms) > 1 else ''} disponível{'eis' if len(available_rooms) > 1 else ''} agora ({current_time.strftime('%H:%M')}):**\n\n"
+            
+            # Sort by capacity for better recommendations
+            available_rooms.sort(key=lambda x: x.capacity, reverse=True)
+            
+            for i, room in enumerate(available_rooms):
+                response += f"{'🏆' if i == 0 else '•'} **{room.name}** ({room.block})\n"
+                response += f"  💺 {room.capacity} pessoas"
+                if room.has_computers:
+                    response += " | 💻 Com computadores"
+                response += "\n"
+                if room.software:
+                    response += f"  🛠️ Software: {room.software}\n"
+                if room.description:
+                    response += f"  📝 {room.description}\n"
+                response += "\n"
+            
+            response += "💡 **Dica:** A primeira sala é nossa recomendação com maior capacidade!\n"
+            response += "📞 Precisa reservar? Entre em contato com a secretaria!"
+            
+        else:
+            response = f"{time_greeting} 😅\n\n"
+            response += f"🔴 **Ops! Todas as salas estão ocupadas agora ({current_time.strftime('%H:%M')})**\n\n"
+            
+            if occupied_rooms:
+                response += "📚 **Mas não se preocupe! Aqui está o que está rolando:**\n\n"
+                for room, schedule in occupied_rooms[:3]:  # Show first 3
+                    response += f"• **{room.name}** - "
+                    if schedule and hasattr(schedule, 'course_name'):
+                        response += f"Aula de {schedule.course_name}\n"
+                    else:
+                        response += "Ocupada com atividades\n"
+                
+                if len(occupied_rooms) > 3:
+                    response += f"... e mais {len(occupied_rooms) - 3} salas ocupadas\n"
+            
+            response += "\n🔄 **Tente perguntar novamente em alguns minutos!**\n"
+            response += "⏰ Ou pergunte sobre horários específicos, como: *'Que horas a Sala DEV fica livre?'*"
+        
+        return response
+        
+    except Exception as e:
+        return f"😅 Ops! Tive um pequeno problema ao verificar as salas. Tente novamente ou pergunte de uma forma diferente. 🤗"
 
 def get_rooms_by_software(user_message, classrooms):
-    """Return rooms that have specific software"""
-    response = "💻 **Salas por Software:**\n\n"
-    
-    # Try to find specific software mentioned first
-    software_found = []
-    software_keywords = {
-        'unity': ['unity'],
-        'unreal': ['unreal'],
-        'blender': ['blender'],
-        'visual studio': ['visual studio', 'vs'],
-        'git': ['git'],
-        'docker': ['docker'],
-        'office': ['office'],
-        'ide': ['ide'],
-        'banco de dados': ['banco', 'database', 'bd']
-    }
-    
-    for classroom in classrooms:
-        if classroom.software:
-            software_lower = classroom.software.lower()
-            for software_type, keywords in software_keywords.items():
-                if any(keyword in user_message for keyword in keywords) and any(keyword in software_lower for keyword in keywords):
-                    software_found.append(classroom)
-                    break
-    
-    if software_found:
-        response += "🎯 **Salas com o software que você procura:**\n\n"
-        for room in software_found:
-            response += f"• **{room.name}** ({room.block})\n"
-            response += f"  - Capacidade: {room.capacity} pessoas\n"
-            response += f"  - Software: {room.software}\n\n"
-        response += "---\n\n"
-    
-    response += "📋 **Todas as salas com software:**\n\n"
-    for classroom in classrooms:
-        if classroom.software:
-            response += f"• **{classroom.name}** ({classroom.block})\n"
-            response += f"  - Capacidade: {classroom.capacity} pessoas\n"
-            response += f"  - Software: {classroom.software}\n\n"
-    
-    response += "💡 **Dica:** Para ver disponibilidade, pergunte 'quais salas estão livres agora?'"
-    
-    return response
+    """Return rooms that have specific software with intelligent matching"""
+    try:
+        # Enhanced software detection with intelligent matching
+        software_keywords = {
+            'unity': ['unity', 'engine unity', 'game engine'],
+            'unreal': ['unreal', 'unreal engine', 'ue4', 'ue5'],
+            'blender': ['blender', '3d', 'modelagem', 'animação', 'animacao'],
+            'visual studio': ['visual studio', 'vs', 'ide', 'desenvolvimento', 'programação', 'programacao'],
+            'git': ['git', 'versionamento', 'controle de versão'],
+            'docker': ['docker', 'container', 'containerização'],
+            'office': ['office', 'word', 'excel', 'powerpoint', 'escritório'],
+            'banco de dados': ['banco', 'database', 'bd', 'sql', 'mysql', 'postgresql'],
+            'jogos': ['jogo', 'jogos', 'game', 'games', 'desenvolvimento de jogos']
+        }
+        
+        # Find software mentioned in user message
+        mentioned_software = []
+        for software_type, keywords in software_keywords.items():
+            if any(keyword.lower() in user_message.lower() for keyword in keywords):
+                mentioned_software.append(software_type)
+        
+        # Find matching classrooms
+        matching_rooms = []
+        all_software_rooms = []
+        
+        for classroom in classrooms:
+            if classroom.software:
+                all_software_rooms.append(classroom)
+                software_lower = classroom.software.lower()
+                
+                # Check if any mentioned software is in this classroom
+                for software_type in mentioned_software:
+                    keywords = software_keywords[software_type]
+                    if any(keyword.lower() in software_lower for keyword in keywords):
+                        matching_rooms.append((classroom, software_type))
+                        break
+        
+        # Generate intelligent response
+        if mentioned_software:
+            software_list = ", ".join(mentioned_software).title()
+            response = f"🔍 **Procurando por {software_list}? Achei algumas opções interessantes!** 😊\n\n"
+            
+            if matching_rooms:
+                response += f"🎯 **Salas perfeitas para o que você precisa:**\n\n"
+                for i, (room, software_type) in enumerate(matching_rooms):
+                    emoji = "🏆" if i == 0 else "⭐"
+                    response += f"{emoji} **{room.name}** ({room.block})\n"
+                    response += f"  💺 {room.capacity} pessoas"
+                    if room.has_computers:
+                        response += " | 💻 Com computadores"
+                    response += f"\n  🛠️ {room.software}\n"
+                    if room.description:
+                        response += f"  📝 {room.description}\n"
+                    response += "\n"
+                
+                response += "💡 **Dica:** A primeira opção é nossa recomendação!\n"
+                response += "🔄 Quer saber se está disponível agora? Pergunte: *'A [nome da sala] está livre?'*\n\n"
+            else:
+                response += f"😅 **Hmm... não encontrei salas específicas com {software_list}.**\n\n"
+                response += "Mas deixe-me mostrar todas as opções disponíveis:\n\n"
+        else:
+            response = "💻 **Que software você está procurando?** Aqui estão todas nossas opções! 😊\n\n"
+        
+        # Show all software rooms if no specific match or no software mentioned
+        if not matching_rooms or not mentioned_software:
+            if all_software_rooms:
+                response += "📋 **Todas as salas com software disponível:**\n\n"
+                
+                # Group by software type for better organization
+                software_groups = {}
+                for room in all_software_rooms:
+                    key_software = room.software.split(',')[0].strip() if ',' in room.software else room.software
+                    if key_software not in software_groups:
+                        software_groups[key_software] = []
+                    software_groups[key_software].append(room)
+                
+                for software, rooms in software_groups.items():
+                    response += f"🔧 **{software}:**\n"
+                    for room in rooms:
+                        response += f"  • **{room.name}** ({room.block}) - {room.capacity} pessoas\n"
+                    response += "\n"
+            else:
+                response += "😅 **Ops! Parece que não temos informações de software cadastradas ainda.**\n"
+                response += "Entre em contato com a secretaria para mais detalhes! 📞"
+        
+        response += "\n🤖 **Posso ajudar com mais alguma coisa?** Pergunte sobre disponibilidade, localização ou qualquer outra dúvida!"
+        
+        return response
+        
+    except Exception as e:
+        return "😅 Ops! Tive um problema ao buscar informações sobre software. Tente reformular sua pergunta ou pergunte de uma forma mais específica! 🤗"
 
 def get_rooms_capacity_info(classrooms):
-    """Return information about room capacities"""
-    response = "👥 **Capacidade das Salas:**\n\n"
+    """Return information about room capacities with intelligent organization"""
+    try:
+        if not classrooms:
+            return "😅 Ops! Não encontrei informações sobre as salas. Tente novamente! 🤗"
+        
+        # Organize rooms by capacity ranges
+        small_rooms = []  # 1-20 people
+        medium_rooms = []  # 21-35 people
+        large_rooms = []  # 36+ people
+        
+        for room in classrooms:
+            if hasattr(room, 'capacity') and room.capacity:
+                if room.capacity <= 20:
+                    small_rooms.append(room)
+                elif room.capacity <= 35:
+                    medium_rooms.append(room)
+                else:
+                    large_rooms.append(room)
+        
+        # Sort each category by capacity
+        small_rooms.sort(key=lambda x: x.capacity)
+        medium_rooms.sort(key=lambda x: x.capacity)
+        large_rooms.sort(key=lambda x: x.capacity, reverse=True)
+        
+        response = "👥 **Capacidade das nossas salas - organizadas por tamanho!** 😊\n\n"
+        
+        if large_rooms:
+            response += "🏢 **Salas Grandes (35+ pessoas) - Ideais para eventos e turmas grandes:**\n"
+            for room in large_rooms:
+                response += f"  🏆 **{room.name}** ({room.block}) - **{room.capacity} pessoas**"
+                if room.has_computers:
+                    response += " | 💻 Com computadores"
+                response += "\n"
+                if room.software:
+                    response += f"    🛠️ {room.software}\n"
+            response += "\n"
+        
+        if medium_rooms:
+            response += "🏤 **Salas Médias (21-35 pessoas) - Perfeitas para turmas regulares:**\n"
+            for room in medium_rooms:
+                response += f"  ⭐ **{room.name}** ({room.block}) - **{room.capacity} pessoas**"
+                if room.has_computers:
+                    response += " | 💻 Com computadores"
+                response += "\n"
+                if room.software:
+                    response += f"    🛠️ {room.software}\n"
+            response += "\n"
+        
+        if small_rooms:
+            response += "🏠 **Salas Menores (até 20 pessoas) - Ótimas para grupos pequenos:**\n"
+            for room in small_rooms:
+                response += f"  • **{room.name}** ({room.block}) - **{room.capacity} pessoas**"
+                if room.has_computers:
+                    response += " | 💻 Com computadores"
+                response += "\n"
+                if room.software:
+                    response += f"    🛠️ {room.software}\n"
+            response += "\n"
+        
+        # Add helpful statistics
+        total_capacity = sum(room.capacity for room in classrooms if hasattr(room, 'capacity') and room.capacity)
+        avg_capacity = total_capacity / len(classrooms) if classrooms else 0
+        
+        response += f"📊 **Resumo Geral:**\n"
+        response += f"• Total de salas: {len(classrooms)}\n"
+        response += f"• Capacidade total: {total_capacity} pessoas\n"
+        response += f"• Capacidade média: {avg_capacity:.0f} pessoas por sala\n\n"
+        
+        response += "💡 **Dica:** Precisa de uma sala específica? Pergunte: *'Preciso de uma sala para 25 pessoas'* e eu te ajudo a escolher! 🤗"
+        
+        return response
+        
+    except Exception as e:
+        return "😅 Ops! Tive um problema ao organizar as informações de capacidade. Tente perguntar de uma forma diferente! 🤗"
     
     # Sort rooms by capacity
     sorted_rooms = sorted(classrooms, key=lambda x: x.capacity, reverse=True)
@@ -2515,44 +2685,38 @@ def get_schedule_info(classrooms, schedules):
     return response
 
 def get_general_help_response():
-    """Return general help information"""
-    response = """🤖 **Como posso ajudar:**
+    """Return general help information with personality"""
+    return """🤖 **Oi! Sou seu assistente virtual do SENAI Morvan Figueiredo! 😊**
 
-Posso responder sobre:
+Estou aqui para te ajudar com tudo sobre nossas salas e laboratórios. Sou bem esperto e converso naturalmente - não precisa usar comandos específicos! 🗣️
 
-**🏢 Disponibilidade:**
-• "Quais salas estão disponíveis agora?"
-• "Tem alguma sala livre?"
+**🎯 Exemplos do que posso fazer por você:**
 
-**💻 Software:**
-• "Quais salas têm Unity?"
-• "Onde posso usar Blender?"
-• "Quais salas têm Visual Studio?"
+**🏢 Sobre as Salas:**
+💬 *"Preciso de uma sala para 25 pessoas com computadores"*
+💬 *"Onde fica a Sala DEV?"*
+💬 *"Que salas têm Unity para desenvolvimento de jogos?"*
 
-**👥 Capacidade:**
-• "Qual a capacidade das salas?"
-• "Quantas pessoas cabem na sala?"
+**⚡ Disponibilidade em Tempo Real:**
+💬 *"Que salas estão livres agora?"*
+💬 *"A sala de jogos está ocupada?"*
+💬 *"Quando o lab fica disponível?"*
 
-**📍 Localização:**
-• "Onde fica a Sala 208?"
-• "Quais salas tem no Bloco A?"
-• "Onde fica o Laboratório de Jogos Digitais?"
+**🛠️ Software e Tecnologia:**
+💬 *"Preciso usar Blender para modelagem 3D"*
+💬 *"Onde tem Visual Studio?"*
+💬 *"Sala com banco de dados MySQL"*
 
-**📅 Horários:**
-• "Que cursos tem hoje?"
-• "Qual o horário da aula de jogos?"
-• "Quando a sala está livre?"
+**📊 Informações Gerais:**
+💬 *"Como funciona o SENAI?"*
+💬 *"Telefone para contato"*
+💬 *"Horários de funcionamento"*
 
-**Exemplos de perguntas específicas:**
-• "Preciso de uma sala com Unity disponível agora"
-• "Qual sala tem mais capacidade?"
-• "Onde posso encontrar o software de desenvolvimento?"
+**💡 Minha especialidade:** Entendo linguagem natural! Não precisa usar comandos específicos - apenas me fale normalmente o que você precisa! 
 
-💡 **Também posso ajudar com outras perguntas gerais sobre educação, tecnologia e SENAI!**
+**🚀 Exemplo:** Em vez de perguntar "salas capacidade", me pergunte *"Preciso de uma sala grande para apresentação"* que eu entendo perfeitamente! 😉
 
-Digite qualquer pergunta e eu te ajudo! 😊"""
-    
-    return response
+**🤝 Estou sempre aprendendo!** Se não entender alguma coisa, me explique de outra forma que eu vou me adaptar! 🧠✨"""
 
 def get_contact_info():
     """Return contact information"""
@@ -2602,32 +2766,138 @@ Formar profissionais qualificados para a indústria, contribuindo para o desenvo
 
 Quer saber mais sobre as salas e horários? Use os botões de sugestão! 🚀"""
 
-def get_chatgpt_response(user_message, classrooms, schedules, current_time):
-    """Use ChatGPT for questions not covered by predefined responses"""
-    
-    # Improved fallback response when ChatGPT is not available
-    return """🤖 **Posso ajudar com informações específicas sobre o SENAI:**
+def get_smart_fallback_response(user_message, classrooms, schedules, current_time):
+    """Intelligent fallback response with context analysis"""
+    try:
+        # Analyze the user message for context clues
+        message_lower = user_message.lower()
+        
+        # Smart context detection
+        context_hints = []
+        
+        # Detect mentions of specific rooms
+        mentioned_rooms = []
+        for classroom in classrooms:
+            if classroom.name.lower() in message_lower:
+                mentioned_rooms.append(classroom)
+        
+        # Detect time-related queries
+        time_keywords = ['quando', 'que horas', 'horário', 'horario', 'tempo', 'duração', 'duracao']
+        is_time_query = any(keyword in message_lower for keyword in time_keywords)
+        
+        # Detect frustration or confusion
+        confused_keywords = ['não entendi', 'nao entendi', 'confuso', 'help', 'socorro', 'não sei', 'nao sei']
+        is_confused = any(keyword in message_lower for keyword in confused_keywords)
+        
+        # Detect greeting or casual conversation
+        greeting_keywords = ['oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'tchau', 'obrigado', 'obrigada', 'valeu']
+        is_greeting = any(keyword in message_lower for keyword in greeting_keywords)
+        
+        # Generate contextual response
+        if is_confused:
+            return """😅 **Vejo que você está com dúvida! Sem problemas, estou aqui para ajudar! 🤗**
 
-**📍 Salas e Localização:**
-• Ver salas disponíveis agora
-• Localizar salas específicas
-• Informações sobre blocos
+Vou te dar algumas dicas para conversarmos melhor:
 
-**💻 Software e Tecnologia:**
-• Unity, Unreal Engine, Blender
-• Visual Studio, Git, Docker
-• IDE e Banco de dados
+**🎯 Tente perguntas assim:**
+• *"Preciso de uma sala para 20 pessoas"*
+• *"Onde fica a Sala DEV?"*
+• *"Que salas estão livres agora?"*
+• *"Quais salas têm Unity?"*
 
-**👥 Capacidades e Horários:**
-• Quantas pessoas cabem em cada sala
-• Horários de funcionamento
-• Agendamentos ativos
+**💡 Dica especial:** Fale comigo como se fosse um amigo! Não precisa usar linguagem técnica. 
 
-**📞 Contato e Informações Gerais:**
-• Como entrar em contato
-• Sobre o SENAI Morvan Figueiredo
-• Cursos e formação
+**Exemplo:** Em vez de *"consultar disponibilidade salas"*, me pergunte *"tem alguma sala livre agora?"* 😊
 
-Use os botões de sugestão acima ou digite uma pergunta mais específica! 😊
+**🤝 Vamos tentar de novo?** Me conte o que você precisa de uma forma simples e natural! Estou aqui para te ajudar! ✨"""
+        
+        elif is_greeting:
+            time_greeting = get_time_greeting(current_time.hour)
+            return f"""🤗 **{time_greeting}**
 
-💡 *Dica: Seja mais específico, como "preciso de uma sala com Unity" ou "onde fica a sala 208"*"""
+Que bom te ver por aqui! Sou o assistente virtual do SENAI Morvan Figueiredo e estou super animado para te ajudar! 😊
+
+**🎯 Posso te ajudar com:**
+• 🏢 Informações sobre salas e laboratórios
+• ⏰ Disponibilidade em tempo real
+• 💻 Software e equipamentos
+• 📍 Localização e direções
+• 📞 Contatos e horários
+
+**💬 Como posso te ajudar hoje?** Pode me perguntar qualquer coisa sobre nossas instalações! 
+
+Exemplo: *"Preciso de uma sala com computadores"* ou *"Onde fica o laboratório de jogos?"* 🚀"""
+        
+        elif mentioned_rooms:
+            room = mentioned_rooms[0]
+            return f"""🎯 **Vi que você mencionou a {room.name}! Aqui estão as informações:**
+
+**📍 Localização:** {room.block}
+**👥 Capacidade:** {room.capacity} pessoas
+**💻 Computadores:** {'Sim' if room.has_computers else 'Não'}
+{f"**🛠️ Software:** {room.software}" if room.software else ""}
+{f"**📝 Descrição:** {room.description}" if room.description else ""}
+
+**🤔 O que você gostaria de saber sobre esta sala?**
+• Se está disponível agora?
+• Como chegar até lá?
+• Mais detalhes sobre os equipamentos?
+
+É só me perguntar! 😊"""
+        
+        elif is_time_query:
+            return """⏰ **Perguntas sobre horários? Posso te ajudar! 😊**
+
+**📅 Posso te dizer:**
+• Que salas estão livres agora
+• Quando uma sala específica fica disponível
+• Horários de funcionamento do SENAI
+• Quando termina uma aula específica
+
+**💬 Exemplos de como perguntar:**
+• *"Que horas a Sala DEV fica livre?"*
+• *"Até que horas funciona o SENAI?"*
+• *"Quando termina a aula de jogos?"*
+• *"Que salas estão disponíveis agora?"*
+
+**🕒 Horário atual:** {current_time.strftime('%H:%M')}
+
+**❓ Sobre que horário você gostaria de saber?**"""
+        
+        # Default intelligent response
+        return f"""🤖 **Hmm... não tenho certeza do que você está procurando, mas vou te ajudar! 😊**
+
+**🔍 Analisando sua mensagem:** *"{user_message}"*
+
+**💡 Algumas sugestões baseadas no que você disse:**
+
+**🏢 Se for sobre salas:**
+• *"Que salas estão livres agora?"*
+• *"Preciso de uma sala para X pessoas"*
+• *"Onde fica a [nome da sala]?"*
+
+**💻 Se for sobre software/equipamentos:**
+• *"Quais salas têm [nome do software]?"*
+• *"Preciso usar [programa específico]"*
+
+**📞 Se for sobre contato/informações:**
+• *"Como entrar em contato?"*
+• *"Horário de funcionamento"*
+• *"Sobre o SENAI"*
+
+**🤝 Reformule sua pergunta de forma mais específica e eu vou te dar uma resposta perfeita! 🎯**
+
+**⏰ Horário atual:** {current_time.strftime('%H:%M')} - {"📅 " + current_time.strftime('%d/%m/%Y')}"""
+        
+    except Exception as e:
+        return """😅 **Ops! Tive um pequeno problema, mas não desista de mim! 🤗**
+
+**🔄 Vamos tentar de novo?** Me faça uma pergunta simples sobre:
+• Salas disponíveis
+• Localização de laboratórios  
+• Software e equipamentos
+• Contato do SENAI
+
+**💬 Exemplo:** *"Preciso de uma sala com computadores"*
+
+Estou aqui para te ajudar! ✨"""
