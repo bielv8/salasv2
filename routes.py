@@ -2526,7 +2526,7 @@ def get_available_rooms_now_smart(classrooms, schedules, current_time, current_d
             response += f"• Melhor horário: Salas mais disponíveis pela manhã\n\n"
             
             response += "🎯 **Recomendação inteligente:** Use a primeira sala da lista para maior flexibilidade!\n"
-            response += "📞 Reservas: Entre em contato com a secretaria"
+            response += "💬 Reservas: Solicite no sistema"
             
         else:
             response = f"{time_greeting} 😅\n\n"
@@ -3372,7 +3372,8 @@ def get_rooms_location_info_smart(classrooms):
             response += "\n"
         
         response += "📍 **Endereço:** SENAI Morvan Figueiredo\n"
-        response += "📞 **Contato:** Secretaria para orientações detalhadas"
+        response += "💬 **Contato:** Solicite no sistema para orientações detalhadas"
+        response += get_question_menu()
         
         return response
         
@@ -3424,7 +3425,8 @@ def get_schedule_info_smart(classrooms, schedules):
         response += "🕰️ **Horários de Funcionamento:**\n"
         response += "  • Segunda a Sexta: 7h30 às 22h\n"
         response += "  • Sábado: 7h30 às 12h\n"
-        response += "\n📞 **Para agendamentos:** Entre em contato com a secretaria"
+        response += "\n💬 **Para agendamentos:** Solicite no sistema"
+        response += get_question_menu()
         
         return response
         
@@ -3470,6 +3472,7 @@ def get_analytics_and_trends_smart(classrooms, schedules, current_time):
         response += "  • Consulte disponibilidade em tempo real\n"
         response += "  • Reserve com antecedência para garantir vaga\n"
         response += "  • Considere horários alternativos se necessário"
+        response += get_question_menu()
         
         return response
         
@@ -3500,7 +3503,8 @@ def get_basic_classroom_info(classrooms):
             response += f"... e mais {len(classrooms) - 4} salas\n\n"
         
         response += f"📊 **Total:** {total_capacity} pessoas\n"
-        response += "📞 **Mais informações:** Secretaria"
+        response += "💬 **Mais informações:** Solicite no sistema"
+        response += get_question_menu()
         
         return response
         
@@ -3524,7 +3528,8 @@ def get_all_software_options(classrooms):
             response += f"• **{room.name}** ({getattr(room, 'block', 'Bloco n/d')})\n"
             response += f"  🛠️ {room.software}\n\n"
         
-        response += "📞 **Para usar:** Entre em contato com a secretaria"
+        response += "💬 **Para usar:** Solicite no sistema"
+        response += get_question_menu()
         
         return response
         
@@ -3558,11 +3563,43 @@ def get_basic_capacity_info(classrooms):
         
         total_capacity = sum(room.capacity for room in classrooms if hasattr(room, 'capacity'))
         response += f"\n📊 **Capacidade Total:** {total_capacity} pessoas"
+        response += get_question_menu()
         
         return response
         
     except Exception:
         return "👥 **Salas Variadas:**\nDe 20 a 40+ pessoas por sala\n📞 Consulte capacidade específica na secretaria!"
+
+def get_question_menu():
+    """Generate a menu of questions the user can ask"""
+    return """
+🔮 **Mais opções de perguntas:**
+
+**🏢 Sobre Salas:**
+• "Quantas salas temos no total?"
+• "Qual a maior sala disponível?"
+• "Salas com projetores?"
+• "Laboratórios especializados?"
+
+**💻 Tecnologia:**
+• "Onde posso usar Photoshop?"
+• "Salas com internet rápida?"
+• "Equipamentos de áudio?"
+• "Estações de trabalho?"
+
+**⏰ Horários:**
+• "Quando fecha o SENAI?"
+• "Horário de almoço?"
+• "Funcionamento nos finais de semana?"
+• "Melhor horário para estudar?"
+
+**📊 Análises:**
+• "Relatório de ocupação?"
+• "Salas menos utilizadas?"
+• "Estatísticas do mês?"
+• "Tendências de uso?"
+
+**❓ Digite qualquer pergunta para continuar nossa conversa! 🚀**"""
 
 def get_emergency_helpful_response(user_message, classrooms):
     """Emergency fallback that always provides something useful"""
@@ -3589,6 +3626,6 @@ Percebi que você disse: *"{user_message}"*
 • "Onde fica a [nome da sala]?"
 • "Que software tem disponível?"
 
-**📞 Secretaria SENAI** - Para informações mais detalhadas
+**💬 Solicite no sistema** - Para reservas e agendamentos
 
-**🤝 Como posso te ajudar de verdade?** Me faça uma pergunta mais específica! ✨"""
+**🤝 Como posso te ajudar de verdade?** Me faça uma pergunta mais específica! ✨{get_question_menu()}"""
