@@ -2291,112 +2291,129 @@ def get_time_greeting(hour):
         return "Oi! 🌙"
 
 def process_user_question(user_message, classrooms, schedules, current_time, current_date, current_hour, current_weekday):
-    """Process user question and return appropriate response"""
+    """Process user question and return appropriate response - Always finds something useful to say!"""
     
-    try:
-        # Input validation
-        if not user_message or not classrooms:
-            return "❌ Desculpe, não consegui processar sua pergunta. Tente novamente."
-        
-        # Ensure safe data types
-        schedules = schedules or []
-        
-        # Expanded keywords for different types of questions
-        availability_keywords = [
-            'disponível', 'disponivel', 'livre', 'vaga', 'vazio', 'agora', 'now', 'aberta', 'ocupada', 'ocupado',
-            'tem sala', 'preciso de sala', 'sala livre', 'sala vaga', 'reservar', 'usar sala', 'acesso'
-        ]
+    # Input safety
+    if not user_message:
+        return get_general_help_response()
+    if not classrooms:
+        return "🏫 Parece que ainda não temos salas cadastradas. Entre em contato com a secretaria para mais informações!"
     
-        software_keywords = [
-            'software', 'programa', 'aplicativo', 'aplicação', 'ferramenta', 'sistema',
-            'unity', 'unreal', 'blender', 'visual studio', 'git', 'docker', 'office',
-            'ide', 'editor', 'desenvolvimento', 'programação', 'programacao', 'código', 'codigo',
-            'game', 'jogo', 'jogos', 'engine', '3d', 'modelagem', 'animação', 'animacao'
-        ]
-        
-        capacity_keywords = [
-            'capacidade', 'quantas pessoas', 'quantos alunos', 'tamanho', 'lugares', 'assentos',
-            'cabem', 'comporta', 'máximo', 'maximo', 'lotação', 'lotacao', 'turma', 'grupo'
-        ]
-        
-        location_keywords = [
-            'onde', 'localização', 'localizacao', 'bloco', 'andar', 'fica', 'encontrar',
-            'endereço', 'endereco', 'caminho', 'direção', 'direcao', 'mapa', 'local'
-        ]
-        
-        schedule_keywords = [
-            'horário', 'horario', 'aula', 'curso', 'quando', 'que horas', 'período', 'periodo',
-            'manhã', 'manha', 'tarde', 'noite', 'segunda', 'terça', 'terca', 'quarta', 
-            'quinta', 'sexta', 'sábado', 'sabado', 'domingo', 'funcionamento', 'aberto'
-        ]
-        
-        help_keywords = [
-            'ajuda', 'help', 'como', 'o que', 'opções', 'opcoes', 'menu', 'comandos',
-            'posso', 'consegue', 'sabe', 'funciona', 'usar'
-        ]
-        
-        contact_keywords = [
-            'contato', 'telefone', 'email', 'whatsapp', 'falar', 'secretaria', 'administração', 'administracao'
-        ]
-        
-        about_keywords = [
-            'senai', 'escola', 'instituição', 'instituicao', 'sobre', 'história', 'historia', 'morvan', 'figueiredo'
-        ]
+    # Ensure safe data types
+    schedules = schedules or []
+    user_message_lower = user_message.lower()
     
-        # Enhanced intelligent context detection
-        # Check if question is about current availability with context awareness
-        if any(keyword in user_message for keyword in availability_keywords):
-            return get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday)
-        
-        # Check if question is about software
-        elif any(keyword in user_message for keyword in software_keywords):
-            return get_rooms_by_software(user_message, classrooms)
-        
-        # Check if question is about capacity
-        elif any(keyword in user_message for keyword in capacity_keywords):
-            return get_rooms_capacity_info(classrooms)
-        
-        # Check if question is about location
-        elif any(keyword in user_message for keyword in location_keywords):
-            return get_rooms_location_info(classrooms)
-        
-        # Check if question is about schedules
-        elif any(keyword in user_message for keyword in schedule_keywords):
-            return get_schedule_info(classrooms, schedules)
-        
-        # Check if asking for contact information
-        elif any(keyword in user_message for keyword in contact_keywords):
+    # Smart keyword detection with score system
+    keyword_scores = {
+        'availability': 0,
+        'software': 0,
+        'capacity': 0,
+        'location': 0,
+        'schedule': 0,
+        'help': 0,
+        'contact': 0,
+        'about': 0,
+        'analytics': 0
+    }
+    
+    # Enhanced keyword matching with scoring
+    availability_keywords = [
+        'disponível', 'disponivel', 'livre', 'vaga', 'vazio', 'agora', 'now', 'aberta', 'ocupada', 'ocupado',
+        'tem sala', 'preciso de sala', 'sala livre', 'sala vaga', 'reservar', 'usar sala', 'acesso', 'status'
+    ]
+    
+    software_keywords = [
+        'software', 'programa', 'aplicativo', 'aplicação', 'ferramenta', 'sistema',
+        'unity', 'unreal', 'blender', 'visual studio', 'git', 'docker', 'office',
+        'ide', 'editor', 'desenvolvimento', 'programação', 'programacao', 'código', 'codigo',
+        'game', 'jogo', 'jogos', 'engine', '3d', 'modelagem', 'animação', 'animacao', 'computador'
+    ]
+    
+    capacity_keywords = [
+        'capacidade', 'quantas pessoas', 'quantos alunos', 'tamanho', 'lugares', 'assentos',
+        'cabem', 'comporta', 'máximo', 'maximo', 'lotação', 'lotacao', 'turma', 'grupo', 'pessoal'
+    ]
+    
+    location_keywords = [
+        'onde', 'localização', 'localizacao', 'bloco', 'andar', 'fica', 'encontrar',
+        'endereço', 'endereco', 'caminho', 'direção', 'direcao', 'mapa', 'local', 'chegar'
+    ]
+    
+    schedule_keywords = [
+        'horário', 'horario', 'aula', 'curso', 'quando', 'que horas', 'período', 'periodo',
+        'manhã', 'manha', 'tarde', 'noite', 'segunda', 'terça', 'terca', 'quarta', 
+        'quinta', 'sexta', 'sábado', 'sabado', 'domingo', 'funcionamento', 'aberto', 'programação'
+    ]
+    
+    help_keywords = [
+        'ajuda', 'help', 'como', 'o que', 'opções', 'opcoes', 'menu', 'comandos',
+        'posso', 'consegue', 'sabe', 'funciona', 'usar', 'que você faz', 'oi', 'ola', 'olá'
+    ]
+    
+    contact_keywords = [
+        'contato', 'telefone', 'email', 'whatsapp', 'falar', 'secretaria', 'administração', 'administracao'
+    ]
+    
+    about_keywords = [
+        'senai', 'escola', 'instituição', 'instituicao', 'sobre', 'história', 'historia', 'morvan', 'figueiredo'
+    ]
+    
+    analytics_keywords = [
+        'análise', 'analise', 'tendência', 'tendencia', 'estatística', 'estatistica', 
+        'padrão', 'padrao', 'histórico', 'historico', 'uso', 'ocupação', 'ocupacao',
+        'relatório', 'relatorio', 'insights', 'dados', 'métricas', 'metricas', 'total', 'quantas'
+    ]
+    
+    # Calculate scores for each intent
+    keyword_sets = {
+        'availability': availability_keywords,
+        'software': software_keywords,
+        'capacity': capacity_keywords,
+        'location': location_keywords,
+        'schedule': schedule_keywords,
+        'help': help_keywords,
+        'contact': contact_keywords,
+        'about': about_keywords,
+        'analytics': analytics_keywords
+    }
+    
+    for intent, keywords in keyword_sets.items():
+        for keyword in keywords:
+            if keyword in user_message_lower:
+                keyword_scores[intent] += 1
+                # Give extra points for exact matches
+                if keyword == user_message_lower.strip():
+                    keyword_scores[intent] += 2
+    
+    # Find the highest scoring intent
+    best_intent = max(keyword_scores, key=keyword_scores.get)
+    best_score = keyword_scores[best_intent]
+    
+    # If we have a clear winner, use it
+    if best_score > 0:
+        if best_intent == 'availability':
+            return get_available_rooms_now_smart(classrooms, schedules, current_time, current_date, current_hour, current_weekday)
+        elif best_intent == 'software':
+            return get_rooms_by_software_smart(user_message, classrooms)
+        elif best_intent == 'capacity':
+            return get_rooms_capacity_info_smart(classrooms)
+        elif best_intent == 'location':
+            return get_rooms_location_info_smart(classrooms)
+        elif best_intent == 'schedule':
+            return get_schedule_info_smart(classrooms, schedules)
+        elif best_intent == 'contact':
             return get_contact_info()
-        
-        # Check if asking about SENAI
-        elif any(keyword in user_message for keyword in about_keywords):
+        elif best_intent == 'about':
             return get_about_senai_info()
-        
-        # Check if asking for analytics or trends  
-        analytics_keywords = [
-            'análise', 'analise', 'tendência', 'tendencia', 'estatística', 'estatistica', 
-            'padrão', 'padrao', 'histórico', 'historico', 'uso', 'ocupação', 'ocupacao',
-            'relatório', 'relatorio', 'insights', 'dados', 'métricas', 'metricas'
-        ]
-        
-        # Check if asking for help
-        if any(keyword in user_message for keyword in help_keywords):
+        elif best_intent == 'help':
             return get_general_help_response()
-            
-        # Check if asking for analytics/trends
-        elif any(keyword in user_message for keyword in analytics_keywords):
-            return get_analytics_and_trends(classrooms, schedules, current_time)
-        
-        # Enhanced fallback with intelligent context detection
-        else:
-            return get_smart_fallback_response(user_message, classrooms, schedules, current_time)
-            
-    except Exception as e:
-        import logging
-        logging.error(f"Error in process_user_question: {str(e)}")
-        return "❌ Desculpe, ocorreu um erro ao processar sua pergunta. Tente uma pergunta mais simples ou use as opções sugeridas."
+        elif best_intent == 'analytics':
+            return get_analytics_and_trends_smart(classrooms, schedules, current_time)
+    
+    # If no clear intent, provide intelligent fallback
+    return get_emergency_helpful_response(user_message, classrooms)
 
-def get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday):
+def get_available_rooms_now_smart(classrooms, schedules, current_time, current_date, current_hour, current_weekday):
     """Return information about currently available rooms with real-time database analysis"""
     try:
         from models import Classroom, Schedule
@@ -2550,9 +2567,12 @@ def get_available_rooms_now(classrooms, schedules, current_time, current_date, c
         return response
         
     except Exception as e:
-        return f"😅 Ops! Tive um pequeno problema ao verificar as salas. Tente novamente ou pergunte de uma forma diferente. 🤗"
+        import logging
+        logging.error(f"Error in get_available_rooms_now_smart: {str(e)}")
+        # Never give up - provide basic info at least
+        return get_basic_classroom_info(classrooms)
 
-def get_rooms_by_software(user_message, classrooms):
+def get_rooms_by_software_smart(user_message, classrooms):
     """Return rooms that have specific software with real-time database analysis"""
     try:
         from models import Classroom, Schedule
@@ -2713,9 +2733,12 @@ def get_rooms_by_software(user_message, classrooms):
         return response
         
     except Exception as e:
-        return "😅 Ops! Tive um problema ao buscar informações sobre software. Tente reformular sua pergunta ou pergunte de uma forma mais específica! 🤗"
+        import logging
+        logging.error(f"Error in get_rooms_by_software_smart: {str(e)}")
+        # Always show available software options
+        return get_all_software_options(classrooms)
 
-def get_rooms_capacity_info(classrooms):
+def get_rooms_capacity_info_smart(classrooms):
     """Return information about room capacities with real-time database analysis"""
     try:
         from models import Classroom, Schedule
@@ -2851,7 +2874,10 @@ def get_rooms_capacity_info(classrooms):
         return response
         
     except Exception as e:
-        return "😅 Ops! Tive um problema ao organizar as informações de capacidade. Tente perguntar de uma forma diferente! 🤗"
+        import logging
+        logging.error(f"Error in get_rooms_capacity_info_smart: {str(e)}")
+        # Always show basic capacity info
+        return get_basic_capacity_info(classrooms)
     
     # Sort rooms by capacity
     sorted_rooms = sorted(classrooms, key=lambda x: x.capacity, reverse=True)
@@ -3125,15 +3151,10 @@ def get_analytics_and_trends(classrooms, schedules, current_time):
         return response
         
     except Exception as e:
-        return f"""😅 **Ops! Tive um problema ao gerar a análise completa.**
-
-🔍 **Posso ajudar com análises específicas:**
-• Disponibilidade atual das salas
-• Capacidade e ocupação
-• Uso de software e equipamentos
-• Informações de contato
-
-Tente uma pergunta mais específica! 🤗"""
+        import logging
+        logging.error(f"Error in get_analytics_and_trends: {str(e)}")
+        # Always provide some useful analytics info
+        return get_analytics_and_trends_smart(classrooms, schedules, current_time)
 
 def get_contact_info():
     """Return contact information"""
@@ -3318,3 +3339,256 @@ Exemplo: *"Preciso de uma sala com computadores"* ou *"Onde fica o laboratório 
 **💬 Exemplo:** *"Preciso de uma sala com computadores"*
 
 Estou aqui para te ajudar! ✨"""
+
+# ========= NEW INTELLIGENT FUNCTIONS - NO MORE GENERIC ERRORS =========
+
+def get_rooms_location_info_smart(classrooms):
+    """Return location information about classrooms with smart handling"""
+    from models import Classroom
+    from app import db
+    
+    try:
+        all_classrooms = db.session.query(Classroom).all()
+        if not all_classrooms:
+            return "🏢 **SENAI Morvan Figueiredo**\nEntre em contato com a secretaria para informações sobre localização das salas! 📞"
+        
+        response = "🗺️ **Localização das Salas - SENAI Morvan Figueiredo:**\n\n"
+        
+        # Group by blocks
+        blocks = {}
+        for room in all_classrooms:
+            block = room.block or 'Sem bloco definido'
+            if block not in blocks:
+                blocks[block] = []
+            blocks[block].append(room)
+        
+        for block_name, rooms in sorted(blocks.items()):
+            response += f"🏢 **{block_name}:**\n"
+            for room in sorted(rooms, key=lambda x: x.name):
+                response += f"  • **{room.name}** - {room.capacity} pessoas"
+                if room.has_computers:
+                    response += " 💻"
+                response += "\n"
+            response += "\n"
+        
+        response += "📍 **Endereço:** SENAI Morvan Figueiredo\n"
+        response += "📞 **Contato:** Secretaria para orientações detalhadas"
+        
+        return response
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in get_rooms_location_info_smart: {str(e)}")
+        return "🗺️ **Localização:** As salas estão distribuídas em diferentes blocos do SENAI Morvan Figueiredo. Entre em contato com a secretaria para localização exata! 📞"
+
+def get_schedule_info_smart(classrooms, schedules):
+    """Return schedule information with smart handling"""
+    from datetime import datetime
+    import pytz
+    
+    try:
+        sp_tz = pytz.timezone('America/Sao_Paulo')
+        current_time = datetime.now(sp_tz)
+        
+        response = f"📅 **Informações de Horários - {current_time.strftime('%d/%m/%Y')}:**\n\n"
+        
+        if schedules:
+            # Group by shifts
+            shifts = {'morning': [], 'afternoon': [], 'night': [], 'fullday': []}
+            shift_names = {
+                'morning': 'Manhã (8h-12h)',
+                'afternoon': 'Tarde (13h-17h)', 
+                'night': 'Noite (18h-22h)',
+                'fullday': 'Período Integral'
+            }
+            
+            for schedule in schedules:
+                if hasattr(schedule, 'shift') and schedule.shift in shifts:
+                    shifts[schedule.shift].append(schedule)
+            
+            for shift_key, shift_schedules in shifts.items():
+                if shift_schedules:
+                    response += f"🕓 **{shift_names[shift_key]}:**\n"
+                    for schedule in shift_schedules[:5]:  # Limit to 5 per shift
+                        classroom_name = "Sala desconhecida"
+                        if hasattr(schedule, 'classroom_id'):
+                            classroom = next((c for c in classrooms if c.id == schedule.classroom_id), None)
+                            if classroom:
+                                classroom_name = classroom.name
+                        
+                        response += f"  • **{classroom_name}** - {schedule.course_name}\n"
+                    response += "\n"
+        else:
+            response += "📋 **Nenhum agendamento encontrado para hoje.**\n\n"
+        
+        response += "🕰️ **Horários de Funcionamento:**\n"
+        response += "  • Segunda a Sexta: 7h30 às 22h\n"
+        response += "  • Sábado: 7h30 às 12h\n"
+        response += "\n📞 **Para agendamentos:** Entre em contato com a secretaria"
+        
+        return response
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in get_schedule_info_smart: {str(e)}")
+        return "📅 **Horários de Funcionamento:**\nSegunda a Sexta: 7h30-22h | Sábado: 7h30-12h\n📞 Entre em contato com a secretaria para agendamentos!"
+
+def get_analytics_and_trends_smart(classrooms, schedules, current_time):
+    """Return analytics with smart handling"""
+    from datetime import datetime
+    import pytz
+    
+    try:
+        sp_tz = pytz.timezone('America/Sao_Paulo')
+        current_sp_time = datetime.now(sp_tz)
+        
+        total_rooms = len(classrooms) if classrooms else 0
+        total_capacity = sum(room.capacity for room in classrooms if hasattr(room, 'capacity')) if classrooms else 0
+        rooms_with_computers = len([r for r in classrooms if hasattr(r, 'has_computers') and r.has_computers]) if classrooms else 0
+        
+        response = f"📊 **Análise do Sistema - {current_sp_time.strftime('%d/%m/%Y às %H:%M')}:**\n\n"
+        response += f"🏫 **Estrutura Geral:**\n"
+        response += f"  • Total de salas: **{total_rooms}**\n"
+        response += f"  • Capacidade total: **{total_capacity} pessoas**\n"
+        response += f"  • Salas com computadores: **{rooms_with_computers}**\n\n"
+        
+        if classrooms:
+            # Capacity distribution
+            small = len([r for r in classrooms if hasattr(r, 'capacity') and r.capacity <= 20])
+            medium = len([r for r in classrooms if hasattr(r, 'capacity') and 21 <= r.capacity <= 35])
+            large = len([r for r in classrooms if hasattr(r, 'capacity') and r.capacity > 35])
+            
+            response += "📈 **Distribuição por Tamanho:**\n"
+            response += f"  • Pequenas (até 20): **{small} salas**\n"
+            response += f"  • Médias (21-35): **{medium} salas**\n"
+            response += f"  • Grandes (36+): **{large} salas**\n\n"
+        
+        active_schedules = len(schedules) if schedules else 0
+        response += f"🗂️ **Agendamentos:** {active_schedules} atividades programadas\n\n"
+        
+        response += "🎯 **Recomendações:**\n"
+        response += "  • Consulte disponibilidade em tempo real\n"
+        response += "  • Reserve com antecedência para garantir vaga\n"
+        response += "  • Considere horários alternativos se necessário"
+        
+        return response
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in get_analytics_and_trends_smart: {str(e)}")
+        return f"📊 **Sistema SENAI Morvan Figueiredo:**\nTotal de salas disponíveis para consulta\n📞 Entre em contato para mais detalhes sobre ocupação e agendamentos!"
+
+def get_basic_classroom_info(classrooms):
+    """Return basic classroom information as fallback"""
+    try:
+        if not classrooms:
+            return "🏫 **Sistema SENAI Morvan Figueiredo**\nEntre em contato com a secretaria para informações sobre as salas! 📞"
+        
+        total_rooms = len(classrooms)
+        total_capacity = sum(room.capacity for room in classrooms if hasattr(room, 'capacity'))
+        
+        response = f"🏫 **Salas Disponíveis ({total_rooms} salas):**\n\n"
+        
+        for room in classrooms[:4]:  # Show first 4 rooms
+            response += f"• **{room.name}** ({getattr(room, 'block', 'Bloco n/d')})\n"
+            response += f"  👥 {getattr(room, 'capacity', 0)} pessoas"
+            if hasattr(room, 'has_computers') and room.has_computers:
+                response += " | 💻 Computadores"
+            response += "\n\n"
+        
+        if len(classrooms) > 4:
+            response += f"... e mais {len(classrooms) - 4} salas\n\n"
+        
+        response += f"📊 **Total:** {total_capacity} pessoas\n"
+        response += "📞 **Mais informações:** Secretaria"
+        
+        return response
+        
+    except Exception:
+        return "🏫 **SENAI Morvan Figueiredo**\nSistema de salas disponível. Entre em contato com a secretaria! 📞"
+
+def get_all_software_options(classrooms):
+    """Return all available software options as fallback"""
+    try:
+        if not classrooms:
+            return "💻 **Software Disponível**\nEntre em contato com a secretaria para informações sobre software! 📞"
+        
+        software_rooms = [room for room in classrooms if hasattr(room, 'software') and room.software]
+        
+        if not software_rooms:
+            return "💻 **Software nas Salas:**\nInformações sendo atualizadas. Consulte a secretaria! 📞"
+        
+        response = "💻 **Software Disponível nas Salas:**\n\n"
+        
+        for room in software_rooms:
+            response += f"• **{room.name}** ({getattr(room, 'block', 'Bloco n/d')})\n"
+            response += f"  🛠️ {room.software}\n\n"
+        
+        response += "📞 **Para usar:** Entre em contato com a secretaria"
+        
+        return response
+        
+    except Exception:
+        return "💻 **Software:**\nUnity, Blender, Visual Studio, Office e mais\n📞 Consulte disponibilidade na secretaria!"
+
+def get_basic_capacity_info(classrooms):
+    """Return basic capacity information as fallback"""
+    try:
+        if not classrooms:
+            return "👥 **Capacidade das Salas**\nEntre em contato com a secretaria! 📞"
+        
+        response = "👥 **Capacidade das Salas:**\n\n"
+        
+        # Group by capacity ranges
+        small = [r for r in classrooms if hasattr(r, 'capacity') and r.capacity <= 20]
+        medium = [r for r in classrooms if hasattr(r, 'capacity') and 21 <= r.capacity <= 35]
+        large = [r for r in classrooms if hasattr(r, 'capacity') and r.capacity > 35]
+        
+        if small:
+            response += f"🔸 **Pequenas (até 20 pessoas):** {len(small)} salas\n"
+        if medium:
+            response += f"🔶 **Médias (21-35 pessoas):** {len(medium)} salas\n"
+        if large:
+            response += f"🔴 **Grandes (36+ pessoas):** {len(large)} salas\n\n"
+        
+        # Show a few examples
+        for room in classrooms[:3]:
+            if hasattr(room, 'capacity'):
+                response += f"• **{room.name}**: {room.capacity} pessoas\n"
+        
+        total_capacity = sum(room.capacity for room in classrooms if hasattr(room, 'capacity'))
+        response += f"\n📊 **Capacidade Total:** {total_capacity} pessoas"
+        
+        return response
+        
+    except Exception:
+        return "👥 **Salas Variadas:**\nDe 20 a 40+ pessoas por sala\n📞 Consulte capacidade específica na secretaria!"
+
+def get_emergency_helpful_response(user_message, classrooms):
+    """Emergency fallback that always provides something useful"""
+    from datetime import datetime
+    import pytz
+    
+    sp_tz = pytz.timezone('America/Sao_Paulo')
+    current_time = datetime.now(sp_tz)
+    
+    total_rooms = len(classrooms) if classrooms else 0
+    
+    return f"""🤖 **Olá! Sou o assistente do SENAI Morvan Figueiredo! 😊**
+
+Percebi que você disse: *"{user_message}"*
+
+**🏫 Informações Rápidas:**
+• {total_rooms} salas disponíveis
+• Horário atual: {current_time.strftime('%H:%M')}
+• Funcionamento: Segunda a Sexta (7h30-22h)
+
+**💬 Posso te ajudar com:**
+• "Que salas estão livres agora?"
+• "Preciso de uma sala para X pessoas"
+• "Onde fica a [nome da sala]?"
+• "Que software tem disponível?"
+
+**📞 Secretaria SENAI** - Para informações mais detalhadas
+
+**🤝 Como posso te ajudar de verdade?** Me faça uma pergunta mais específica! ✨"""
