@@ -338,3 +338,187 @@ function logPerformance() {
 if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     logPerformance();
 }
+
+// Virtual Assistant functionality
+document.addEventListener('DOMContentLoaded', function() {
+    initializeVirtualAssistant();
+});
+
+function initializeVirtualAssistant() {
+    const assistantBtn = document.getElementById('virtualAssistantBtn');
+    const assistantModal = document.getElementById('assistantModal');
+    const chatContainer = document.getElementById('chatContainer');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendChatBtn');
+    
+    if (!assistantBtn || !assistantModal || !chatContainer || !chatInput || !sendBtn) {
+        return; // Elements not found, skip initialization
+    }
+    
+    // Show modal when button is clicked
+    assistantBtn.addEventListener('click', function() {
+        const modal = new bootstrap.Modal(assistantModal);
+        modal.show();
+    });
+    
+    // Send message when button is clicked
+    sendBtn.addEventListener('click', function() {
+        sendMessage();
+    });
+    
+    // Send message when Enter is pressed
+    chatInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    // Auto-focus input when modal is shown
+    assistantModal.addEventListener('shown.bs.modal', function() {
+        chatInput.focus();
+    });
+    
+    function sendMessage() {
+        const message = chatInput.value.trim();
+        
+        if (!message) {
+            return;
+        }
+        
+        // Disable input and button
+        chatInput.disabled = true;
+        sendBtn.disabled = true;
+        
+        // Add user message to chat
+        addMessageToChat('user', message);
+        
+        // Clear input
+        chatInput.value = '';
+        
+        // Show typing indicator
+        showTypingIndicator();
+        
+        // Send message to server
+        fetch('/api/virtual-assistant', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message: message })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Remove typing indicator
+            hideTypingIndicator();
+            
+            if (data.error) {
+                addMessageToChat('assistant', `❌ Desculpe, ocorreu um erro: ${data.error}`);
+            } else {
+                addMessageToChat('assistant', data.response);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            hideTypingIndicator();
+            addMessageToChat('assistant', '❌ Desculpe, não foi possível processar sua pergunta. Tente novamente.');
+        })
+        .finally(() => {
+            // Re-enable input and button
+            chatInput.disabled = false;
+            sendBtn.disabled = false;
+            chatInput.focus();
+        });
+    }
+    
+    function addMessageToChat(sender, message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `${sender}-message`;
+        
+        // Convert markdown-like formatting to HTML
+        const formattedMessage = formatMessage(message);
+        
+        messageDiv.innerHTML = `
+            <div class="message-avatar">
+                <i class="fas ${sender === 'user' ? 'fa-user' : 'fa-robot'}"></i>
+            </div>
+            <div class="message-content">
+                ${formattedMessage}
+            </div>
+        `;
+        
+        // Insert before welcome message (if it exists) or at the end
+        const welcomeMessage = chatContainer.querySelector('.welcome-message');
+        if (welcomeMessage && sender === 'user') {
+            // Insert user messages after welcome message
+            welcomeMessage.insertAdjacentElement('afterend', messageDiv);
+        } else {
+            chatContainer.appendChild(messageDiv);
+        }
+        
+        // Scroll to bottom
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    
+    function formatMessage(message) {
+        // Convert markdown-like formatting to HTML
+        let formatted = message
+            // Convert **bold** to <strong>
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            // Convert bullet points to HTML list
+            .replace(/^• (.+)$/gm, '<li>$1</li>')
+            // Convert line breaks to <br>
+            .replace(/\n/g, '<br>');
+        
+        // Wrap consecutive <li> tags in <ul>
+        formatted = formatted.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
+        
+        // Handle emojis and icons
+        formatted = formatted
+            .replace(/🟢/g, '<span class="text-success">🟢</span>')
+            .replace(/🔴/g, '<span class="text-danger">🔴</span>')
+            .replace(/💻/g, '<span class="text-primary">💻</span>')
+            .replace(/👥/g, '<span class="text-info">👥</span>')
+            .replace(/📍/g, '<span class="text-warning">📍</span>')
+            .replace(/📅/g, '<span class="text-secondary">📅</span>')
+            .replace(/🤖/g, '<span class="text-primary">🤖</span>')
+            .replace(/🎯/g, '<span class="text-success">🎯</span>')
+            .replace(/📊/g, '<span class="text-info">📊</span>');
+        
+        return formatted;
+    }
+    
+    function showTypingIndicator() {
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'assistant-message typing-message';
+        typingDiv.id = 'typingIndicator';
+        
+        typingDiv.innerHTML = `
+            <div class="message-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="typing-indicator">
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+        `;
+        
+        chatContainer.appendChild(typingDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    
+    function hideTypingIndicator() {
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+}
+
+// Add virtual assistant to global functions
+if (window.SenaiClassrooms) {
+    window.SenaiClassrooms.initializeVirtualAssistant = initializeVirtualAssistant;
+}

@@ -2205,3 +2205,229 @@ def dateformat(value):
         return value
     except (ValueError, TypeError):
         return value
+
+@app.route('/api/virtual-assistant', methods=['POST'])
+def virtual_assistant():
+    """Virtual Assistant endpoint for answering questions about classrooms and schedules"""
+    try:
+        data = request.get_json()
+        user_message = data.get('message', '').strip().lower()
+        
+        if not user_message:
+            return jsonify({'error': 'Mensagem não pode estar vazia'}), 400
+            
+        # Get current time for availability checks
+        current_time = get_brazil_time()
+        current_date = current_time.date()
+        current_hour = current_time.hour
+        current_weekday = current_time.weekday()  # 0=Monday, 6=Sunday
+        
+        # Get all classrooms and schedules
+        classrooms = Classroom.query.all()
+        schedules = Schedule.query.filter_by(is_active=True).filter(
+            db.or_(
+                Schedule.end_date.is_(None),
+                Schedule.end_date >= current_date
+            )
+        ).all()
+        
+        # Prepare response based on user question
+        response = process_user_question(user_message, classrooms, schedules, current_time, current_date, current_hour, current_weekday)
+        
+        return jsonify({'response': response})
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in virtual assistant: {str(e)}")
+        return jsonify({'error': 'Erro interno do servidor. Tente novamente.'}), 500
+
+def process_user_question(user_message, classrooms, schedules, current_time, current_date, current_hour, current_weekday):
+    """Process user question and return appropriate response"""
+    
+    # Keywords for different types of questions
+    availability_keywords = ['disponível', 'disponivel', 'livre', 'vaga', 'vazio', 'agora', 'now']
+    software_keywords = ['software', 'programa', 'aplicativo', 'unity', 'unreal', 'blender', 'visual studio', 'git', 'docker', 'office', 'ide']
+    capacity_keywords = ['capacidade', 'quantas pessoas', 'tamanho', 'lugares']
+    location_keywords = ['onde', 'localização', 'localizacao', 'bloco', 'andar']
+    schedule_keywords = ['horário', 'horario', 'aula', 'curso', 'quando']
+    
+    # Check if question is about current availability
+    if any(keyword in user_message for keyword in availability_keywords):
+        return get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday)
+    
+    # Check if question is about software
+    elif any(keyword in user_message for keyword in software_keywords):
+        return get_rooms_by_software(user_message, classrooms)
+    
+    # Check if question is about capacity
+    elif any(keyword in user_message for keyword in capacity_keywords):
+        return get_rooms_capacity_info(classrooms)
+    
+    # Check if question is about location
+    elif any(keyword in user_message for keyword in location_keywords):
+        return get_rooms_location_info(classrooms)
+    
+    # Check if question is about schedules
+    elif any(keyword in user_message for keyword in schedule_keywords):
+        return get_schedule_info(classrooms, schedules)
+    
+    # General help or unknown question
+    else:
+        return get_general_help_response()
+
+def get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday):
+    """Return information about currently available rooms"""
+    available_rooms = []
+    
+    for classroom in classrooms:
+        is_occupied = False
+        current_schedule = None
+        
+        for schedule in schedules:
+            if schedule.classroom_id == classroom.id:
+                # Check if current time falls within this schedule
+                if (schedule.weekday == current_weekday and 
+                    schedule.start_time <= current_hour < schedule.end_time):
+                    is_occupied = True
+                    current_schedule = schedule
+                    break
+        
+        if not is_occupied:
+            available_rooms.append(classroom)
+    
+    if available_rooms:
+        response = f"🟢 **Salas disponíveis agora ({current_time.strftime('%H:%M')}):**\n\n"
+        for room in available_rooms:
+            response += f"• **{room.name}** ({room.block})\n"
+            response += f"  - Capacidade: {room.capacity} pessoas\n"
+            if room.software:
+                response += f"  - Software: {room.software}\n"
+            response += "\n"
+    else:
+        response = f"🔴 **Todas as salas estão ocupadas no momento ({current_time.strftime('%H:%M')})**\n\n"
+        response += "Salas do SENAI Morvan Figueiredo:\n"
+        for room in classrooms:
+            response += f"• **{room.name}** ({room.block}) - {room.capacity} pessoas\n"
+    
+    return response
+
+def get_rooms_by_software(user_message, classrooms):
+    """Return rooms that have specific software"""
+    response = "💻 **Salas por Software:**\n\n"
+    
+    for classroom in classrooms:
+        if classroom.software:
+            response += f"• **{classroom.name}** ({classroom.block})\n"
+            response += f"  - Capacidade: {classroom.capacity} pessoas\n"
+            response += f"  - Software: {classroom.software}\n\n"
+    
+    # Try to find specific software mentioned
+    software_found = []
+    for classroom in classrooms:
+        if classroom.software:
+            software_lower = classroom.software.lower()
+            if ('unity' in user_message and 'unity' in software_lower) or \
+               ('unreal' in user_message and 'unreal' in software_lower) or \
+               ('blender' in user_message and 'blender' in software_lower) or \
+               ('visual studio' in user_message and 'visual studio' in software_lower) or \
+               ('git' in user_message and 'git' in software_lower) or \
+               ('docker' in user_message and 'docker' in software_lower) or \
+               ('office' in user_message and 'office' in software_lower):
+                software_found.append(classroom)
+    
+    if software_found:
+        response += "\n🎯 **Salas com o software que você procura:**\n\n"
+        for room in software_found:
+            response += f"• **{room.name}** ({room.block}) - {room.software}\n"
+    
+    return response
+
+def get_rooms_capacity_info(classrooms):
+    """Return information about room capacities"""
+    response = "👥 **Capacidade das Salas:**\n\n"
+    
+    # Sort rooms by capacity
+    sorted_rooms = sorted(classrooms, key=lambda x: x.capacity, reverse=True)
+    
+    for room in sorted_rooms:
+        response += f"• **{room.name}** ({room.block}) - {room.capacity} pessoas\n"
+    
+    total_capacity = sum(room.capacity for room in classrooms)
+    response += f"\n📊 **Capacidade total:** {total_capacity} pessoas"
+    
+    return response
+
+def get_rooms_location_info(classrooms):
+    """Return information about room locations"""
+    response = "📍 **Localização das Salas:**\n\n"
+    
+    # Group by block
+    blocks = {}
+    for room in classrooms:
+        if room.block not in blocks:
+            blocks[room.block] = []
+        blocks[room.block].append(room)
+    
+    for block, rooms in blocks.items():
+        response += f"**{block}:**\n"
+        for room in rooms:
+            response += f"  • {room.name} (capacidade: {room.capacity})\n"
+        response += "\n"
+    
+    return response
+
+def get_schedule_info(classrooms, schedules):
+    """Return general schedule information"""
+    response = "📅 **Informações sobre Horários:**\n\n"
+    
+    weekdays = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+    
+    active_schedules = [s for s in schedules if s.is_active]
+    
+    if active_schedules:
+        response += f"Existem **{len(active_schedules)} horários ativos** nas salas.\n\n"
+        
+        # Show schedules by day
+        for day in range(7):  # 0=Monday, 6=Sunday
+            day_schedules = [s for s in active_schedules if s.weekday == day]
+            if day_schedules:
+                response += f"**{weekdays[day]}:**\n"
+                for schedule in day_schedules:
+                    classroom = next((c for c in classrooms if c.id == schedule.classroom_id), None)
+                    if classroom:
+                        response += f"  • {classroom.name}: {schedule.start_time:02d}h - {schedule.end_time:02d}h ({schedule.course_name})\n"
+                response += "\n"
+    else:
+        response += "Não há horários ativos no momento.\n"
+    
+    return response
+
+def get_general_help_response():
+    """Return general help information"""
+    response = """🤖 **Como posso ajudar:**
+
+Posso responder sobre:
+
+**🏢 Disponibilidade:**
+• "Quais salas estão disponíveis agora?"
+• "Tem alguma sala livre?"
+
+**💻 Software:**
+• "Quais salas têm Unity?"
+• "Onde posso usar Blender?"
+
+**👥 Capacidade:**
+• "Qual a capacidade das salas?"
+• "Quantas pessoas cabem na sala?"
+
+**📍 Localização:**
+• "Onde fica a Sala 208?"
+• "Quais salas tem no Bloco A?"
+
+**📅 Horários:**
+• "Que cursos tem hoje?"
+• "Qual o horário da aula de jogos?"
+
+Digite sua pergunta e eu te ajudo! 😊"""
+    
+    return response

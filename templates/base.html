@@ -140,11 +140,58 @@
         (CFP 1.03) Junto a Coordenação.
     </p>
 </div>
-
-
             </div>
         </div>
     </footer>
+
+    <!-- Virtual Assistant Button -->
+    <div class="virtual-assistant-btn" id="virtualAssistantBtn" title="Assistente Virtual - Pergunte sobre as salas e horários">
+        <i class="fas fa-robot"></i>
+    </div>
+
+    <!-- Virtual Assistant Modal -->
+    <div class="modal fade" id="assistantModal" tabindex="-1" aria-labelledby="assistantModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assistantModalLabel">
+                        <i class="fas fa-robot me-2"></i>Assistente Virtual SENAI
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="chat-container" id="chatContainer">
+                        <div class="welcome-message">
+                            <div class="assistant-message">
+                                <div class="message-avatar">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                                <div class="message-content">
+                                    <p>Olá! Sou o assistente virtual do SENAI Morvan Figueiredo. 🤖</p>
+                                    <p>Posso te ajudar com:</p>
+                                    <ul>
+                                        <li>Ver quais salas estão disponíveis agora</li>
+                                        <li>Encontrar salas com software específico</li>
+                                        <li>Consultar horários e capacidades das salas</li>
+                                        <li>Informações sobre o sistema em geral</li>
+                                    </ul>
+                                    <p>O que você gostaria de saber?</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="chatInput" placeholder="Digite sua pergunta...">
+                            <button class="btn btn-primary" type="button" id="sendChatBtn">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
