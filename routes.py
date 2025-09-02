@@ -2619,14 +2619,18 @@ def get_rooms_by_software_smart(user_message, classrooms):
                 software_lower = classroom.software.lower()
                 
                 # Check availability in real-time
-                is_available_now = not db.session.query(Schedule).filter(
-                    Schedule.classroom_id == classroom.id,
-                    Schedule.start_date <= current_date_sp,
-                    Schedule.end_date >= current_date_sp,
-                    Schedule.day_of_week == current_weekday_sp,
-                    Schedule.start_time <= current_hour_sp,
-                    Schedule.end_time > current_hour_sp
-                ).first()
+                try:
+                    is_available_now = not db.session.query(Schedule).filter(
+                        Schedule.classroom_id == classroom.id,
+                        Schedule.start_date <= current_date_sp,
+                        Schedule.end_date >= current_date_sp,
+                        Schedule.day_of_week == current_weekday_sp,
+                        Schedule.start_time.cast(db.Integer) <= current_hour_sp,
+                        Schedule.end_time.cast(db.Integer) > current_hour_sp
+                    ).first()
+                except:
+                    # Fallback if casting fails
+                    is_available_now = True
                 
                 # Check if any mentioned software is in this classroom
                 for software_type in mentioned_software:
@@ -2650,10 +2654,10 @@ def get_rooms_by_software_smart(user_message, classrooms):
         # Generate intelligent response
         if mentioned_software:
             software_list = ", ".join(mentioned_software).title()
-            response = f"🔍 **Procurando por {software_list}? Achei algumas opções interessantes!** 😊\n\n"
+            response = f"🔍 **{software_list}:**\n\n"
             
             if matching_rooms:
-                response += f"🎯 **Salas perfeitas para {software_list} (análise em tempo real):**\n\n"
+                response += f"🎯 **Salas com {software_list}:**\n\n"
                 
                 # Sort by availability first, then by capacity
                 matching_rooms.sort(key=lambda x: (not x[2], -x[0].capacity))
@@ -2679,14 +2683,17 @@ def get_rooms_by_software_smart(user_message, classrooms):
                     # Add real-time insights
                     if not is_available:
                         # Check when it will be free
-                        next_free = db.session.query(Schedule).filter(
-                            Schedule.classroom_id == room.id,
-                            Schedule.start_date <= current_date_sp,
-                            Schedule.end_date >= current_date_sp,
-                            Schedule.day_of_week == current_weekday_sp,
-                            Schedule.start_time <= current_hour_sp,
-                            Schedule.end_time > current_hour_sp
-                        ).first()
+                        try:
+                            next_free = db.session.query(Schedule).filter(
+                                Schedule.classroom_id == room.id,
+                                Schedule.start_date <= current_date_sp,
+                                Schedule.end_date >= current_date_sp,
+                                Schedule.day_of_week == current_weekday_sp,
+                                Schedule.start_time.cast(db.Integer) <= current_hour_sp,
+                                Schedule.end_time.cast(db.Integer) > current_hour_sp
+                            ).first()
+                        except:
+                            next_free = None
                         
                         if next_free:
                             response += f"  ⏰ Livre às {next_free.end_time:02d}:00\n"
@@ -2767,14 +2774,17 @@ def get_rooms_capacity_info_smart(classrooms):
         for room in all_classrooms:
             if hasattr(room, 'capacity') and room.capacity:
                 # Check current availability
-                is_available_now = not db.session.query(Schedule).filter(
-                    Schedule.classroom_id == room.id,
-                    Schedule.start_date <= current_date_sp,
-                    Schedule.end_date >= current_date_sp,
-                    Schedule.day_of_week == current_weekday_sp,
-                    Schedule.start_time <= current_hour_sp,
-                    Schedule.end_time > current_hour_sp
-                ).first()
+                try:
+                    is_available_now = not db.session.query(Schedule).filter(
+                        Schedule.classroom_id == room.id,
+                        Schedule.start_date <= current_date_sp,
+                        Schedule.end_date >= current_date_sp,
+                        Schedule.day_of_week == current_weekday_sp,
+                        Schedule.start_time.cast(db.Integer) <= current_hour_sp,
+                        Schedule.end_time.cast(db.Integer) > current_hour_sp
+                    ).first()
+                except:
+                    is_available_now = True
                 
                 # Calculate weekly usage (how many hours per week this room is scheduled)
                 weekly_usage = db.session.query(Schedule).filter(
@@ -2797,7 +2807,7 @@ def get_rooms_capacity_info_smart(classrooms):
         medium_rooms.sort(key=lambda x: (not x[1], x[0].capacity))
         large_rooms.sort(key=lambda x: (not x[1], -x[0].capacity))
         
-        response = f"👥 **Análise de Capacidade em Tempo Real ({current_sp_time.strftime('%H:%M')})** 😊\n\n"
+        response = f"👥 **Capacidade das Salas ({current_sp_time.strftime('%H:%M')}):**\n\n"
         
         # Calculate real-time statistics
         total_rooms = len(all_classrooms)
@@ -3540,66 +3550,26 @@ def get_basic_capacity_info(classrooms):
     """Return basic capacity information as fallback"""
     try:
         if not classrooms:
-            return "👥 **Capacidade das Salas**\nEntre em contato com a secretaria! 📞"
+            return "👥 **Capacidade das Salas**\nSolicite no sistema! 💬"
         
         response = "👥 **Capacidade das Salas:**\n\n"
         
-        # Group by capacity ranges
-        small = [r for r in classrooms if hasattr(r, 'capacity') and r.capacity <= 20]
-        medium = [r for r in classrooms if hasattr(r, 'capacity') and 21 <= r.capacity <= 35]
-        large = [r for r in classrooms if hasattr(r, 'capacity') and r.capacity > 35]
-        
-        if small:
-            response += f"🔸 **Pequenas (até 20 pessoas):** {len(small)} salas\n"
-        if medium:
-            response += f"🔶 **Médias (21-35 pessoas):** {len(medium)} salas\n"
-        if large:
-            response += f"🔴 **Grandes (36+ pessoas):** {len(large)} salas\n\n"
-        
-        # Show a few examples
-        for room in classrooms[:3]:
+        # Show simplified info
+        for room in classrooms[:4]:
             if hasattr(room, 'capacity'):
                 response += f"• **{room.name}**: {room.capacity} pessoas\n"
         
         total_capacity = sum(room.capacity for room in classrooms if hasattr(room, 'capacity'))
-        response += f"\n📊 **Capacidade Total:** {total_capacity} pessoas"
-        response += get_question_menu()
+        response += f"\n📊 **Total:** {total_capacity} pessoas em {len(classrooms)} salas"
         
         return response
         
     except Exception:
-        return "👥 **Salas Variadas:**\nDe 20 a 40+ pessoas por sala\n📞 Consulte capacidade específica na secretaria!"
+        return "👥 **Salas:** 20-40 pessoas por sala\n💬 Solicite no sistema!"
 
 def get_question_menu():
-    """Generate a menu of questions the user can ask"""
-    return """
-🔮 **Mais opções de perguntas:**
-
-**🏢 Sobre Salas:**
-• "Quantas salas temos no total?"
-• "Qual a maior sala disponível?"
-• "Salas com projetores?"
-• "Laboratórios especializados?"
-
-**💻 Tecnologia:**
-• "Onde posso usar Photoshop?"
-• "Salas com internet rápida?"
-• "Equipamentos de áudio?"
-• "Estações de trabalho?"
-
-**⏰ Horários:**
-• "Quando fecha o SENAI?"
-• "Horário de almoço?"
-• "Funcionamento nos finais de semana?"
-• "Melhor horário para estudar?"
-
-**📊 Análises:**
-• "Relatório de ocupação?"
-• "Salas menos utilizadas?"
-• "Estatísticas do mês?"
-• "Tendências de uso?"
-
-**❓ Digite qualquer pergunta para continuar nossa conversa! 🚀**"""
+    """Generate a short menu of questions the user can ask"""
+    return "\n\n❓ **Mais ajuda?** Pergunte sobre salas, software ou horários!"
 
 def get_emergency_helpful_response(user_message, classrooms):
     """Emergency fallback that always provides something useful"""

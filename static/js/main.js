@@ -426,6 +426,7 @@ function initializeVirtualAssistant() {
                 addMessageToChat('assistant', `❌ Desculpe, ocorreu um erro: ${data.error}`);
             } else {
                 addMessageToChat('assistant', data.response);
+                addQuickReplyButtons();
             }
         })
         .catch(error => {
@@ -496,6 +497,61 @@ function initializeVirtualAssistant() {
             .replace(/📊/g, '<span class="text-info">📊</span>');
         
         return formatted;
+    }
+    
+    function addQuickReplyButtons() {
+        // Remove existing quick reply buttons
+        const existingButtons = chatContainer.querySelector('.quick-reply-buttons');
+        if (existingButtons) {
+            existingButtons.remove();
+        }
+        
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.className = 'quick-reply-buttons mt-3 p-3 bg-light rounded';
+        buttonsDiv.innerHTML = `
+            <h6 class="mb-2 text-muted">💬 Perguntas rápidas:</h6>
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-outline-primary btn-sm quick-btn" data-msg="salas livres agora">
+                    🏢 Salas livres
+                </button>
+                <button class="btn btn-outline-success btn-sm quick-btn" data-msg="unity">
+                    🎮 Unity
+                </button>
+                <button class="btn btn-outline-info btn-sm quick-btn" data-msg="capacidade das salas">
+                    👥 Capacidade
+                </button>
+                <button class="btn btn-outline-warning btn-sm quick-btn" data-msg="laboratório de jogos">
+                    🎯 Lab Jogos
+                </button>
+                <button class="btn btn-outline-secondary btn-sm quick-btn" data-msg="blender">
+                    🎨 Blender
+                </button>
+                <button class="btn btn-outline-dark btn-sm quick-btn" data-msg="visual studio">
+                    💻 VS Code
+                </button>
+                <button class="btn btn-outline-primary btn-sm quick-btn" data-msg="sala dev">
+                    🚀 Sala DEV
+                </button>
+                <button class="btn btn-outline-info btn-sm quick-btn" data-msg="quando fecha">
+                    ⏰ Horários
+                </button>
+            </div>
+        `;
+        
+        chatContainer.appendChild(buttonsDiv);
+        
+        // Add click listeners to quick reply buttons
+        const quickBtns = buttonsDiv.querySelectorAll('.quick-btn');
+        quickBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const message = this.getAttribute('data-msg');
+                chatInput.value = message;
+                sendMessage();
+            });
+        });
+        
+        // Scroll to bottom
+        chatContainer.scrollTop = chatContainer.scrollHeight;
     }
     
     function showTypingIndicator() {
