@@ -92,7 +92,7 @@ def classroom_detail(classroom_id):
     # Only show active schedules where courses haven't ended yet
     schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
         db.or_(
-            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date == None,  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     ).all()
@@ -206,7 +206,7 @@ def edit_classroom(classroom_id):
     # Only show active schedules where courses haven't ended yet
     schedules = Schedule.query.filter_by(classroom_id=classroom_id, is_active=True).filter(
         db.or_(
-            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date == None,  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     ).all()
@@ -1055,7 +1055,7 @@ def schedule_management():
     # Only show active schedules where courses haven't ended yet
     schedules = Schedule.query.filter_by(is_active=True).filter(
         db.or_(
-            Schedule.end_date.is_(None),  # No end date specified
+            Schedule.end_date == None,  # No end date specified
             Schedule.end_date >= current_date  # Course hasn't ended yet
         )
     ).all()
@@ -1211,9 +1211,9 @@ def dashboard():
     # Build classroom query with filters
     classroom_query = Classroom.query
     if block_filter:
-        classroom_query = classroom_query.filter(Classroom.block.ilike(f'%{block_filter}%'))
+        classroom_query = classroom_query.filter(Classroom.block.like(f'%{block_filter}%'))
     if software_filter:
-        classroom_query = classroom_query.filter(Classroom.software.ilike(f'%{software_filter}%'))
+        classroom_query = classroom_query.filter(Classroom.software.like(f'%{software_filter}%'))
     if has_computers_filter:
         has_computers_bool = has_computers_filter.lower() == 'true'
         classroom_query = classroom_query.filter(Classroom.has_computers == has_computers_bool)
@@ -1267,7 +1267,7 @@ def dashboard():
                     Schedule.start_date <= week_sunday  # Course started before or during the week
                 ),
                 db.or_(
-                    Schedule.end_date.is_(None),  # No end date specified
+                    Schedule.end_date == None,  # No end date specified
                     Schedule.end_date >= week_monday  # Course ends after or during the week
                 )
             )
@@ -1276,7 +1276,7 @@ def dashboard():
         # For normal view, only show courses that haven't ended yet
         schedule_query = schedule_query.filter(
             db.or_(
-                Schedule.end_date.is_(None),  # No end date specified
+                Schedule.end_date == None,  # No end date specified
                 Schedule.end_date >= current_date  # Course hasn't ended yet
             )
         )
@@ -1746,14 +1746,24 @@ def export_excel():
         ws1 = wb.active
         ws1.title = "Salas de Aula"
         
+        # Import openpyxl styles if available
+        try:
+            from openpyxl.styles import Font, PatternFill, Alignment
+        except ImportError:
+            Font = PatternFill = Alignment = None
+        
         # Headers for classrooms
         headers1 = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Tem Computadores', 'Softwares', 'Descrição']
         for col, header in enumerate(headers1, 1):
             cell = ws1.cell(row=1, column=col)
-            cell.value = header
-            cell.font = Font(bold=True, color='FFFFFF')
-            cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-            cell.alignment = Alignment(horizontal='center')
+            if cell:
+                cell.value = header
+                if Font:
+                    cell.font = Font(bold=True, color='FFFFFF')
+                if PatternFill:
+                    cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+                if Alignment:
+                    cell.alignment = Alignment(horizontal='center')
         
         # Data for classrooms
         classrooms = Classroom.query.all()
@@ -1766,18 +1776,23 @@ def export_excel():
             ws1.cell(row=row, column=6).value = classroom.software
             ws1.cell(row=row, column=7).value = classroom.description
         
-        # Auto-fit columns
-        for column_cells in ws1.columns:
-            max_length = 0
-            column_letter = column_cells[0].column_letter
-            for cell in column_cells:
-                try:
-                    if cell.value and len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 50)
-            ws1.column_dimensions[column_letter].width = adjusted_width
+        # Auto-fit columns with safer approach
+        try:
+            for column_cells in ws1.columns:
+                if column_cells and len(column_cells) > 0:
+                    max_length = 0
+                    column_letter = column_cells[0].column_letter
+                    for cell in column_cells:
+                        try:
+                            if cell and cell.value and len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    if ws1.column_dimensions and column_letter:
+                        ws1.column_dimensions[column_letter].width = adjusted_width
+        except Exception:
+            pass  # Skip column sizing if there are issues
         
         # Sheet 2: Schedules
         ws2 = wb.create_sheet(title="Horários")
@@ -1786,10 +1801,14 @@ def export_excel():
         headers2 = ['ID', 'Sala', 'Dia da Semana', 'Turno', 'Curso', 'Professor', 'Início', 'Fim', 'Ativo']
         for col, header in enumerate(headers2, 1):
             cell = ws2.cell(row=1, column=col)
-            cell.value = header
-            cell.font = Font(bold=True, color='FFFFFF')
-            cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-            cell.alignment = Alignment(horizontal='center')
+            if cell:
+                cell.value = header
+                if Font:
+                    cell.font = Font(bold=True, color='FFFFFF')
+                if PatternFill:
+                    cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+                if Alignment:
+                    cell.alignment = Alignment(horizontal='center')
         
         # Data for schedules
         schedules = Schedule.query.all()
@@ -1934,10 +1953,15 @@ def export_filtered_excel():
         headers = ['ID', 'Nome', 'Capacidade', 'Bloco', 'Tem Computadores', 'Softwares', 'Descrição']
         for col, header in enumerate(headers, 1):
             cell = ws1.cell(row=1, column=col)
-            cell.value = header
-            cell.font = Font(bold=True, color='FFFFFF')
-            cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-            cell.alignment = Alignment(horizontal='center')
+            if cell:
+                cell.value = header
+                try:
+                    from openpyxl.styles import Font, PatternFill, Alignment
+                    cell.font = Font(bold=True, color='FFFFFF')
+                    cell.fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+                    cell.alignment = Alignment(horizontal='center')
+                except ImportError:
+                    pass  # Styles not available
         
         # Data
         for row, classroom in enumerate(filtered_classrooms, 2):
@@ -1949,18 +1973,23 @@ def export_filtered_excel():
             ws1.cell(row=row, column=6).value = classroom.software
             ws1.cell(row=row, column=7).value = classroom.description
         
-        # Auto-fit columns
-        for column_cells in ws1.columns:
-            max_length = 0
-            column_letter = column_cells[0].column_letter
-            for cell in column_cells:
-                try:
-                    if cell.value and len(str(cell.value)) > max_length:
-                        max_length = len(str(cell.value))
-                except:
-                    pass
-            adjusted_width = min(max_length + 2, 50)
-            ws1.column_dimensions[column_letter].width = adjusted_width
+        # Auto-fit columns with safer approach
+        try:
+            for column_cells in ws1.columns:
+                if column_cells and len(column_cells) > 0:
+                    max_length = 0
+                    column_letter = column_cells[0].column_letter
+                    for cell in column_cells:
+                        try:
+                            if cell and cell.value and len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    if ws1.column_dimensions and column_letter:
+                        ws1.column_dimensions[column_letter].width = adjusted_width
+        except Exception:
+            pass  # Skip column sizing if there are issues
         
         # Save to BytesIO
         output = io.BytesIO()
@@ -2235,7 +2264,7 @@ def virtual_assistant():
         classrooms = Classroom.query.all()
         schedules = Schedule.query.filter_by(is_active=True).filter(
             db.or_(
-                Schedule.end_date.is_(None),
+                Schedule.end_date == None,
                 Schedule.end_date >= current_date
             )
         ).all()
@@ -2253,83 +2282,96 @@ def virtual_assistant():
 def process_user_question(user_message, classrooms, schedules, current_time, current_date, current_hour, current_weekday):
     """Process user question and return appropriate response"""
     
-    # Expanded keywords for different types of questions
-    availability_keywords = [
-        'disponível', 'disponivel', 'livre', 'vaga', 'vazio', 'agora', 'now', 'aberta', 'ocupada', 'ocupado',
-        'tem sala', 'preciso de sala', 'sala livre', 'sala vaga', 'reservar', 'usar sala', 'acesso'
-    ]
+    try:
+        # Input validation
+        if not user_message or not classrooms:
+            return "❌ Desculpe, não consegui processar sua pergunta. Tente novamente."
+        
+        # Ensure safe data types
+        schedules = schedules or []
+        
+        # Expanded keywords for different types of questions
+        availability_keywords = [
+            'disponível', 'disponivel', 'livre', 'vaga', 'vazio', 'agora', 'now', 'aberta', 'ocupada', 'ocupado',
+            'tem sala', 'preciso de sala', 'sala livre', 'sala vaga', 'reservar', 'usar sala', 'acesso'
+        ]
     
-    software_keywords = [
-        'software', 'programa', 'aplicativo', 'aplicação', 'ferramenta', 'sistema',
-        'unity', 'unreal', 'blender', 'visual studio', 'git', 'docker', 'office',
-        'ide', 'editor', 'desenvolvimento', 'programação', 'programacao', 'código', 'codigo',
-        'game', 'jogo', 'jogos', 'engine', '3d', 'modelagem', 'animação', 'animacao'
-    ]
+        software_keywords = [
+            'software', 'programa', 'aplicativo', 'aplicação', 'ferramenta', 'sistema',
+            'unity', 'unreal', 'blender', 'visual studio', 'git', 'docker', 'office',
+            'ide', 'editor', 'desenvolvimento', 'programação', 'programacao', 'código', 'codigo',
+            'game', 'jogo', 'jogos', 'engine', '3d', 'modelagem', 'animação', 'animacao'
+        ]
+        
+        capacity_keywords = [
+            'capacidade', 'quantas pessoas', 'quantos alunos', 'tamanho', 'lugares', 'assentos',
+            'cabem', 'comporta', 'máximo', 'maximo', 'lotação', 'lotacao', 'turma', 'grupo'
+        ]
+        
+        location_keywords = [
+            'onde', 'localização', 'localizacao', 'bloco', 'andar', 'fica', 'encontrar',
+            'endereço', 'endereco', 'caminho', 'direção', 'direcao', 'mapa', 'local'
+        ]
+        
+        schedule_keywords = [
+            'horário', 'horario', 'aula', 'curso', 'quando', 'que horas', 'período', 'periodo',
+            'manhã', 'manha', 'tarde', 'noite', 'segunda', 'terça', 'terca', 'quarta', 
+            'quinta', 'sexta', 'sábado', 'sabado', 'domingo', 'funcionamento', 'aberto'
+        ]
+        
+        help_keywords = [
+            'ajuda', 'help', 'como', 'o que', 'opções', 'opcoes', 'menu', 'comandos',
+            'posso', 'consegue', 'sabe', 'funciona', 'usar'
+        ]
+        
+        contact_keywords = [
+            'contato', 'telefone', 'email', 'whatsapp', 'falar', 'secretaria', 'administração', 'administracao'
+        ]
+        
+        about_keywords = [
+            'senai', 'escola', 'instituição', 'instituicao', 'sobre', 'história', 'historia', 'morvan', 'figueiredo'
+        ]
     
-    capacity_keywords = [
-        'capacidade', 'quantas pessoas', 'quantos alunos', 'tamanho', 'lugares', 'assentos',
-        'cabem', 'comporta', 'máximo', 'maximo', 'lotação', 'lotacao', 'turma', 'grupo'
-    ]
-    
-    location_keywords = [
-        'onde', 'localização', 'localizacao', 'bloco', 'andar', 'fica', 'encontrar',
-        'endereço', 'endereco', 'caminho', 'direção', 'direcao', 'mapa', 'local'
-    ]
-    
-    schedule_keywords = [
-        'horário', 'horario', 'aula', 'curso', 'quando', 'que horas', 'período', 'periodo',
-        'manhã', 'manha', 'tarde', 'noite', 'segunda', 'terça', 'terca', 'quarta', 
-        'quinta', 'sexta', 'sábado', 'sabado', 'domingo', 'funcionamento', 'aberto'
-    ]
-    
-    help_keywords = [
-        'ajuda', 'help', 'como', 'o que', 'opções', 'opcoes', 'menu', 'comandos',
-        'posso', 'consegue', 'sabe', 'funciona', 'usar'
-    ]
-    
-    contact_keywords = [
-        'contato', 'telefone', 'email', 'whatsapp', 'falar', 'secretaria', 'administração', 'administracao'
-    ]
-    
-    about_keywords = [
-        'senai', 'escola', 'instituição', 'instituicao', 'sobre', 'história', 'historia', 'morvan', 'figueiredo'
-    ]
-    
-    # Check if question is about current availability
-    if any(keyword in user_message for keyword in availability_keywords):
-        return get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday)
-    
-    # Check if question is about software
-    elif any(keyword in user_message for keyword in software_keywords):
-        return get_rooms_by_software(user_message, classrooms)
-    
-    # Check if question is about capacity
-    elif any(keyword in user_message for keyword in capacity_keywords):
-        return get_rooms_capacity_info(classrooms)
-    
-    # Check if question is about location
-    elif any(keyword in user_message for keyword in location_keywords):
-        return get_rooms_location_info(classrooms)
-    
-    # Check if question is about schedules
-    elif any(keyword in user_message for keyword in schedule_keywords):
-        return get_schedule_info(classrooms, schedules)
-    
-    # Check if asking for contact information
-    elif any(keyword in user_message for keyword in contact_keywords):
-        return get_contact_info()
-    
-    # Check if asking about SENAI
-    elif any(keyword in user_message for keyword in about_keywords):
-        return get_about_senai_info()
-    
-    # Check if asking for help
-    elif any(keyword in user_message for keyword in help_keywords):
-        return get_general_help_response()
-    
-    # Use ChatGPT for questions not covered by predefined responses
-    else:
-        return get_chatgpt_response(user_message, classrooms, schedules, current_time)
+        # Check if question is about current availability
+        if any(keyword in user_message for keyword in availability_keywords):
+            return get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday)
+        
+        # Check if question is about software
+        elif any(keyword in user_message for keyword in software_keywords):
+            return get_rooms_by_software(user_message, classrooms)
+        
+        # Check if question is about capacity
+        elif any(keyword in user_message for keyword in capacity_keywords):
+            return get_rooms_capacity_info(classrooms)
+        
+        # Check if question is about location
+        elif any(keyword in user_message for keyword in location_keywords):
+            return get_rooms_location_info(classrooms)
+        
+        # Check if question is about schedules
+        elif any(keyword in user_message for keyword in schedule_keywords):
+            return get_schedule_info(classrooms, schedules)
+        
+        # Check if asking for contact information
+        elif any(keyword in user_message for keyword in contact_keywords):
+            return get_contact_info()
+        
+        # Check if asking about SENAI
+        elif any(keyword in user_message for keyword in about_keywords):
+            return get_about_senai_info()
+        
+        # Check if asking for help
+        elif any(keyword in user_message for keyword in help_keywords):
+            return get_general_help_response()
+        
+        # Use ChatGPT for questions not covered by predefined responses
+        else:
+            return get_chatgpt_response(user_message, classrooms, schedules, current_time)
+            
+    except Exception as e:
+        import logging
+        logging.error(f"Error in process_user_question: {str(e)}")
+        return "❌ Desculpe, ocorreu um erro ao processar sua pergunta. Tente uma pergunta mais simples ou use as opções sugeridas."
 
 def get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday):
     """Return information about currently available rooms"""
