@@ -2253,13 +2253,47 @@ def virtual_assistant():
 def process_user_question(user_message, classrooms, schedules, current_time, current_date, current_hour, current_weekday):
     """Process user question and return appropriate response"""
     
-    # Keywords for different types of questions
-    availability_keywords = ['disponível', 'disponivel', 'livre', 'vaga', 'vazio', 'agora', 'now']
-    software_keywords = ['software', 'programa', 'aplicativo', 'unity', 'unreal', 'blender', 'visual studio', 'git', 'docker', 'office', 'ide']
-    capacity_keywords = ['capacidade', 'quantas pessoas', 'tamanho', 'lugares']
-    location_keywords = ['onde', 'localização', 'localizacao', 'bloco', 'andar']
-    schedule_keywords = ['horário', 'horario', 'aula', 'curso', 'quando']
-    help_keywords = ['ajuda', 'help', 'como', 'o que', 'opções', 'opcoes']
+    # Expanded keywords for different types of questions
+    availability_keywords = [
+        'disponível', 'disponivel', 'livre', 'vaga', 'vazio', 'agora', 'now', 'aberta', 'ocupada', 'ocupado',
+        'tem sala', 'preciso de sala', 'sala livre', 'sala vaga', 'reservar', 'usar sala', 'acesso'
+    ]
+    
+    software_keywords = [
+        'software', 'programa', 'aplicativo', 'aplicação', 'ferramenta', 'sistema',
+        'unity', 'unreal', 'blender', 'visual studio', 'git', 'docker', 'office',
+        'ide', 'editor', 'desenvolvimento', 'programação', 'programacao', 'código', 'codigo',
+        'game', 'jogo', 'jogos', 'engine', '3d', 'modelagem', 'animação', 'animacao'
+    ]
+    
+    capacity_keywords = [
+        'capacidade', 'quantas pessoas', 'quantos alunos', 'tamanho', 'lugares', 'assentos',
+        'cabem', 'comporta', 'máximo', 'maximo', 'lotação', 'lotacao', 'turma', 'grupo'
+    ]
+    
+    location_keywords = [
+        'onde', 'localização', 'localizacao', 'bloco', 'andar', 'fica', 'encontrar',
+        'endereço', 'endereco', 'caminho', 'direção', 'direcao', 'mapa', 'local'
+    ]
+    
+    schedule_keywords = [
+        'horário', 'horario', 'aula', 'curso', 'quando', 'que horas', 'período', 'periodo',
+        'manhã', 'manha', 'tarde', 'noite', 'segunda', 'terça', 'terca', 'quarta', 
+        'quinta', 'sexta', 'sábado', 'sabado', 'domingo', 'funcionamento', 'aberto'
+    ]
+    
+    help_keywords = [
+        'ajuda', 'help', 'como', 'o que', 'opções', 'opcoes', 'menu', 'comandos',
+        'posso', 'consegue', 'sabe', 'funciona', 'usar'
+    ]
+    
+    contact_keywords = [
+        'contato', 'telefone', 'email', 'whatsapp', 'falar', 'secretaria', 'administração', 'administracao'
+    ]
+    
+    about_keywords = [
+        'senai', 'escola', 'instituição', 'instituicao', 'sobre', 'história', 'historia', 'morvan', 'figueiredo'
+    ]
     
     # Check if question is about current availability
     if any(keyword in user_message for keyword in availability_keywords):
@@ -2280,6 +2314,14 @@ def process_user_question(user_message, classrooms, schedules, current_time, cur
     # Check if question is about schedules
     elif any(keyword in user_message for keyword in schedule_keywords):
         return get_schedule_info(classrooms, schedules)
+    
+    # Check if asking for contact information
+    elif any(keyword in user_message for keyword in contact_keywords):
+        return get_contact_info()
+    
+    # Check if asking about SENAI
+    elif any(keyword in user_message for keyword in about_keywords):
+        return get_about_senai_info()
     
     # Check if asking for help
     elif any(keyword in user_message for keyword in help_keywords):
@@ -2329,30 +2371,44 @@ def get_rooms_by_software(user_message, classrooms):
     """Return rooms that have specific software"""
     response = "💻 **Salas por Software:**\n\n"
     
+    # Try to find specific software mentioned first
+    software_found = []
+    software_keywords = {
+        'unity': ['unity'],
+        'unreal': ['unreal'],
+        'blender': ['blender'],
+        'visual studio': ['visual studio', 'vs'],
+        'git': ['git'],
+        'docker': ['docker'],
+        'office': ['office'],
+        'ide': ['ide'],
+        'banco de dados': ['banco', 'database', 'bd']
+    }
+    
+    for classroom in classrooms:
+        if classroom.software:
+            software_lower = classroom.software.lower()
+            for software_type, keywords in software_keywords.items():
+                if any(keyword in user_message for keyword in keywords) and any(keyword in software_lower for keyword in keywords):
+                    software_found.append(classroom)
+                    break
+    
+    if software_found:
+        response += "🎯 **Salas com o software que você procura:**\n\n"
+        for room in software_found:
+            response += f"• **{room.name}** ({room.block})\n"
+            response += f"  - Capacidade: {room.capacity} pessoas\n"
+            response += f"  - Software: {room.software}\n\n"
+        response += "---\n\n"
+    
+    response += "📋 **Todas as salas com software:**\n\n"
     for classroom in classrooms:
         if classroom.software:
             response += f"• **{classroom.name}** ({classroom.block})\n"
             response += f"  - Capacidade: {classroom.capacity} pessoas\n"
             response += f"  - Software: {classroom.software}\n\n"
     
-    # Try to find specific software mentioned
-    software_found = []
-    for classroom in classrooms:
-        if classroom.software:
-            software_lower = classroom.software.lower()
-            if ('unity' in user_message and 'unity' in software_lower) or \
-               ('unreal' in user_message and 'unreal' in software_lower) or \
-               ('blender' in user_message and 'blender' in software_lower) or \
-               ('visual studio' in user_message and 'visual studio' in software_lower) or \
-               ('git' in user_message and 'git' in software_lower) or \
-               ('docker' in user_message and 'docker' in software_lower) or \
-               ('office' in user_message and 'office' in software_lower):
-                software_found.append(classroom)
-    
-    if software_found:
-        response += "\n🎯 **Salas com o software que você procura:**\n\n"
-        for room in software_found:
-            response += f"• **{room.name}** ({room.block}) - {room.software}\n"
+    response += "💡 **Dica:** Para ver disponibilidade, pergunte 'quais salas estão livres agora?'"
     
     return response
 
@@ -2456,66 +2512,80 @@ Digite qualquer pergunta e eu te ajudo! 😊"""
     
     return response
 
+def get_contact_info():
+    """Return contact information"""
+    return """📞 **Informações de Contato - SENAI Morvan Figueiredo:**
+
+🏢 **Endereço:**
+SENAI "Morvan Figueiredo" - CFP 1.03
+São Paulo, SP
+
+📧 **Secretaria:**
+Para informações sobre cursos, matrículas e horários, entre em contato com a secretaria da escola.
+
+🕒 **Horário de Funcionamento:**
+• Manhã: 7h às 12h
+• Tarde: 13h às 18h  
+• Noite: 19h às 22h
+
+💻 **Sistema de Salas:**
+Este assistente virtual pode ajudar com informações sobre:
+• Disponibilidade das salas
+• Software instalado
+• Capacidades e localizações
+• Horários de uso
+
+Para dúvidas administrativas, procure a secretaria presencialmente! 😊"""
+
+def get_about_senai_info():
+    """Return information about SENAI"""
+    return """🏫 **Sobre o SENAI Morvan Figueiredo:**
+
+📚 **O que é o SENAI:**
+O Serviço Nacional de Aprendizagem Industrial (SENAI) é a principal rede de educação profissional do país, oferecendo cursos técnicos e de qualificação profissional.
+
+🎯 **SENAI "Morvan Figueiredo" - CFP 1.03:**
+• Foco em **Tecnologia da Informação** e **Desenvolvimento de Jogos**
+• Laboratórios equipados com software profissional
+• Cursos técnicos e de qualificação
+• Formação prática para o mercado de trabalho
+
+💻 **Nossas Salas:**
+• **Laboratório de Jogos Digitais** - Unity, Unreal Engine, Blender
+• **Sala DEV** - Visual Studio, Git, Docker
+• **Salas 208 e 202** - IDE, Banco de dados, Office
+
+🌟 **Missão:**
+Formar profissionais qualificados para a indústria, contribuindo para o desenvolvimento tecnológico e econômico do país.
+
+Quer saber mais sobre as salas e horários? Use os botões de sugestão! 🚀"""
+
 def get_chatgpt_response(user_message, classrooms, schedules, current_time):
     """Use ChatGPT for questions not covered by predefined responses"""
     
-    if not OPENAI_AVAILABLE or not openai.api_key:
-        return """🤖 **Desculpe, não consegui entender sua pergunta específica.**
+    # Improved fallback response when ChatGPT is not available
+    return """🤖 **Posso ajudar com informações específicas sobre o SENAI:**
 
-Posso ajudar com informações sobre:
-• Salas disponíveis
-• Software das salas  
-• Capacidades e localizações
-• Horários e agendamentos
+**📍 Salas e Localização:**
+• Ver salas disponíveis agora
+• Localizar salas específicas
+• Informações sobre blocos
 
-Digite "ajuda" para ver todas as opções ou reformule sua pergunta! 😊"""
+**💻 Software e Tecnologia:**
+• Unity, Unreal Engine, Blender
+• Visual Studio, Git, Docker
+• IDE e Banco de dados
 
-    try:
-        # Create context about the SENAI system
-        context = f"""Você é um assistente virtual do SENAI Morvan Figueiredo, uma escola técnica de tecnologia. 
-
-INFORMAÇÕES DAS SALAS DISPONÍVEIS:
-"""
-        
-        for classroom in classrooms:
-            context += f"- {classroom.name} ({classroom.block}): {classroom.capacity} pessoas"
-            if classroom.software:
-                context += f", Software: {classroom.software}"
-            context += "\n"
-        
-        context += f"""
-HORÁRIO ATUAL: {current_time.strftime('%H:%M de %d/%m/%Y')}
-
-Responda de forma educada, profissional e útil. Se a pergunta não for relacionada ao SENAI ou educação técnica, direcione gentilmente de volta aos tópicos relevantes. Mantenha as respostas concisas e objetivas. Use emojis moderadamente."""
-
-        # Make request to OpenAI
-        client = openai.OpenAI(api_key=openai.api_key)
-        
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": context},
-                {"role": "user", "content": user_message}
-            ],
-            max_tokens=300,
-            temperature=0.7
-        )
-        
-        chatgpt_response = response.choices[0].message.content.strip()
-        
-        # Add a small indicator that this came from ChatGPT
-        return f"🤖 {chatgpt_response}\n\n💡 *Resposta gerada por IA - se precisar de informações específicas do sistema, use os botões de sugestão!*"
-        
-    except Exception as e:
-        import logging
-        logging.error(f"Error calling OpenAI API: {str(e)}")
-        
-        return """🤖 **No momento não consigo processar essa pergunta.**
-
-Posso ajudar com:
-• Salas disponíveis agora
-• Software específico das salas
-• Capacidades e localizações
+**👥 Capacidades e Horários:**
+• Quantas pessoas cabem em cada sala
 • Horários de funcionamento
+• Agendamentos ativos
 
-Use os botões de sugestão ou digite "ajuda" para ver todas as opções! 😊"""
+**📞 Contato e Informações Gerais:**
+• Como entrar em contato
+• Sobre o SENAI Morvan Figueiredo
+• Cursos e formação
+
+Use os botões de sugestão acima ou digite uma pergunta mais específica! 😊
+
+💡 *Dica: Seja mais específico, como "preciso de uma sala com Unity" ou "onde fica a sala 208"*"""
