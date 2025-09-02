@@ -5,6 +5,15 @@ from flask import render_template, request, redirect, url_for, flash, session, j
 from app import app, db
 from models import Classroom, Schedule, Incident, ScheduleRequest
 from datetime import datetime, timedelta
+
+# OpenAI integration
+try:
+    import openai
+    OPENAI_AVAILABLE = True
+    openai.api_key = os.environ.get("OPENAI_API_KEY")
+except ImportError:
+    OPENAI_AVAILABLE = False
+    openai = None
 try:
     import pytz
     PYTZ_AVAILABLE = True
@@ -2250,6 +2259,7 @@ def process_user_question(user_message, classrooms, schedules, current_time, cur
     capacity_keywords = ['capacidade', 'quantas pessoas', 'tamanho', 'lugares']
     location_keywords = ['onde', 'localização', 'localizacao', 'bloco', 'andar']
     schedule_keywords = ['horário', 'horario', 'aula', 'curso', 'quando']
+    help_keywords = ['ajuda', 'help', 'como', 'o que', 'opções', 'opcoes']
     
     # Check if question is about current availability
     if any(keyword in user_message for keyword in availability_keywords):
@@ -2271,9 +2281,13 @@ def process_user_question(user_message, classrooms, schedules, current_time, cur
     elif any(keyword in user_message for keyword in schedule_keywords):
         return get_schedule_info(classrooms, schedules)
     
-    # General help or unknown question
-    else:
+    # Check if asking for help
+    elif any(keyword in user_message for keyword in help_keywords):
         return get_general_help_response()
+    
+    # Use ChatGPT for questions not covered by predefined responses
+    else:
+        return get_chatgpt_response(user_message, classrooms, schedules, current_time)
 
 def get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday):
     """Return information about currently available rooms"""
@@ -2436,6 +2450,72 @@ Posso responder sobre:
 • "Qual sala tem mais capacidade?"
 • "Onde posso encontrar o software de desenvolvimento?"
 
+💡 **Também posso ajudar com outras perguntas gerais sobre educação, tecnologia e SENAI!**
+
 Digite qualquer pergunta e eu te ajudo! 😊"""
     
     return response
+
+def get_chatgpt_response(user_message, classrooms, schedules, current_time):
+    """Use ChatGPT for questions not covered by predefined responses"""
+    
+    if not OPENAI_AVAILABLE or not openai.api_key:
+        return """🤖 **Desculpe, não consegui entender sua pergunta específica.**
+
+Posso ajudar com informações sobre:
+• Salas disponíveis
+• Software das salas  
+• Capacidades e localizações
+• Horários e agendamentos
+
+Digite "ajuda" para ver todas as opções ou reformule sua pergunta! 😊"""
+
+    try:
+        # Create context about the SENAI system
+        context = f"""Você é um assistente virtual do SENAI Morvan Figueiredo, uma escola técnica de tecnologia. 
+
+INFORMAÇÕES DAS SALAS DISPONÍVEIS:
+"""
+        
+        for classroom in classrooms:
+            context += f"- {classroom.name} ({classroom.block}): {classroom.capacity} pessoas"
+            if classroom.software:
+                context += f", Software: {classroom.software}"
+            context += "\n"
+        
+        context += f"""
+HORÁRIO ATUAL: {current_time.strftime('%H:%M de %d/%m/%Y')}
+
+Responda de forma educada, profissional e útil. Se a pergunta não for relacionada ao SENAI ou educação técnica, direcione gentilmente de volta aos tópicos relevantes. Mantenha as respostas concisas e objetivas. Use emojis moderadamente."""
+
+        # Make request to OpenAI
+        client = openai.OpenAI(api_key=openai.api_key)
+        
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": context},
+                {"role": "user", "content": user_message}
+            ],
+            max_tokens=300,
+            temperature=0.7
+        )
+        
+        chatgpt_response = response.choices[0].message.content.strip()
+        
+        # Add a small indicator that this came from ChatGPT
+        return f"🤖 {chatgpt_response}\n\n💡 *Resposta gerada por IA - se precisar de informações específicas do sistema, use os botões de sugestão!*"
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error calling OpenAI API: {str(e)}")
+        
+        return """🤖 **No momento não consigo processar essa pergunta.**
+
+Posso ajudar com:
+• Salas disponíveis agora
+• Software específico das salas
+• Capacidades e localizações
+• Horários de funcionamento
+
+Use os botões de sugestão ou digite "ajuda" para ver todas as opções! 😊"""
