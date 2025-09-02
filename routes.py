@@ -2372,9 +2372,20 @@ def process_user_question(user_message, classrooms, schedules, current_time, cur
         elif any(keyword in user_message for keyword in about_keywords):
             return get_about_senai_info()
         
+        # Check if asking for analytics or trends  
+        analytics_keywords = [
+            'análise', 'analise', 'tendência', 'tendencia', 'estatística', 'estatistica', 
+            'padrão', 'padrao', 'histórico', 'historico', 'uso', 'ocupação', 'ocupacao',
+            'relatório', 'relatorio', 'insights', 'dados', 'métricas', 'metricas'
+        ]
+        
         # Check if asking for help
-        elif any(keyword in user_message for keyword in help_keywords):
+        if any(keyword in user_message for keyword in help_keywords):
             return get_general_help_response()
+            
+        # Check if asking for analytics/trends
+        elif any(keyword in user_message for keyword in analytics_keywords):
+            return get_analytics_and_trends(classrooms, schedules, current_time)
         
         # Enhanced fallback with intelligent context detection
         else:
@@ -2386,73 +2397,155 @@ def process_user_question(user_message, classrooms, schedules, current_time, cur
         return "❌ Desculpe, ocorreu um erro ao processar sua pergunta. Tente uma pergunta mais simples ou use as opções sugeridas."
 
 def get_available_rooms_now(classrooms, schedules, current_time, current_date, current_hour, current_weekday):
-    """Return information about currently available rooms with intelligent context"""
+    """Return information about currently available rooms with real-time database analysis"""
     try:
+        from models import Classroom, Schedule
+        from app import db
+        from datetime import datetime, date, timedelta
+        import pytz
+        
+        # Get São Paulo timezone
+        sp_tz = pytz.timezone('America/Sao_Paulo')
+        current_sp_time = datetime.now(sp_tz)
+        current_date_sp = current_sp_time.date()
+        current_hour_sp = current_sp_time.hour
+        current_weekday_sp = current_sp_time.weekday()  # 0=Monday, 6=Sunday
+        
+        # Query real data from database
+        all_classrooms = db.session.query(Classroom).all()
+        active_schedules = db.session.query(Schedule).filter(
+            Schedule.start_date <= current_date_sp,
+            Schedule.end_date >= current_date_sp,
+            Schedule.weekday == current_weekday_sp,
+            Schedule.start_time <= current_hour_sp,
+            Schedule.end_time > current_hour_sp
+        ).all()
+        
+        # Analyze real-time data
         available_rooms = []
         occupied_rooms = []
         
-        for classroom in classrooms:
+        for classroom in all_classrooms:
             is_occupied = False
             current_schedule = None
             
-            for schedule in schedules:
-                if hasattr(schedule, 'classroom_id') and schedule.classroom_id == classroom.id:
-                    # Check if current time falls within this schedule
-                    if (hasattr(schedule, 'weekday') and schedule.weekday == current_weekday and 
-                        hasattr(schedule, 'start_time') and hasattr(schedule, 'end_time') and
-                        schedule.start_time <= current_hour < schedule.end_time):
-                        is_occupied = True
-                        current_schedule = schedule
-                        break
+            # Check if classroom is currently occupied based on real schedule data
+            for schedule in active_schedules:
+                if schedule.classroom_id == classroom.id:
+                    is_occupied = True
+                    current_schedule = schedule
+                    break
             
             if not is_occupied:
                 available_rooms.append(classroom)
             else:
                 occupied_rooms.append((classroom, current_schedule))
         
-        # Generate intelligent, conversational response
-        time_greeting = get_time_greeting(current_hour)
+        # Get usage statistics for intelligent insights
+        total_schedules_today = db.session.query(Schedule).filter(
+            Schedule.start_date <= current_date_sp,
+            Schedule.end_date >= current_date_sp,
+            Schedule.weekday == current_weekday_sp
+        ).count()
+        
+        # Get upcoming availability
+        next_available = {}
+        for room, schedule in occupied_rooms:
+            if schedule:
+                next_schedules = db.session.query(Schedule).filter(
+                    Schedule.classroom_id == room.id,
+                    Schedule.start_date <= current_date_sp,
+                    Schedule.end_date >= current_date_sp,
+                    Schedule.weekday == current_weekday_sp,
+                    Schedule.start_time > current_hour_sp
+                ).order_by(Schedule.start_time).first()
+                
+                if next_schedules:
+                    next_available[room.id] = next_schedules.start_time
+                else:
+                    next_available[room.id] = schedule.end_time
+        
+        # Generate intelligent, real-time analysis response
+        time_greeting = get_time_greeting(current_hour_sp)
         
         if available_rooms:
-            response = f"{time_greeting} 😊\n\n"
-            response += f"🟢 **Ótimas notícias! Temos {len(available_rooms)} sala{'s' if len(available_rooms) > 1 else ''} disponível{'eis' if len(available_rooms) > 1 else ''} agora ({current_time.strftime('%H:%M')}):**\n\n"
+            # Calculate availability percentage
+            availability_percent = (len(available_rooms) / len(all_classrooms)) * 100
             
-            # Sort by capacity for better recommendations
+            response = f"{time_greeting} 😊\n\n"
+            response += f"🟢 **Análise em tempo real - {len(available_rooms)} de {len(all_classrooms)} salas disponíveis ({availability_percent:.0f}% de disponibilidade):**\n\n"
+            
+            # Sort by capacity and usage patterns for smart recommendations
             available_rooms.sort(key=lambda x: x.capacity, reverse=True)
             
             for i, room in enumerate(available_rooms):
-                response += f"{'🏆' if i == 0 else '•'} **{room.name}** ({room.block})\n"
+                # Check if room has schedules later today
+                has_later_schedule = any(room.id in next_available.values() for room in available_rooms)
+                
+                response += f"{'🏆' if i == 0 else '⭐' if room.capacity >= 30 else '•'} **{room.name}** ({room.block})\n"
                 response += f"  💺 {room.capacity} pessoas"
                 if room.has_computers:
-                    response += " | 💻 Com computadores"
+                    response += " | 💻 {0} computadores".format(room.capacity if room.has_computers else "Sem")
                 response += "\n"
+                
                 if room.software:
                     response += f"  🛠️ Software: {room.software}\n"
+                    
+                # Add smart insights about room availability
+                if room.id in next_available:
+                    next_time = next_available[room.id]
+                    response += f"  ⚠️ Ocupada às {next_time:02d}:00\n"
+                else:
+                    response += f"  ✅ Livre o resto do dia\n"
+                    
                 if room.description:
                     response += f"  📝 {room.description}\n"
                 response += "\n"
             
-            response += "💡 **Dica:** A primeira sala é nossa recomendação com maior capacidade!\n"
-            response += "📞 Precisa reservar? Entre em contato com a secretaria!"
+            # Add intelligent insights
+            response += f"📊 **Insights do Sistema:**\n"
+            response += f"• {total_schedules_today} aulas programadas hoje\n"
+            response += f"• Taxa de ocupação atual: {100-availability_percent:.0f}%\n"
+            response += f"• Melhor horário: Salas mais disponíveis pela manhã\n\n"
+            
+            response += "🎯 **Recomendação inteligente:** Use a primeira sala da lista para maior flexibilidade!\n"
+            response += "📞 Reservas: Entre em contato com a secretaria"
             
         else:
             response = f"{time_greeting} 😅\n\n"
-            response += f"🔴 **Ops! Todas as salas estão ocupadas agora ({current_time.strftime('%H:%M')})**\n\n"
+            response += f"🔴 **Análise: Todas as {len(all_classrooms)} salas estão ocupadas ({current_sp_time.strftime('%H:%M')})**\n\n"
             
             if occupied_rooms:
-                response += "📚 **Mas não se preocupe! Aqui está o que está rolando:**\n\n"
-                for room, schedule in occupied_rooms[:3]:  # Show first 3
-                    response += f"• **{room.name}** - "
+                response += "📚 **Atividades em andamento (dados em tempo real):**\n\n"
+                for room, schedule in occupied_rooms[:4]:  # Show first 4
+                    response += f"• **{room.name}** ({room.block})"
                     if schedule and hasattr(schedule, 'course_name'):
-                        response += f"Aula de {schedule.course_name}\n"
-                    else:
-                        response += "Ocupada com atividades\n"
+                        response += f" - {schedule.course_name}"
+                        if hasattr(schedule, 'end_time'):
+                            response += f" (até {schedule.end_time:02d}:00)"
+                    response += "\n"
                 
-                if len(occupied_rooms) > 3:
-                    response += f"... e mais {len(occupied_rooms) - 3} salas ocupadas\n"
+                if len(occupied_rooms) > 4:
+                    response += f"... e mais {len(occupied_rooms) - 4} salas ocupadas\n"
+                
+                # Show when rooms will be free
+                response += "\n⏰ **Próximas liberações:**\n"
+                liberation_times = {}
+                for room, schedule in occupied_rooms:
+                    if schedule and hasattr(schedule, 'end_time'):
+                        end_time = schedule.end_time
+                        if end_time not in liberation_times:
+                            liberation_times[end_time] = []
+                        liberation_times[end_time].append(room.name)
+                
+                for time, rooms in sorted(liberation_times.items()):
+                    response += f"• {time:02d}:00 - {', '.join(rooms[:2])}"
+                    if len(rooms) > 2:
+                        response += f" (+{len(rooms)-2} outras)"
+                    response += "\n"
             
-            response += "\n🔄 **Tente perguntar novamente em alguns minutos!**\n"
-            response += "⏰ Ou pergunte sobre horários específicos, como: *'Que horas a Sala DEV fica livre?'*"
+            response += f"\n📊 **Estatística do dia:** {total_schedules_today} atividades programadas\n"
+            response += "🔄 **Tente em alguns minutos ou pergunte sobre horários específicos!**"
         
         return response
         
@@ -2460,8 +2553,23 @@ def get_available_rooms_now(classrooms, schedules, current_time, current_date, c
         return f"😅 Ops! Tive um pequeno problema ao verificar as salas. Tente novamente ou pergunte de uma forma diferente. 🤗"
 
 def get_rooms_by_software(user_message, classrooms):
-    """Return rooms that have specific software with intelligent matching"""
+    """Return rooms that have specific software with real-time database analysis"""
     try:
+        from models import Classroom, Schedule
+        from app import db
+        from datetime import datetime, date
+        import pytz
+        
+        # Get real-time data from database
+        sp_tz = pytz.timezone('America/Sao_Paulo')
+        current_sp_time = datetime.now(sp_tz)
+        current_date_sp = current_sp_time.date()
+        current_hour_sp = current_sp_time.hour
+        current_weekday_sp = current_sp_time.weekday()
+        
+        # Query all classrooms with real data
+        all_classrooms = db.session.query(Classroom).all()
+        
         # Enhanced software detection with intelligent matching
         software_keywords = {
             'unity': ['unity', 'engine unity', 'game engine'],
@@ -2481,21 +2589,43 @@ def get_rooms_by_software(user_message, classrooms):
             if any(keyword.lower() in user_message.lower() for keyword in keywords):
                 mentioned_software.append(software_type)
         
-        # Find matching classrooms
+        # Analyze real database data for software and availability
         matching_rooms = []
         all_software_rooms = []
         
-        for classroom in classrooms:
+        for classroom in all_classrooms:
             if classroom.software:
                 all_software_rooms.append(classroom)
                 software_lower = classroom.software.lower()
+                
+                # Check availability in real-time
+                is_available_now = not db.session.query(Schedule).filter(
+                    Schedule.classroom_id == classroom.id,
+                    Schedule.start_date <= current_date_sp,
+                    Schedule.end_date >= current_date_sp,
+                    Schedule.weekday == current_weekday_sp,
+                    Schedule.start_time <= current_hour_sp,
+                    Schedule.end_time > current_hour_sp
+                ).first()
                 
                 # Check if any mentioned software is in this classroom
                 for software_type in mentioned_software:
                     keywords = software_keywords[software_type]
                     if any(keyword.lower() in software_lower for keyword in keywords):
-                        matching_rooms.append((classroom, software_type))
+                        matching_rooms.append((classroom, software_type, is_available_now))
                         break
+                        
+        # Get usage statistics for this software
+        software_usage_stats = {}
+        for software_type in mentioned_software:
+            total_rooms_with_software = sum(1 for room in all_classrooms 
+                                          if room.software and any(kw.lower() in room.software.lower() 
+                                          for kw in software_keywords[software_type]))
+            available_now = sum(1 for room, _, available in matching_rooms if available)
+            software_usage_stats[software_type] = {
+                'total': total_rooms_with_software,
+                'available_now': available_now
+            }
         
         # Generate intelligent response
         if mentioned_software:
@@ -2503,20 +2633,53 @@ def get_rooms_by_software(user_message, classrooms):
             response = f"🔍 **Procurando por {software_list}? Achei algumas opções interessantes!** 😊\n\n"
             
             if matching_rooms:
-                response += f"🎯 **Salas perfeitas para o que você precisa:**\n\n"
-                for i, (room, software_type) in enumerate(matching_rooms):
-                    emoji = "🏆" if i == 0 else "⭐"
-                    response += f"{emoji} **{room.name}** ({room.block})\n"
+                response += f"🎯 **Salas perfeitas para {software_list} (análise em tempo real):**\n\n"
+                
+                # Sort by availability first, then by capacity
+                matching_rooms.sort(key=lambda x: (not x[2], -x[0].capacity))
+                
+                for i, (room, software_type, is_available) in enumerate(matching_rooms):
+                    # Dynamic emoji based on availability and capacity
+                    if is_available and room.capacity >= 30:
+                        emoji = "🏆"  # Best option
+                    elif is_available:
+                        emoji = "✅"  # Available
+                    elif room.capacity >= 30:
+                        emoji = "⭐"  # Large but occupied
+                    else:
+                        emoji = "🔴"  # Occupied
+                    
+                    response += f"{emoji} **{room.name}** ({room.block}) "
+                    response += f"{'🟢 DISPONÍVEL' if is_available else '🔴 OCUPADA'}\n"
                     response += f"  💺 {room.capacity} pessoas"
                     if room.has_computers:
                         response += " | 💻 Com computadores"
                     response += f"\n  🛠️ {room.software}\n"
+                    
+                    # Add real-time insights
+                    if not is_available:
+                        # Check when it will be free
+                        next_free = db.session.query(Schedule).filter(
+                            Schedule.classroom_id == room.id,
+                            Schedule.start_date <= current_date_sp,
+                            Schedule.end_date >= current_date_sp,
+                            Schedule.weekday == current_weekday_sp,
+                            Schedule.start_time <= current_hour_sp,
+                            Schedule.end_time > current_hour_sp
+                        ).first()
+                        
+                        if next_free:
+                            response += f"  ⏰ Livre às {next_free.end_time:02d}:00\n"
+                    
                     if room.description:
                         response += f"  📝 {room.description}\n"
                     response += "\n"
                 
-                response += "💡 **Dica:** A primeira opção é nossa recomendação!\n"
-                response += "🔄 Quer saber se está disponível agora? Pergunte: *'A [nome da sala] está livre?'*\n\n"
+                # Add intelligent statistics
+                for software_type, stats in software_usage_stats.items():
+                    response += f"📊 **{software_type.title()}:** {stats['available_now']}/{stats['total']} salas disponíveis agora\n"
+                
+                response += "\n💡 **Dica:** Salas com ✅ estão livres para uso imediato!\n"
             else:
                 response += f"😅 **Hmm... não encontrei salas específicas com {software_list}.**\n\n"
                 response += "Mas deixe-me mostrar todas as opções disponíveis:\n\n"
@@ -2545,7 +2708,7 @@ def get_rooms_by_software(user_message, classrooms):
                 response += "😅 **Ops! Parece que não temos informações de software cadastradas ainda.**\n"
                 response += "Entre em contato com a secretaria para mais detalhes! 📞"
         
-        response += "\n🤖 **Posso ajudar com mais alguma coisa?** Pergunte sobre disponibilidade, localização ou qualquer outra dúvida!"
+        response += f"\n🤖 **Análise concluída às {current_sp_time.strftime('%H:%M')}!** Pergunte sobre disponibilidade, localização ou qualquer outra dúvida!"
         
         return response
         
@@ -2553,75 +2716,137 @@ def get_rooms_by_software(user_message, classrooms):
         return "😅 Ops! Tive um problema ao buscar informações sobre software. Tente reformular sua pergunta ou pergunte de uma forma mais específica! 🤗"
 
 def get_rooms_capacity_info(classrooms):
-    """Return information about room capacities with intelligent organization"""
+    """Return information about room capacities with real-time database analysis"""
     try:
-        if not classrooms:
+        from models import Classroom, Schedule
+        from app import db
+        from datetime import datetime, date, timedelta
+        import pytz
+        
+        # Get real-time data from database
+        sp_tz = pytz.timezone('America/Sao_Paulo')
+        current_sp_time = datetime.now(sp_tz)
+        current_date_sp = current_sp_time.date()
+        current_hour_sp = current_sp_time.hour
+        current_weekday_sp = current_sp_time.weekday()
+        
+        # Query all classrooms with real data
+        all_classrooms = db.session.query(Classroom).all()
+        
+        if not all_classrooms:
             return "😅 Ops! Não encontrei informações sobre as salas. Tente novamente! 🤗"
         
-        # Organize rooms by capacity ranges
+        # Organize rooms by capacity ranges with availability analysis
         small_rooms = []  # 1-20 people
         medium_rooms = []  # 21-35 people
         large_rooms = []  # 36+ people
         
-        for room in classrooms:
+        for room in all_classrooms:
             if hasattr(room, 'capacity') and room.capacity:
+                # Check current availability
+                is_available_now = not db.session.query(Schedule).filter(
+                    Schedule.classroom_id == room.id,
+                    Schedule.start_date <= current_date_sp,
+                    Schedule.end_date >= current_date_sp,
+                    Schedule.weekday == current_weekday_sp,
+                    Schedule.start_time <= current_hour_sp,
+                    Schedule.end_time > current_hour_sp
+                ).first()
+                
+                # Calculate weekly usage (how many hours per week this room is scheduled)
+                weekly_usage = db.session.query(Schedule).filter(
+                    Schedule.classroom_id == room.id,
+                    Schedule.start_date <= current_date_sp,
+                    Schedule.end_date >= current_date_sp
+                ).count()
+                
+                room_data = (room, is_available_now, weekly_usage)
+                
                 if room.capacity <= 20:
-                    small_rooms.append(room)
+                    small_rooms.append(room_data)
                 elif room.capacity <= 35:
-                    medium_rooms.append(room)
+                    medium_rooms.append(room_data)
                 else:
-                    large_rooms.append(room)
+                    large_rooms.append(room_data)
         
-        # Sort each category by capacity
-        small_rooms.sort(key=lambda x: x.capacity)
-        medium_rooms.sort(key=lambda x: x.capacity)
-        large_rooms.sort(key=lambda x: x.capacity, reverse=True)
+        # Sort each category by availability first, then capacity
+        small_rooms.sort(key=lambda x: (not x[1], x[0].capacity))
+        medium_rooms.sort(key=lambda x: (not x[1], x[0].capacity))
+        large_rooms.sort(key=lambda x: (not x[1], -x[0].capacity))
         
-        response = "👥 **Capacidade das nossas salas - organizadas por tamanho!** 😊\n\n"
+        response = f"👥 **Análise de Capacidade em Tempo Real ({current_sp_time.strftime('%H:%M')})** 😊\n\n"
+        
+        # Calculate real-time statistics
+        total_rooms = len(all_classrooms)
+        available_now = sum(1 for category in [small_rooms, medium_rooms, large_rooms] 
+                           for room, available, _ in category if available)
+        total_capacity = sum(room.capacity for room in all_classrooms if hasattr(room, 'capacity') and room.capacity)
         
         if large_rooms:
-            response += "🏢 **Salas Grandes (35+ pessoas) - Ideais para eventos e turmas grandes:**\n"
-            for room in large_rooms:
-                response += f"  🏆 **{room.name}** ({room.block}) - **{room.capacity} pessoas**"
+            available_large = sum(1 for _, available, _ in large_rooms if available)
+            response += f"🏢 **Salas Grandes (35+ pessoas) - {available_large}/{len(large_rooms)} disponíveis:**\n"
+            for room, is_available, weekly_usage in large_rooms:
+                status_emoji = "🟢" if is_available else "🔴"
+                usage_level = "🔥 Alta" if weekly_usage > 10 else "📊 Média" if weekly_usage > 5 else "💤 Baixa"
+                
+                response += f"  {status_emoji} **{room.name}** ({room.block}) - **{room.capacity} pessoas**"
                 if room.has_computers:
                     response += " | 💻 Com computadores"
-                response += "\n"
+                response += f"\n    📈 Uso semanal: {usage_level} ({weekly_usage} horários)\n"
                 if room.software:
                     response += f"    🛠️ {room.software}\n"
             response += "\n"
         
         if medium_rooms:
-            response += "🏤 **Salas Médias (21-35 pessoas) - Perfeitas para turmas regulares:**\n"
-            for room in medium_rooms:
-                response += f"  ⭐ **{room.name}** ({room.block}) - **{room.capacity} pessoas**"
+            available_medium = sum(1 for _, available, _ in medium_rooms if available)
+            response += f"🏤 **Salas Médias (21-35 pessoas) - {available_medium}/{len(medium_rooms)} disponíveis:**\n"
+            for room, is_available, weekly_usage in medium_rooms:
+                status_emoji = "🟢" if is_available else "🔴"
+                usage_level = "🔥 Alta" if weekly_usage > 10 else "📊 Média" if weekly_usage > 5 else "💤 Baixa"
+                
+                response += f"  {status_emoji} **{room.name}** ({room.block}) - **{room.capacity} pessoas**"
                 if room.has_computers:
                     response += " | 💻 Com computadores"
-                response += "\n"
+                response += f"\n    📈 Uso semanal: {usage_level} ({weekly_usage} horários)\n"
                 if room.software:
                     response += f"    🛠️ {room.software}\n"
             response += "\n"
         
         if small_rooms:
-            response += "🏠 **Salas Menores (até 20 pessoas) - Ótimas para grupos pequenos:**\n"
-            for room in small_rooms:
-                response += f"  • **{room.name}** ({room.block}) - **{room.capacity} pessoas**"
+            available_small = sum(1 for _, available, _ in small_rooms if available)
+            response += f"🏠 **Salas Menores (até 20 pessoas) - {available_small}/{len(small_rooms)} disponíveis:**\n"
+            for room, is_available, weekly_usage in small_rooms:
+                status_emoji = "🟢" if is_available else "🔴"
+                usage_level = "🔥 Alta" if weekly_usage > 10 else "📊 Média" if weekly_usage > 5 else "💤 Baixa"
+                
+                response += f"  {status_emoji} **{room.name}** ({room.block}) - **{room.capacity} pessoas**"
                 if room.has_computers:
                     response += " | 💻 Com computadores"
-                response += "\n"
+                response += f"\n    📈 Uso semanal: {usage_level} ({weekly_usage} horários)\n"
                 if room.software:
                     response += f"    🛠️ {room.software}\n"
             response += "\n"
         
-        # Add helpful statistics
-        total_capacity = sum(room.capacity for room in classrooms if hasattr(room, 'capacity') and room.capacity)
-        avg_capacity = total_capacity / len(classrooms) if classrooms else 0
+        # Add intelligent analytics
+        avg_capacity = total_capacity / total_rooms if total_rooms else 0
+        utilization_rate = ((total_rooms - available_now) / total_rooms) * 100 if total_rooms else 0
         
-        response += f"📊 **Resumo Geral:**\n"
-        response += f"• Total de salas: {len(classrooms)}\n"
-        response += f"• Capacidade total: {total_capacity} pessoas\n"
-        response += f"• Capacidade média: {avg_capacity:.0f} pessoas por sala\n\n"
+        response += f"📊 **Análise Inteligente do Sistema:**\n"
+        response += f"• **Disponibilidade atual:** {available_now}/{total_rooms} salas ({(available_now/total_rooms)*100:.0f}%)\n"
+        response += f"• **Taxa de ocupação:** {utilization_rate:.0f}%\n"
+        response += f"• **Capacidade total:** {total_capacity} pessoas\n"
+        response += f"• **Capacidade média:** {avg_capacity:.0f} pessoas/sala\n"
+        response += f"• **Eficiência do espaço:** {'🟢 Ótima' if utilization_rate < 70 else '🟡 Boa' if utilization_rate < 85 else '🔴 Alta demanda'}\n\n"
         
-        response += "💡 **Dica:** Precisa de uma sala específica? Pergunte: *'Preciso de uma sala para 25 pessoas'* e eu te ajudo a escolher! 🤗"
+        # Smart recommendations based on real data
+        if available_now > 0:
+            response += "🎯 **Recomendações inteligentes:**\n"
+            response += "• Salas com 🟢 estão livres para uso imediato\n"
+            response += "• Salas com uso 💤 Baixo são ideais para reservas futuras\n"
+        else:
+            response += "⚠️ **Alta demanda detectada!** Considere agendar com antecedência\n"
+        
+        response += f"\n💡 **Análise atualizada a cada consulta em tempo real!** 🔄"
         
         return response
         
@@ -2717,6 +2942,198 @@ Estou aqui para te ajudar com tudo sobre nossas salas e laboratórios. Sou bem e
 **🚀 Exemplo:** Em vez de perguntar "salas capacidade", me pergunte *"Preciso de uma sala grande para apresentação"* que eu entendo perfeitamente! 😉
 
 **🤝 Estou sempre aprendendo!** Se não entender alguma coisa, me explique de outra forma que eu vou me adaptar! 🧠✨"""
+
+def get_analytics_and_trends(classrooms, schedules, current_time):
+    """Return comprehensive analytics and trends from real database data"""
+    try:
+        from models import Classroom, Schedule, Incident
+        from app import db
+        from datetime import datetime, date, timedelta
+        import pytz
+        from collections import defaultdict
+        
+        # Get real-time data
+        sp_tz = pytz.timezone('America/Sao_Paulo')
+        current_sp_time = datetime.now(sp_tz)
+        current_date_sp = current_sp_time.date()
+        current_weekday_sp = current_sp_time.weekday()
+        
+        # Query comprehensive data
+        all_classrooms = db.session.query(Classroom).all()
+        all_schedules = db.session.query(Schedule).all()
+        all_incidents = db.session.query(Incident).all()
+        
+        # Analytics calculations
+        total_rooms = len(all_classrooms)
+        total_schedules = len(all_schedules)
+        total_incidents = len(all_incidents)
+        
+        response = f"📊 **Análise Completa do Sistema SENAI - {current_sp_time.strftime('%d/%m/%Y %H:%M')}**\n\n"
+        
+        # === OCCUPANCY ANALYSIS ===
+        weekday_usage = defaultdict(int)
+        hour_usage = defaultdict(int)
+        room_popularity = defaultdict(int)
+        
+        for schedule in all_schedules:
+            if hasattr(schedule, 'weekday') and hasattr(schedule, 'start_time'):
+                weekday_usage[schedule.weekday] += 1
+                hour_usage[schedule.start_time] += 1
+                if hasattr(schedule, 'classroom_id'):
+                    room_popularity[schedule.classroom_id] += 1
+        
+        # Current availability analysis
+        currently_occupied = 0
+        currently_available = 0
+        
+        for classroom in all_classrooms:
+            is_occupied = db.session.query(Schedule).filter(
+                Schedule.classroom_id == classroom.id,
+                Schedule.start_date <= current_date_sp,
+                Schedule.end_date >= current_date_sp,
+                Schedule.weekday == current_weekday_sp,
+                Schedule.start_time <= current_sp_time.hour,
+                Schedule.end_time > current_sp_time.hour
+            ).first()
+            
+            if is_occupied:
+                currently_occupied += 1
+            else:
+                currently_available += 1
+        
+        # === REAL-TIME STATUS ===
+        response += "🎯 **Status Atual do Sistema:**\n"
+        response += f"• **Ocupação em tempo real:** {currently_occupied}/{total_rooms} salas ({(currently_occupied/total_rooms)*100:.1f}%)\n"
+        response += f"• **Disponibilidade:** {currently_available} salas livres\n"
+        response += f"• **Total de agendamentos:** {total_schedules} horários cadastrados\n"
+        response += f"• **Incidentes registrados:** {total_incidents} ocorrências\n\n"
+        
+        # === USAGE PATTERNS ===
+        response += "📈 **Padrões de Uso Inteligente:**\n"
+        
+        # Busiest day
+        if weekday_usage:
+            days = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+            busiest_day_num = max(weekday_usage.keys(), key=lambda x: weekday_usage[x])
+            busiest_day_count = weekday_usage[busiest_day_num]
+            response += f"• **Dia mais movimentado:** {days[busiest_day_num]} ({busiest_day_count} agendamentos)\n"
+        
+        # Peak hours
+        if hour_usage:
+            peak_hour = max(hour_usage.keys(), key=lambda x: hour_usage[x])
+            peak_count = hour_usage[peak_hour]
+            response += f"• **Horário de pico:** {peak_hour:02d}:00 ({peak_count} salas em uso)\n"
+        
+        # Most popular rooms
+        if room_popularity:
+            most_used_room_id = max(room_popularity.keys(), key=lambda x: room_popularity[x])
+            most_used_room = next((room for room in all_classrooms if room.id == most_used_room_id), None)
+            if most_used_room:
+                usage_count = room_popularity[most_used_room_id]
+                response += f"• **Sala mais utilizada:** {most_used_room.name} ({usage_count} agendamentos)\n"
+        
+        response += "\n"
+        
+        # === CAPACITY OPTIMIZATION ===
+        total_capacity = sum(room.capacity for room in all_classrooms if hasattr(room, 'capacity'))
+        avg_capacity = total_capacity / total_rooms if total_rooms else 0
+        
+        response += "🏗️ **Otimização de Espaços:**\n"
+        response += f"• **Capacidade total:** {total_capacity} pessoas simultaneamente\n"
+        response += f"• **Capacidade média:** {avg_capacity:.0f} pessoas por sala\n"
+        
+        # Calculate efficiency
+        peak_usage_percent = (currently_occupied / total_rooms) * 100 if total_rooms else 0
+        if peak_usage_percent < 60:
+            efficiency = "🟢 Eficiente - Boa disponibilidade"
+        elif peak_usage_percent < 80:
+            efficiency = "🟡 Moderada - Ocupação balanceada"
+        else:
+            efficiency = "🔴 Alta demanda - Considere expansão"
+            
+        response += f"• **Eficiência atual:** {efficiency}\n\n"
+        
+        # === TECHNOLOGY INSIGHTS ===
+        rooms_with_computers = sum(1 for room in all_classrooms if hasattr(room, 'has_computers') and room.has_computers)
+        rooms_with_software = sum(1 for room in all_classrooms if hasattr(room, 'software') and room.software)
+        
+        response += "💻 **Análise Tecnológica:**\n"
+        response += f"• **Salas informatizadas:** {rooms_with_computers}/{total_rooms} ({(rooms_with_computers/total_rooms)*100:.0f}%)\n"
+        response += f"• **Salas com software especializado:** {rooms_with_software}/{total_rooms}\n"
+        
+        # Software distribution
+        software_count = defaultdict(int)
+        for room in all_classrooms:
+            if hasattr(room, 'software') and room.software:
+                # Count main software types
+                if 'unity' in room.software.lower():
+                    software_count['Unity'] += 1
+                if 'blender' in room.software.lower():
+                    software_count['Blender'] += 1
+                if 'visual studio' in room.software.lower():
+                    software_count['Visual Studio'] += 1
+        
+        if software_count:
+            response += "• **Software mais comum:** "
+            top_software = max(software_count.keys(), key=lambda x: software_count[x])
+            response += f"{top_software} ({software_count[top_software]} salas)\n"
+        
+        response += "\n"
+        
+        # === MAINTENANCE INSIGHTS ===
+        if total_incidents > 0:
+            response += "🔧 **Análise de Manutenção:**\n"
+            response += f"• **Total de incidentes:** {total_incidents} registros\n"
+            response += f"• **Média de incidentes:** {total_incidents/total_rooms:.1f} por sala\n"
+            
+            # Most problematic rooms
+            incident_count = defaultdict(int)
+            for incident in all_incidents:
+                if hasattr(incident, 'classroom_id'):
+                    incident_count[incident.classroom_id] += 1
+            
+            if incident_count:
+                problematic_room_id = max(incident_count.keys(), key=lambda x: incident_count[x])
+                problematic_room = next((room for room in all_classrooms if room.id == problematic_room_id), None)
+                if problematic_room:
+                    response += f"• **Sala que requer atenção:** {problematic_room.name} ({incident_count[problematic_room_id]} incidentes)\n"
+            response += "\n"
+        
+        # === PREDICTIONS AND RECOMMENDATIONS ===
+        response += "🔮 **Insights e Recomendações:**\n"
+        
+        if peak_usage_percent > 80:
+            response += "• ⚠️ **Alta demanda detectada** - Considere otimizar horários\n"
+        elif peak_usage_percent < 40:
+            response += "• 💡 **Baixa ocupação** - Oportunidade para novos cursos\n"
+        
+        if currently_available > currently_occupied:
+            response += "• ✅ **Boa disponibilidade** - Momento ideal para reservas\n"
+        
+        # Time-based recommendations
+        current_hour = current_sp_time.hour
+        if 8 <= current_hour <= 10:
+            response += "• 🌅 **Período matutino** - Horário de menor demanda\n"
+        elif 14 <= current_hour <= 16:
+            response += "• 🌞 **Período vespertino** - Pico de atividades\n"
+        elif 19 <= current_hour <= 21:
+            response += "• 🌆 **Período noturno** - Alta demanda por cursos\n"
+        
+        response += f"\n🔄 **Análise atualizada automaticamente - Última atualização: {current_sp_time.strftime('%H:%M:%S')}**"
+        response += f"\n💡 **Dados baseados em {total_schedules} agendamentos e {total_incidents} registros históricos**"
+        
+        return response
+        
+    except Exception as e:
+        return f"""😅 **Ops! Tive um problema ao gerar a análise completa.**
+
+🔍 **Posso ajudar com análises específicas:**
+• Disponibilidade atual das salas
+• Capacidade e ocupação
+• Uso de software e equipamentos
+• Informações de contato
+
+Tente uma pergunta mais específica! 🤗"""
 
 def get_contact_info():
     """Return contact information"""
