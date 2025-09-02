@@ -377,6 +377,16 @@ function initializeVirtualAssistant() {
     // Auto-focus input when modal is shown
     assistantModal.addEventListener('shown.bs.modal', function() {
         chatInput.focus();
+        
+        // Add click handlers for suggestion buttons
+        const suggestionButtons = assistantModal.querySelectorAll('.suggestion-btn');
+        suggestionButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const suggestion = this.getAttribute('data-suggestion');
+                chatInput.value = suggestion;
+                sendMessage();
+            });
+        });
     });
     
     function sendMessage() {

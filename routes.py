@@ -2415,6 +2415,7 @@ Posso responder sobre:
 **💻 Software:**
 • "Quais salas têm Unity?"
 • "Onde posso usar Blender?"
+• "Quais salas têm Visual Studio?"
 
 **👥 Capacidade:**
 • "Qual a capacidade das salas?"
@@ -2423,11 +2424,18 @@ Posso responder sobre:
 **📍 Localização:**
 • "Onde fica a Sala 208?"
 • "Quais salas tem no Bloco A?"
+• "Onde fica o Laboratório de Jogos Digitais?"
 
 **📅 Horários:**
 • "Que cursos tem hoje?"
 • "Qual o horário da aula de jogos?"
+• "Quando a sala está livre?"
 
-Digite sua pergunta e eu te ajudo! 😊"""
+**Exemplos de perguntas específicas:**
+• "Preciso de uma sala com Unity disponível agora"
+• "Qual sala tem mais capacidade?"
+• "Onde posso encontrar o software de desenvolvimento?"
+
+Digite qualquer pergunta e eu te ajudo! 😊"""
     
     return response

@@ -620,6 +620,50 @@ footer {
     border-color: rgba(59, 130, 246, 0.3);
 }
 
+/* Suggestion buttons */
+.suggestion-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 15px 0;
+}
+
+.suggestion-btn {
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border: 1px solid var(--senai-light-blue);
+    color: var(--senai-light-blue);
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.suggestion-btn:hover {
+    background: var(--senai-light-blue);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.suggestion-btn:active {
+    transform: translateY(0);
+}
+
+[data-bs-theme="dark"] .suggestion-btn {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: rgba(59, 130, 246, 0.9);
+}
+
+[data-bs-theme="dark"] .suggestion-btn:hover {
+    background: var(--senai-light-blue);
+    color: white;
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
     .virtual-assistant-btn {
@@ -636,5 +680,17 @@ footer {
     
     .chat-container {
         height: 350px;
+    }
+    
+    .suggestion-buttons {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    
+    .suggestion-btn {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+        white-space: normal;
+        text-align: center;
     }
 }
