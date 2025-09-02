@@ -2416,9 +2416,9 @@ def get_available_rooms_now(classrooms, schedules, current_time, current_date, c
         active_schedules = db.session.query(Schedule).filter(
             Schedule.start_date <= current_date_sp,
             Schedule.end_date >= current_date_sp,
-            Schedule.weekday == current_weekday_sp,
-            Schedule.start_time <= current_hour_sp,
-            Schedule.end_time > current_hour_sp
+            Schedule.day_of_week == current_weekday_sp,
+            Schedule.start_time <= str(current_hour_sp),
+            Schedule.end_time > str(current_hour_sp)
         ).all()
         
         # Analyze real-time data
@@ -2445,7 +2445,7 @@ def get_available_rooms_now(classrooms, schedules, current_time, current_date, c
         total_schedules_today = db.session.query(Schedule).filter(
             Schedule.start_date <= current_date_sp,
             Schedule.end_date >= current_date_sp,
-            Schedule.weekday == current_weekday_sp
+            Schedule.day_of_week == current_weekday_sp
         ).count()
         
         # Get upcoming availability
@@ -2456,8 +2456,8 @@ def get_available_rooms_now(classrooms, schedules, current_time, current_date, c
                     Schedule.classroom_id == room.id,
                     Schedule.start_date <= current_date_sp,
                     Schedule.end_date >= current_date_sp,
-                    Schedule.weekday == current_weekday_sp,
-                    Schedule.start_time > current_hour_sp
+                    Schedule.day_of_week == current_weekday_sp,
+                    Schedule.start_time > str(current_hour_sp)
                 ).order_by(Schedule.start_time).first()
                 
                 if next_schedules:
@@ -2603,7 +2603,7 @@ def get_rooms_by_software(user_message, classrooms):
                     Schedule.classroom_id == classroom.id,
                     Schedule.start_date <= current_date_sp,
                     Schedule.end_date >= current_date_sp,
-                    Schedule.weekday == current_weekday_sp,
+                    Schedule.day_of_week == current_weekday_sp,
                     Schedule.start_time <= current_hour_sp,
                     Schedule.end_time > current_hour_sp
                 ).first()
@@ -2663,7 +2663,7 @@ def get_rooms_by_software(user_message, classrooms):
                             Schedule.classroom_id == room.id,
                             Schedule.start_date <= current_date_sp,
                             Schedule.end_date >= current_date_sp,
-                            Schedule.weekday == current_weekday_sp,
+                            Schedule.day_of_week == current_weekday_sp,
                             Schedule.start_time <= current_hour_sp,
                             Schedule.end_time > current_hour_sp
                         ).first()
@@ -2748,7 +2748,7 @@ def get_rooms_capacity_info(classrooms):
                     Schedule.classroom_id == room.id,
                     Schedule.start_date <= current_date_sp,
                     Schedule.end_date >= current_date_sp,
-                    Schedule.weekday == current_weekday_sp,
+                    Schedule.day_of_week == current_weekday_sp,
                     Schedule.start_time <= current_hour_sp,
                     Schedule.end_time > current_hour_sp
                 ).first()
@@ -2991,7 +2991,7 @@ def get_analytics_and_trends(classrooms, schedules, current_time):
                 Schedule.classroom_id == classroom.id,
                 Schedule.start_date <= current_date_sp,
                 Schedule.end_date >= current_date_sp,
-                Schedule.weekday == current_weekday_sp,
+                Schedule.day_of_week == current_weekday_sp,
                 Schedule.start_time <= current_sp_time.hour,
                 Schedule.end_time > current_sp_time.hour
             ).first()
