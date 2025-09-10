@@ -159,7 +159,6 @@ O Sistema de Gerenciamento de Salas do SENAI Morvan Figueiredo é uma solução 
 - ✅ Baixar arquivos Excel das salas (quando disponíveis)
 - ✅ Relatar incidentes
 - ✅ Solicitar agendamentos
-- ✅ Instalar PWA
 - ❌ Editar informações
 - ❌ Gerenciar horários
 - ❌ Acessar painel administrativo
