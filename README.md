@@ -165,7 +165,7 @@ O Sistema de Gerenciamento de Salas do SENAI Morvan Figueiredo é uma solução 
 - ❌ Acessar painel administrativo
 
 ### 🔑 **Administrador**
-**Acesso:** Senha única para todos os admins: `senai103103`
+**Acesso:** Senha única para todos os admins: `******`
 **Permissões:**
 - ✅ **Todas as permissões do usuário público, MAIS:**
 - ✅ Adicionar, editar e excluir salas
