@@ -1,4 +1,4 @@
-modules = ["python-3.11", "web", "nodejs-20", "postgresql-16"]
+modules = ["python-3.11", "web", "nodejs-20"]
 
 [nix]
 channel = "stable-25_05"
@@ -44,5 +44,9 @@ args = "uv add reportlab qrcode[pil] pillow"
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 34973
+externalPort = 3000
 
 [agent]
