@@ -12,8 +12,6 @@ Sistema completo de gerenciamento digital de salas e laboratórios para o SENAI 
 - [🎯 Visão Geral](#-visão-geral)
 - [✨ Funcionalidades](#-funcionalidades)
 - [🔐 Tipos de Usuários](#-tipos-de-usuários)
-- [🏢 Salas e Laboratórios](#-salas-e-laboratórios)
-- [📱 PWA (Progressive Web App)](#-pwa-progressive-web-app)
 - [🤖 Assistente Virtual AI](#-assistente-virtual-ai)
 - [⚙️ Tecnologias Utilizadas](#️-tecnologias-utilizadas)
 - [🗄️ Banco de Dados](#️-banco-de-dados)
