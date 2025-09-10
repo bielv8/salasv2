@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Erro interno - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 text-center">
+            <div class="error-content">
+                <div class="mb-4">
+                    <i class="fas fa-exclamation-triangle text-danger" style="font-size: 5rem;"></i>
+                </div>
+                <h1 class="display-4 text-danger">500</h1>
+                <h2 class="mb-3">Erro interno do servidor</h2>
+                <p class="lead mb-4">
+                    Oops! Algo deu errado em nossos servidores. Nossa equipe foi notificada e está trabalhando para corrigir o problema.
+                </p>
+                <div class="mb-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary me-2">
+                        <i class="fas fa-home me-2"></i>Voltar ao Início
+                    </a>
+                    <button onclick="window.history.back()" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Página Anterior
+                    </button>
+                </div>
+                
+                <div class="alert alert-info mt-4">
+                    <strong>Dica:</strong> Tente recarregar a página em alguns minutos ou entre em contato com o suporte técnico se o problema persistir.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

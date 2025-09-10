@@ -39,7 +39,7 @@ Nova Sala - SENAI Morvan Figueiredo
                     </h3>
                 </div>
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-8 mb-3">
                                 <label for="name" class="form-label">Nome da Sala *</label>
@@ -53,37 +53,43 @@ Nova Sala - SENAI Morvan Figueiredo
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="block" class="form-label">Bloco *</label>
-                                <select class="form-select" id="block" name="block" required>
-                                    <option value="">Selecione o bloco</option>
-                                    <option value="A" {{ 'selected' if classroom and classroom.block == 'A' else '' }}>Bloco A</option>
-                                    <option value="B" {{ 'selected' if classroom and classroom.block == 'B' else '' }}>Bloco B</option>
-                                    <option value="C" {{ 'selected' if classroom and classroom.block == 'C' else '' }}>Bloco C</option>
-                                    <option value="D" {{ 'selected' if classroom and classroom.block == 'D' else '' }}>Bloco D</option>
-                                    <option value="Oficina 1" {{ 'selected' if classroom and classroom.block == 'Oficina 1' else '' }}>Oficina 1</option>
-                                    <option value="Oficina 2" {{ 'selected' if classroom and classroom.block == 'Oficina 2' else '' }}>Oficina 2</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="floor" class="form-label">Andar *</label>
-                                <select class="form-select" id="floor" name="floor" required>
-                                    <option value="">Selecione o andar</option>
-                                    <option value="1" {{ 'selected' if classroom and classroom.floor == 1 else '' }}>1º Andar</option>
-                                    <option value="2" {{ 'selected' if classroom and classroom.floor == 2 else '' }}>2º Andar</option>
-                                    <option value="3" {{ 'selected' if classroom and classroom.floor == 3 else '' }}>3º Andar</option>
-                                    <option value="4" {{ 'selected' if classroom and classroom.floor == 4 else '' }}>4º Andar</option>
-                                </select>
-                            </div>
+                        <div class="mb-3">
+                            <label for="block" class="form-label">Bloco *</label>
+                            <input type="text" class="form-control" id="block" name="block" 
+                                   value="{{ classroom.block if classroom else '' }}" 
+                                   placeholder="Ex: A1, B2, Lab1, Oficina" required>
+                            <div class="form-text">Digite a identificação do bloco/localização da sala.</div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="image_url" class="form-label">URL da Imagem</label>
-                            <input type="url" class="form-control" id="image_url" name="image_url" 
-                                   value="{{ classroom.image_url if classroom else '' }}"
-                                   placeholder="https://exemplo.com/imagem-da-sala.jpg">
-                            <div class="form-text">URL de uma imagem que representa esta sala.</div>
+                            <label for="image" class="form-label">Imagem da Sala</label>
+                            <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                            <div class="form-text">Selecione uma imagem da sala (PNG, JPG, JPEG ou GIF - opcional).</div>
+                            {% if classroom and classroom.image_filename %}
+                            <div class="mt-2">
+                                <small class="text-muted">Imagem atual:</small>
+                                {% if classroom.image_data %}
+                                <img src="{{ url_for('serve_image', classroom_id=classroom.id) }}" 
+                                     alt="Imagem atual" class="img-thumbnail" style="max-width: 150px; max-height: 100px;">
+                                {% else %}
+                                <div class="text-muted">Nenhuma imagem salva</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="excel_file" class="form-label">Planilha de Patrimônio da Sala</label>
+                            <input type="file" class="form-control" id="excel_file" name="excel_file" accept=".xlsx,.xls">
+                            <div class="form-text">Selecione um arquivo Excel com o patrimônio da sala (.xlsx ou .xls - opcional).</div>
+                            {% if classroom and classroom.excel_filename %}
+                            <div class="mt-2">
+                                <small class="text-success">
+                                    <i class="fas fa-file-excel me-1"></i>
+                                    Arquivo de patrimônio disponível para download
+                                </small>
+                            </div>
+                            {% endif %}
                         </div>
 
                         <div class="mb-3">
@@ -103,11 +109,27 @@ Nova Sala - SENAI Morvan Figueiredo
                             <div class="form-text">Liste os softwares instalados nos computadores desta sala (se houver).</div>
                         </div>
 
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="description" class="form-label">Descrição</label>
                             <textarea class="form-control" id="description" name="description" rows="3" 
                                       placeholder="Descreva as características e equipamentos desta sala">{{ classroom.description if classroom else '' }}</textarea>
                             <div class="form-text">Informações adicionais sobre a sala (equipamentos, características especiais, etc.).</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="admin_password" class="form-label">Senha Administrativa da Sala</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="admin_password" name="admin_password" 
+                                       value="{{ classroom.admin_password if classroom else '' }}" 
+                                       placeholder="Senha especial para acesso administrativo da sala">
+                                <button class="btn btn-outline-secondary" type="button" id="toggleAdminPassword" title="Mostrar/Ocultar senha">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-warning" type="button" id="revealAdminPassword" title="Revelar senha existente">
+                                    <i class="fas fa-unlock"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Senha especial que pode ser solicitada para acesso administrativo aos recursos desta sala. Para revelar a senha atual, clique no botão de revelação e digite a senha de administrador do sistema.</div>
                         </div>
 
                         {% if not classroom %}
@@ -148,6 +170,19 @@ Nova Sala - SENAI Morvan Figueiredo
                                         <div class="col-md-3">
                                             <label for="initial_end_time" class="form-label">Fim</label>
                                             <input type="time" class="form-control" id="initial_end_time" name="initial_end_time">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="initial_start_date" class="form-label">Data de Início do Curso</label>
+                                            <input type="date" class="form-control" id="initial_start_date" name="initial_start_date">
+                                            <div class="form-text">Data em que o curso inicia (opcional).</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="initial_end_date" class="form-label">Data de Término do Curso</label>
+                                            <input type="date" class="form-control" id="initial_end_date" name="initial_end_date">
+                                            <div class="form-text">Data em que o curso termina (opcional).</div>
                                         </div>
                                     </div>
                                     
@@ -197,7 +232,67 @@ Nova Sala - SENAI Morvan Figueiredo
                                     
                                     <div class="alert alert-info">
                                         <i class="fas fa-info-circle me-2"></i>
-                                        <strong>Dica:</strong> Você pode criar horários iniciais para esta sala junto com o cadastro.
+                                        <strong>Dica:</strong> Você pode criar horários iniciais para esta sala junto com o cadastro. 
+                                        Se você informar as datas de início e fim, o sistema fará um controle preciso de disponibilidade baseado no período do curso.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if classroom and schedules %}
+                        <!-- Existing Schedules Management -->
+                        <div class="mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Horários Atuais da Sala</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Dia</th>
+                                                    <th>Turno</th>
+                                                    <th>Horário</th>
+                                                    <th>Curso</th>
+                                                    <th>Instrutor</th>
+                                                    <th>Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for schedule in schedules %}
+                                                <tr>
+                                                    <td>{{ schedule.to_dict()['day_name'] }}</td>
+                                                    <td>
+                                                        <span class="badge bg-secondary">
+                                                            {% if schedule.shift == 'morning' %}Manhã
+                                                            {% elif schedule.shift == 'afternoon' %}Tarde
+                                                            {% elif schedule.shift == 'fullday' %}Integral
+                                                            {% elif schedule.shift == 'night' %}Noite
+                                                            {% endif %}
+                                                        </span>
+                                                    </td>
+                                                    <td>{{ schedule.start_time }} - {{ schedule.end_time }}</td>
+                                                    <td>{{ schedule.course_name }}</td>
+                                                    <td>{{ schedule.instructor or 'Não informado' }}</td>
+                                                    <td>
+                                                        <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                                data-schedule-id="{{ schedule.id }}" 
+                                                                data-course-name="{{ schedule.course_name|e }}"
+                                                                onclick="confirmDeleteScheduleClick(this)">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="alert alert-info mb-0">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Importante:</strong> Para adicionar novos horários, use a página de 
+                                        <a href="{{ url_for('schedule_management') }}" class="alert-link">Gestão de Horários</a>.
                                     </div>
                                 </div>
                             </div>
@@ -205,10 +300,17 @@ Nova Sala - SENAI Morvan Figueiredo
                         {% endif %}
 
                         <div class="d-flex justify-content-between">
-                            <a href="{% if classroom %}{{ url_for('classroom_detail', classroom_id=classroom.id) }}{% else %}{{ url_for('index') }}{% endif %}" 
-                               class="btn btn-secondary">
-                                <i class="fas fa-times me-2"></i>Cancelar
-                            </a>
+                            <div>
+                                <a href="{% if classroom %}{{ url_for('classroom_detail', classroom_id=classroom.id) }}{% else %}{{ url_for('index') }}{% endif %}" 
+                                   class="btn btn-secondary">
+                                    <i class="fas fa-times me-2"></i>Cancelar
+                                </a>
+                                {% if classroom %}
+                                <button type="button" class="btn btn-danger ms-2" onclick="confirmDelete()">
+                                    <i class="fas fa-trash me-2"></i>Excluir Sala
+                                </button>
+                                {% endif %}
+                            </div>
                             <button type="submit" class="btn btn-primary">
                                 {% if classroom %}
                                 <i class="fas fa-save me-2"></i>Atualizar Sala
@@ -218,6 +320,16 @@ Nova Sala - SENAI Morvan Figueiredo
                             </button>
                         </div>
                     </form>
+                    
+                    {% if classroom %}
+                    <!-- Hidden forms for deletion -->
+                    <form id="deleteForm" method="POST" action="{{ url_for('delete_classroom', classroom_id=classroom.id) }}" style="display: none;">
+                    </form>
+                    
+                    <!-- Hidden form for schedule deletion -->
+                    <form id="deleteScheduleForm" method="POST" style="display: none;">
+                    </form>
+                    {% endif %}
                 </div>
             </div>
 
@@ -253,10 +365,13 @@ Nova Sala - SENAI Morvan Figueiredo
 
 <script>
 // Auto-fill times based on shift selection for initial schedules
-document.getElementById('initial_shift').addEventListener('change', function() {
-    const shift = this.value;
-    const startTime = document.getElementById('initial_start_time');
-    const endTime = document.getElementById('initial_end_time');
+document.addEventListener('DOMContentLoaded', function() {
+    const initialShift = document.getElementById('initial_shift');
+    if (initialShift) {
+        initialShift.addEventListener('change', function() {
+            const shift = this.value;
+            const startTime = document.getElementById('initial_start_time');
+            const endTime = document.getElementById('initial_end_time');
     
     switch(shift) {
         case 'morning':
@@ -280,6 +395,8 @@ document.getElementById('initial_shift').addEventListener('change', function() {
             endTime.value = '';
             break;
     }
+        });
+    }
 });
 </script>
 {% endblock %}
@@ -287,34 +404,136 @@ document.getElementById('initial_shift').addEventListener('change', function() {
 {% block scripts %}
 <script>
 // Auto-enable software field when computers checkbox is checked
-document.getElementById('has_computers').addEventListener('change', function() {
-    const softwareField = document.getElementById('software');
-    if (this.checked) {
-        softwareField.focus();
-        if (!softwareField.value) {
-            softwareField.placeholder = "Ex: Windows 10, Office 365, AutoCAD";
-        }
+document.addEventListener('DOMContentLoaded', function() {
+    const hasComputersCheckbox = document.getElementById('has_computers');
+    if (hasComputersCheckbox) {
+        hasComputersCheckbox.addEventListener('change', function() {
+            const softwareField = document.getElementById('software');
+            if (softwareField && this.checked) {
+                softwareField.focus();
+                if (!softwareField.value) {
+                    softwareField.placeholder = "Ex: Windows 10, Office 365, AutoCAD";
+                }
+            }
+        });
     }
 });
 
+// Auto-fill times based on initial shift selection
+const initialShiftSelect = document.getElementById('initial_shift');
+if (initialShiftSelect) {
+    initialShiftSelect.addEventListener('change', function() {
+        const shift = this.value;
+        const startTime = document.getElementById('initial_start_time');
+        const endTime = document.getElementById('initial_end_time');
+        
+        switch(shift) {
+            case 'morning':
+                startTime.value = '07:30';
+                endTime.value = '12:00';
+                break;
+            case 'afternoon':
+                startTime.value = '13:00';
+                endTime.value = '18:00';
+                break;
+            case 'fullday':
+                startTime.value = '07:30';
+                endTime.value = '18:00';
+                break;
+            case 'night':
+                startTime.value = '19:00';
+                endTime.value = '22:30';
+                break;
+            default:
+                startTime.value = '';
+                endTime.value = '';
+                break;
+        }
+    });
+}
+
 // Form validation
-document.querySelector('form').addEventListener('submit', function(e) {
-    const name = document.getElementById('name').value.trim();
-    const capacity = document.getElementById('capacity').value;
-    const block = document.getElementById('block').value;
-    const floor = document.getElementById('floor').value;
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const name = document.getElementById('name');
+            const capacity = document.getElementById('capacity');
+            const block = document.getElementById('block');
+            
+            if (!name?.value?.trim() || !capacity?.value || !block?.value) {
+                e.preventDefault();
+                alert('Por favor, preencha todos os campos obrigatórios (*)');
+                return false;
+            }
     
-    if (!name || !capacity || !block || !floor) {
-        e.preventDefault();
-        alert('Por favor, preencha todos os campos obrigatórios (*)');
-        return false;
-    }
-    
-    if (capacity < 1 || capacity > 100) {
-        e.preventDefault();
-        alert('A capacidade deve ser entre 1 e 100 alunos.');
-        return false;
+            if (capacity && (capacity.value < 1 || capacity.value > 100)) {
+                e.preventDefault();
+                alert('A capacidade deve ser entre 1 e 100 alunos.');
+                return false;
+            }
+        });
     }
 });
+
+// Admin password toggle functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggleAdminPassword');
+    const revealBtn = document.getElementById('revealAdminPassword');
+    const passwordField = document.getElementById('admin_password');
+
+    if (toggleBtn && passwordField) {
+        toggleBtn.addEventListener('click', function() {
+            const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordField.setAttribute('type', type);
+            
+            const icon = this.querySelector('i');
+            if (type === 'text') {
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+    }
+
+    if (revealBtn && passwordField) {
+        revealBtn.addEventListener('click', function() {
+            const systemPassword = prompt('Para revelar a senha administrativa da sala, digite a senha de administrador do sistema:');
+            if (systemPassword === 'senai103103') {
+                passwordField.setAttribute('type', 'text');
+                const toggleIcon = toggleBtn?.querySelector('i');
+                if (toggleIcon) {
+                    toggleIcon.classList.remove('fa-eye');
+                    toggleIcon.classList.add('fa-eye-slash');
+                }
+                alert('Senha revelada com sucesso!');
+            } else if (systemPassword !== null) {
+                alert('Senha de administrador incorreta!');
+            }
+        });
+    }
+});
+
+{% if classroom %}
+// Delete confirmation function
+function confirmDelete() {
+    if (confirm('Tem certeza que deseja excluir esta sala? Esta ação não pode ser desfeita e também excluirá todos os horários associados.')) {
+        document.getElementById('deleteForm').submit();
+    }
+}
+
+// Delete schedule confirmation function
+function confirmDeleteScheduleClick(button) {
+    const scheduleId = button.getAttribute('data-schedule-id');
+    const courseName = button.getAttribute('data-course-name');
+    if (confirm('Tem certeza que deseja remover o horário do curso "' + courseName + '"? Esta ação não pode ser desfeita!')) {
+        const form = document.getElementById('deleteScheduleForm');
+        form.action = '/delete_schedule/' + scheduleId;
+        form.submit();
+    }
+}
+{% endif %}
 </script>
 {% endblock %}

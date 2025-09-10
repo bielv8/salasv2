@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Instalar Aplicativo - SENAI Morvan Figueiredo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-mobile-alt me-2"></i>
+                        Instalar Aplicativo
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="lead">Instale o Sistema de Gestão de Salas SENAI em seu dispositivo para acesso rápido e offline.</p>
+                    
+                    <!-- Android Instructions -->
+                    <div class="mb-4">
+                        <h5 class="text-success">
+                            <i class="fab fa-android me-2"></i>
+                            Android
+                        </h5>
+                        <ol>
+                            <li>Abra este site no <strong>Google Chrome</strong></li>
+                            <li>Toque no menu (⋮) no canto superior direito</li>
+                            <li>Selecione <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar aplicativo"</strong></li>
+                            <li>Confirme tocando em <strong>"Adicionar"</strong></li>
+                            <li>O ícone aparecerá na sua tela inicial</li>
+                        </ol>
+                    </div>
+
+                    <!-- iOS Instructions -->
+                    <div class="mb-4">
+                        <h5 class="text-primary">
+                            <i class="fab fa-apple me-2"></i>
+                            iOS (iPhone/iPad)
+                        </h5>
+                        <ol>
+                            <li>Abra este site no <strong>Safari</strong></li>
+                            <li>Toque no botão de compartilhar <i class="fas fa-share"></i> na parte inferior</li>
+                            <li>Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong></li>
+                            <li>Digite um nome para o aplicativo (opcional)</li>
+                            <li>Toque em <strong>"Adicionar"</strong></li>
+                            <li>O ícone aparecerá na sua tela inicial</li>
+                        </ol>
+                    </div>
+
+                    <!-- Desktop Instructions -->
+                    <div class="mb-4">
+                        <h5 class="text-info">
+                            <i class="fas fa-desktop me-2"></i>
+                            Desktop (Windows/Mac/Linux)
+                        </h5>
+                        <ol>
+                            <li>Abra este site no <strong>Google Chrome</strong>, <strong>Microsoft Edge</strong> ou <strong>Firefox</strong></li>
+                            <li>Procure pelo ícone de instalação <i class="fas fa-plus"></i> na barra de endereços</li>
+                            <li>Clique em <strong>"Instalar"</strong> quando a opção aparecer</li>
+                            <li>Ou vá no menu do navegador e selecione <strong>"Instalar [nome do site]"</strong></li>
+                            <li>O aplicativo será adicionado aos seus programas</li>
+                        </ol>
+                    </div>
+
+                    <!-- Benefits -->
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-star me-2"></i>
+                            Benefícios da Instalação
+                        </h6>
+                        <ul class="mb-0">
+                            <li>Acesso mais rápido sem abrir o navegador</li>
+                            <li>Ícone dedicado na tela inicial/desktop</li>
+                            <li>Experiência similar a um aplicativo nativo</li>
+                            <li>Funciona offline após a primeira visita</li>
+                            <li>Notificações push (quando disponíveis)</li>
+                        </ul>
+                    </div>
+
+                    <!-- Troubleshooting -->
+                    <div class="mt-4">
+                        <h6 class="text-warning">
+                            <i class="fas fa-question-circle me-2"></i>
+                            Problemas na Instalação?
+                        </h6>
+                        <ul>
+                            <li>Certifique-se de estar usando um navegador compatível (Chrome, Safari, Edge, Firefox)</li>
+                            <li>Verifique se está acessando via HTTPS (URL deve começar com https://)</li>
+                            <li>Alguns navegadores antigos podem não suportar esta funcionalidade</li>
+                            <li>Em caso de dúvidas, contate o suporte técnico</li>
+                        </ul>
+                    </div>
+
+                    <!-- Install Button -->
+                    <div class="text-center mt-4 mb-4">
+                        <button id="installBtn" class="btn btn-success btn-lg me-3">
+                            <i class="fas fa-download me-2"></i>
+                            Instalar Agora
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-home me-2"></i>
+                            Voltar ao Início
+                        </a>
+                    </div>
+
+                    <!-- Install Status -->
+                    <div id="installStatus" class="alert alert-info text-center" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="statusMessage"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// PWA Install functionality
+let deferredPrompt;
+const installBtn = document.getElementById('installBtn');
+const installStatus = document.getElementById('installStatus');
+const statusMessage = document.getElementById('statusMessage');
+
+// Check if app is already installed
+if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+    showStatus('✅ Aplicativo já instalado!', 'success');
+    installBtn.textContent = '✅ Já Instalado';
+    installBtn.disabled = true;
+} else {
+    // Show debug info
+    showStatus('🔍 Verificando compatibilidade PWA...', 'info');
+    
+    // Check PWA support
+    if ('serviceWorker' in navigator) {
+        showStatus('✅ PWA suportado! Aguardando evento de instalação...', 'info');
+    } else {
+        showStatus('⚠️ PWA limitado neste navegador. Use Chrome/Edge para melhor experiência.', 'warning');
+    }
+    
+    // Log additional debug info
+    console.log('Navigator details:', {
+        userAgent: navigator.userAgent,
+        standalone: navigator.standalone,
+        displayMode: window.matchMedia('(display-mode: standalone)').matches
+    });
+}
+
+// Listen for the beforeinstallprompt event
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('beforeinstallprompt event fired', e);
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    // Stash the event so it can be triggered later
+    deferredPrompt = e;
+    // Update button and status
+    installBtn.innerHTML = '<i class="fas fa-download me-2"></i>Instalar Automaticamente';
+    installBtn.classList.remove('btn-success');
+    installBtn.classList.add('btn-primary');
+    showStatus('📱 Instalação automática disponível!', 'success');
+});
+
+// Add timeout to show manual instructions if PWA event doesn't fire
+setTimeout(() => {
+    if (!deferredPrompt) {
+        showStatus('💡 Instalação manual disponível via menu do navegador', 'info');
+    }
+}, 3000);
+
+// Handle install button click
+installBtn.addEventListener('click', async () => {
+        console.log('Install button clicked, deferredPrompt:', deferredPrompt);
+        
+        if (!deferredPrompt) {
+            // Fallback instructions for manual installation
+            showStatus('💡 Para instalar manualmente:', 'info');
+            setTimeout(() => {
+                showStatus('📱 Chrome/Edge: Menu (⋮) → "Instalar aplicativo"', 'info');
+            }, 2000);
+            setTimeout(() => {
+                showStatus('📱 Safari: Compartilhar → "Adicionar à Tela de Início"', 'info');
+            }, 4000);
+            return;
+        }
+
+        showStatus('🚀 Abrindo instalação...', 'info');
+        
+        try {
+            // Show the install prompt
+            await deferredPrompt.prompt();
+            
+            // Wait for the user to respond to the prompt
+            const choiceResult = await deferredPrompt.userChoice;
+            
+            if (choiceResult.outcome === 'accepted') {
+                showStatus('✅ Aplicativo instalado com sucesso!', 'success');
+                installBtn.textContent = '✅ Instalado';
+                installBtn.disabled = true;
+            } else {
+                showStatus('❌ Instalação cancelada pelo usuário', 'warning');
+            }
+        } catch (error) {
+            console.error('Install error:', error);
+            showStatus('❌ Erro na instalação: ' + error.message, 'danger');
+        }
+        
+        // Clear the deferredPrompt
+        deferredPrompt = null;
+    });
+
+    // Listen for successful installation
+    window.addEventListener('appinstalled', (evt) => {
+        console.log('App installed successfully');
+        showStatus('✅ Aplicativo instalado com sucesso!', 'success');
+        installBtn.style.display = 'none';
+    });
+}
+
+function showStatus(message, type) {
+    console.log('Status:', message, type);
+    statusMessage.textContent = message;
+    installStatus.className = `alert alert-${type} text-center`;
+    installStatus.style.display = 'block';
+    
+    // Auto-hide info messages after 5 seconds
+    if (type === 'info') {
+        setTimeout(() => {
+            installStatus.style.display = 'none';
+        }, 5000);
+    }
+}
+
+// Check if service worker is supported
+if ('serviceWorker' in navigator) {
+    // Register service worker for PWA functionality
+    navigator.serviceWorker.register('/static/sw.js')
+        .then((registration) => {
+            console.log('SW registered: ', registration);
+        })
+        .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+        });
+}
+</script>
+{% endblock %}

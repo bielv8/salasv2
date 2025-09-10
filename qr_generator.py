@@ -1,6 +1,9 @@
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 import io
+from flask import Flask, Response
+
+app = Flask(__name__)
 
 def generate_qr_code(url, classroom_name):
     """Generate QR code with classroom information"""
@@ -14,8 +17,8 @@ def generate_qr_code(url, classroom_name):
     qr.add_data(url)
     qr.make(fit=True)
 
-    # Create QR code image
-    qr_img = qr.make_image(fill_color="black", back_color="white")
+    # Create QR code image and convert to RGB so it can be pasted
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
     
     # Create a larger image to add text
     width, height = qr_img.size
@@ -72,3 +75,16 @@ def generate_qr_code(url, classroom_name):
     buffer.seek(0)
     
     return buffer
+
+# Exemplo de rota Flask para servir o QR Code
+@app.route('/generate_qr/<int:id>')
+def generate_qr(id):
+    # Para exemplo, vamos simular url e nome da sala
+    classroom_url = f"https://example.com/classroom/{id}"
+    classroom_name = f"Sala {id}"
+    
+    qr_buffer = generate_qr_code(classroom_url, classroom_name)
+    return Response(qr_buffer.getvalue(), mimetype='image/png')
+
+if __name__ == '__main__':
+    app.run(debug=True)

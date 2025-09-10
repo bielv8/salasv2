@@ -1,6 +1,36 @@
 # Overview
 
-This is a classroom management system for SENAI "Morvan Figueiredo" school built with Flask. The system provides a digital map of classrooms showing their details, equipment, capacity, and availability. It includes features for viewing classroom information, managing schedules, generating reports, and QR code generation for easy access to classroom details.
+This is a classroom management system for SENAI "Morvan Figueiredo" school built with Flask. The system provides a digital map of classrooms showing their details, equipment, capacity, and availability. It includes features for viewing classroom information, managing schedules, generating reports, QR code generation for easy access to classroom details, advanced dashboard with filters, and Excel export functionality.
+
+## Recent Updates (September 2025)
+- **✅ Migration Complete**: Successfully migrated from Replit Agent to standard Replit environment - COMPLETED
+- **🔗 PostgreSQL Compatibility**: System fully tested and working with PostgreSQL, ready for Railway deployment - VERIFIED
+- **🤖 Virtual Assistant Fix**: Fixed database queries (weekday → day_of_week) and confirmed OpenAI integration working with real-time data - WORKING
+- **🚀 Railway Ready**: Application configured and tested for Railway deployment with PostgreSQL database - CONFIRMED
+
+## Previous Updates (August 2025)
+- **PostgreSQL Compatibility Fix**: Implemented defensive database operations that work seamlessly with both PostgreSQL (Railway) and SQLite (local). System now detects column existence and adapts queries automatically - RESOLVED
+- **Defensive Incident Creation**: Fixed UndefinedColumn errors in PostgreSQL by implementing smart INSERT operations that work with or without `hidden_from_classroom` column - TESTED AND WORKING
+- **PWA Installation Ready for Deploy**: Implemented complete PWA functionality with automatic install button - works fully in deployed environment (limitations in preview mode)
+- **Migration to Replit Environment**: Successfully migrated from Replit Agent to standard Replit environment with improved security and Flask best practices - COMPLETED
+- **PWA Installation Feature**: Added discrete installation icon in footer with comprehensive instructions page for desktop, iOS, and Android installation
+- **Enhanced Error Handling**: Implemented custom 404, 500, and 403 error pages with proper exception handling to prevent server crashes
+- **Robust File Management**: Added comprehensive file cleanup on classroom deletion and improved error handling for file operations
+- **Security Improvements**: Fixed session secret configuration and added input validation for date parsing and file uploads
+- **PWA Manifest**: Created web app manifest for mobile installation support with proper meta tags and icons
+- **Availability System Bug Fix**: Fixed AttributeError in availability filtering system where 'schedule.course' should be 'schedule.course_name' - system now works precisely with dates, periods, and schedules
+- **Footer Update**: Updated copyright year to 2025 in all templates
+- **Enhanced Classroom Creation**: Added date fields (start_date/end_date) to initial schedule creation when adding new classrooms, matching the functionality of the full schedule management system - ensures precise availability tracking from the beginning
+- **Excel File Management**: Added functionality for each classroom to have an associated Excel file that users can download
+- **Enhanced Dashboard**: Added advanced filtering system with search by block, floor, capacity, computers, day, and shift
+- **Excel Export**: Implemented comprehensive Excel export with multiple sheets (classrooms, schedules, statistics) and filtered export options
+- **Improved PDF Generation**: Enhanced PDF reports with better formatting and error handling
+- **Session Security**: Configured proper SESSION_SECRET for secure authentication
+- **Schedule Management in Edit Page**: Added functionality to view and remove individual schedules directly from classroom edit page
+- **Brazil Timezone Support**: All date/time operations now use São Paulo timezone (UTC-3) for accurate local time display
+- **Ultra-Precise Availability System**: Completely redesigned availability logic to check exact course dates and times - only shows rooms as occupied when courses are actually running
+- **Incident Reporting System**: Added comprehensive incident tracking for each classroom with reporter details and admin deletion capability
+- **Classroom Password Display**: Admin passwords are now shown on classroom detail pages with secure reveal functionality
 
 # User Preferences
 
@@ -33,7 +63,8 @@ Preferred communication style: Simple, everyday language.
 
 ## Core Features
 - **Classroom Management**: CRUD operations for classroom information including capacity, equipment, and location
-- **Schedule Management**: Admin can manage class schedules with different shifts (morning, afternoon, full-day, night)
+- **Excel File Management**: Each classroom can have an associated Excel file for download by users
+- **Schedule Management**: Admin can manage class schedules with different shifts (morning, afternoon, full-day, night) including individual schedule removal from classroom edit page
 - **Availability Tracking**: Real-time display of classroom availability based on scheduled classes
 - **Report Generation**: PDF report generation using ReportLab library
 - **QR Code Generation**: Dynamic QR code creation for classroom access using qrcode and PIL libraries
