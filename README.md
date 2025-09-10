@@ -33,7 +33,6 @@ O Sistema de Gerenciamento de Salas do SENAI Morvan Figueiredo é uma solução 
 
 - **Interface Responsiva** com tema escuro profissional
 - **Disponibilidade em Tempo Real** com cálculos precisos de horários
-- **Sistema PWA** para instalação em dispositivos móveis
 - **Assistente Virtual AI** integrado com OpenAI para consultas inteligentes
 - **Gestão Completa de Arquivos** com upload direto para banco de dados
 - **Sistema de Incidentes** para manutenção e suporte
@@ -80,13 +79,7 @@ O Sistema de Gerenciamento de Salas do SENAI Morvan Figueiredo é uma solução 
 - Sugestões baseadas em padrões de uso
 - Atendimento 24/7 com respostas contextuais
 
-#### 📱 **PWA (Progressive Web App)**
-- Instalação como aplicativo nativo no celular/tablet
-- Funcionamento offline básico
-- Notificações push (quando configuradas)
-- Interface otimizada para dispositivos móveis
-
-### 🛠️ **Para Administradores** (Senha: senai103103)
+### 🛠️ **Para Administradores** 
 
 #### 🏢 **Gestão de Salas**
 - **Adicionar novas salas** com informações completas
@@ -190,68 +183,6 @@ O Sistema de Gerenciamento de Salas do SENAI Morvan Figueiredo é uma solução 
 
 ---
 
-## 🏢 Salas e Laboratórios
-
-### 🖥️ **Laboratório de Jogos Digitais**
-- **Localização:** Oficina 1
-- **Capacidade:** 34 pessoas
-- **Equipamentos:** Computadores com placas de vídeo dedicadas
-- **Software Especializado:**
-  - Unity 3D/2D para desenvolvimento de jogos
-  - Unreal Engine para jogos AAA
-  - Blender para modelagem 3D e animação
-- **Descrição:** Laboratório especializado para desenvolvimento de jogos digitais e conteúdo 3D
-
-### 💻 **SALA DEV**
-- **Localização:** Oficina 2
-- **Capacidade:** 34 pessoas
-- **Equipamentos:** Computadores para desenvolvimento
-- **Software Especializado:**
-  - Visual Studio / VS Code
-  - Git para controle de versão
-  - Docker para containerização
-- **Descrição:** Sala dedicada ao desenvolvimento de sistemas e aplicações
-
-### 🏫 **Sala 208**
-- **Localização:** Bloco A
-- **Capacidade:** 34 pessoas
-- **Equipamentos:** Computadores com acesso a bancos de dados
-- **Software Especializado:**
-  - IDEs variadas para programação
-  - Sistemas de gerenciamento de banco de dados
-  - Ferramentas de desenvolvimento web
-- **Descrição:** Sala para desenvolvimento e administração de banco de dados
-
-### 📚 **Sala 202**
-- **Localização:** Bloco A
-- **Capacidade:** 20 pessoas
-- **Equipamentos:** Computadores básicos
-- **Software Especializado:**
-  - Pacote Microsoft Office
-  - Visual Studio para desenvolvimento básico
-- **Descrição:** Sala para cursos FIC (Formação Inicial Continuada) e desenvolvimento básico
-
----
-
-## 📱 PWA (Progressive Web App)
-
-O sistema é totalmente compatível com PWA, permitindo instalação como aplicativo nativo:
-
-### 📲 **Recursos PWA**
-- **Instalação nativa** em Android, iOS, Windows, macOS
-- **Ícone personalizado** na tela inicial
-- **Funcionamento offline** básico para páginas já visitadas
-- **Interface otimizada** para dispositivos móveis
-- **Service Worker** para cache inteligente
-- **Manifest.json** configurado com metadados
-
-### 🔧 **Como Instalar**
-1. **Android:** Abra no Chrome → Menu → "Instalar aplicativo"
-2. **iOS:** Abra no Safari → Compartilhar → "Adicionar à Tela de Início"
-3. **Desktop:** Ícone de instalação na barra de endereços
-
-### 📱 **Página de Instruções**
-Acesso via `/install` com tutorial completo para todas as plataformas.
 
 ---
 
@@ -984,12 +915,6 @@ Contribuições são bem-vindas! Por favor:
 
 Este sistema está atualmente em uso no **SENAI "Morvan Figueiredo" - CFP 1.03** em São Paulo, gerenciando:
 
-- 📊 **4 salas/laboratórios especializados**
-- 🎓 **Centenas de alunos** em cursos de TI
-- ⏰ **Disponibilidade em tempo real** 24/7
-- 🤖 **Assistente virtual AI** ativo
-- 📱 **PWA instalado** em dispositivos móveis
-- 🔄 **Integração completa** com PostgreSQL
 
 ### 🌟 **Resultados**
 - ✅ **Redução de 90%** em conflitos de agendamento
@@ -997,6 +922,12 @@ Este sistema está atualmente em uso no **SENAI "Morvan Figueiredo" - CFP 1.03**
 - ✅ **Disponibilidade 99.9%** com deploy em Railway
 - ✅ **Feedback positivo** de estudantes e professores
 - ✅ **Escalabilidade** comprovada com crescimento de uso
+
+### 📞 Suporte Técnico
+Para suporte técnico ou dúvidas sobre o sistema:
+- **Desenvolvedor:** Sistema desenvolvido para SENAI Morvan Figueiredo, Docente: Gabriel Eduardo Almeida
+- **Documentação:** Este README contém todas as informações necessárias
+- **Logs:** Use `/health` para verificar status do sistema
 
 ---
 
