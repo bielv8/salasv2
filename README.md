@@ -902,7 +902,7 @@ Contribuições são bem-vindas! Por favor:
 4. Abra um Pull Request
 
 ### 📞 **Suporte**
-- **Email:** [seu-email@exemplo.com]
+- **Email:** gabriel.eduardo@sp.senai.br
 - **GitHub Issues:** Para bugs e sugestões
 - **Documentação:** Este README e comentários no código
 
