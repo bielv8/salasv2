@@ -6,14 +6,15 @@ from app import app, db
 from models import Classroom, Schedule, Incident, ScheduleRequest
 from datetime import datetime, timedelta
 
-# OpenAI integration
+# xAI Grok integration
 try:
-    import openai
-    OPENAI_AVAILABLE = True
-    openai.api_key = os.environ.get("OPENAI_API_KEY")
+    from openai import OpenAI
+    XAI_AVAILABLE = True
+    # Create a custom OpenAI client with the X.AI endpoint
+    xai_client = OpenAI(base_url="https://api.x.ai/v1", api_key=os.environ.get("XAI_API_KEY"))
 except ImportError:
-    OPENAI_AVAILABLE = False
-    openai = None
+    XAI_AVAILABLE = False
+    xai_client = None
 try:
     import pytz
     PYTZ_AVAILABLE = True
@@ -2246,13 +2247,17 @@ def dateformat(value):
 
 @app.route('/api/virtual-assistant', methods=['POST'])
 def virtual_assistant():
-    """Virtual Assistant endpoint for answering questions about classrooms and schedules"""
+    """Virtual Assistant endpoint powered by Grok AI for answering questions about classrooms and schedules"""
     try:
         data = request.get_json()
-        user_message = data.get('message', '').strip().lower()
+        user_message = data.get('message', '').strip()
         
         if not user_message:
             return jsonify({'error': 'Mensagem não pode estar vazia'}), 400
+        
+        # Check if Grok is available
+        if not XAI_AVAILABLE or not xai_client:
+            return jsonify({'error': 'Assistente virtual não está disponível no momento.'}), 503
             
         # Get current time for availability checks
         current_time = get_brazil_time()
@@ -2260,7 +2265,7 @@ def virtual_assistant():
         current_hour = current_time.hour
         current_weekday = current_time.weekday()  # 0=Monday, 6=Sunday
         
-        # Get all classrooms and schedules
+        # Get all classrooms and schedules from database
         classrooms = Classroom.query.all()
         schedules = Schedule.query.filter_by(is_active=True).filter(
             db.or_(
@@ -2269,15 +2274,141 @@ def virtual_assistant():
             )
         ).all()
         
-        # Prepare response based on user question
-        response = process_user_question(user_message, classrooms, schedules, current_time, current_date, current_hour, current_weekday)
+        # Build context from real database data
+        context = build_database_context(classrooms, schedules, current_time, current_date, current_hour, current_weekday)
+        
+        # Use Grok to generate intelligent response
+        response = get_grok_response(user_message, context)
         
         return jsonify({'response': response})
         
     except Exception as e:
         import logging
         logging.error(f"Error in virtual assistant: {str(e)}")
-        return jsonify({'error': 'Erro interno do servidor. Tente novamente.'}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Erro ao processar sua pergunta. Tente novamente.'}), 500
+
+def build_database_context(classrooms, schedules, current_time, current_date, current_hour, current_weekday):
+    """Build comprehensive context from database for Grok"""
+    
+    # Map weekday numbers to Portuguese names
+    weekday_names = {
+        0: "Segunda-feira",
+        1: "Terça-feira", 
+        2: "Quarta-feira",
+        3: "Quinta-feira",
+        4: "Sexta-feira",
+        5: "Sábado",
+        6: "Domingo"
+    }
+    
+    # Current time info
+    context = f"""Data e hora atual: {current_time.strftime('%d/%m/%Y %H:%M')} - {weekday_names.get(current_weekday, '')}
+
+INFORMAÇÕES DAS SALAS DISPONÍVEIS:
+"""
+    
+    # Add classroom information
+    for classroom in classrooms:
+        context += f"\n📍 Sala: {classroom.name}"
+        context += f"\n   - Localização: {classroom.block}"
+        context += f"\n   - Capacidade: {classroom.capacity} pessoas"
+        context += f"\n   - Computadores: {'Sim' if classroom.has_computers else 'Não'}"
+        if classroom.software:
+            context += f"\n   - Software disponível: {classroom.software}"
+        if classroom.description:
+            context += f"\n   - Descrição: {classroom.description}"
+        
+        # Check current availability
+        room_schedules = [s for s in schedules if s.classroom_id == classroom.id]
+        
+        # Check if room is occupied now
+        is_occupied_now = False
+        current_course = None
+        
+        for schedule in room_schedules:
+            # Check if schedule is for today
+            if schedule.day_of_week != weekday_names.get(current_weekday):
+                continue
+            
+            # Check if within date range
+            if schedule.start_date and schedule.start_date > current_date:
+                continue
+            if schedule.end_date and schedule.end_date < current_date:
+                continue
+            
+            # Parse schedule times
+            try:
+                start_hour, start_minute = map(int, schedule.start_time.split(':'))
+                end_hour, end_minute = map(int, schedule.end_time.split(':'))
+                
+                schedule_start = current_time.replace(hour=start_hour, minute=start_minute, second=0)
+                schedule_end = current_time.replace(hour=end_hour, minute=end_minute, second=0)
+                
+                if schedule_start <= current_time <= schedule_end:
+                    is_occupied_now = True
+                    current_course = schedule.course_name
+                    break
+            except:
+                pass
+        
+        if is_occupied_now:
+            context += f"\n   - Status AGORA: 🔴 OCUPADA - Curso: {current_course}"
+        else:
+            context += f"\n   - Status AGORA: 🟢 DISPONÍVEL"
+        
+        # Add schedule information
+        if room_schedules:
+            context += f"\n   - Horários desta sala:"
+            for schedule in room_schedules:
+                context += f"\n     • {schedule.day_of_week}: {schedule.start_time} às {schedule.end_time}"
+                context += f" - {schedule.course_name} ({schedule.shift})"
+                if schedule.start_date and schedule.end_date:
+                    context += f" [De {schedule.start_date.strftime('%d/%m/%Y')} até {schedule.end_date.strftime('%d/%m/%Y')}]"
+        else:
+            context += f"\n   - Não há horários agendados para esta sala"
+        
+        context += "\n"
+    
+    context += """
+
+INSTRUÇÕES PARA RESPONDER:
+- Você é o assistente virtual do SENAI Morvan Figueiredo
+- Use os dados reais acima para responder perguntas sobre salas, horários e disponibilidade
+- Seja amigável, preciso e objetivo
+- Se não tiver certeza sobre algo, sugira que o usuário entre em contato com a secretaria
+- Use emojis para tornar as respostas mais visuais (🟢 disponível, 🔴 ocupada, 📍 localização, etc)
+- Sempre forneça informações específicas baseadas nos dados reais
+"""
+    
+    return context
+
+def get_grok_response(user_message, context):
+    """Get intelligent response from Grok AI"""
+    try:
+        response = xai_client.chat.completions.create(
+            model="grok-2-1212",
+            messages=[
+                {
+                    "role": "system",
+                    "content": context
+                },
+                {
+                    "role": "user",
+                    "content": user_message
+                }
+            ],
+            temperature=0.7,
+            max_tokens=800
+        )
+        
+        return response.choices[0].message.content
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error calling Grok API: {str(e)}")
+        return "Desculpe, não consegui processar sua pergunta no momento. Tente novamente em alguns segundos."
 
 def get_time_greeting(hour):
     """Return contextual greeting based on time of day"""
