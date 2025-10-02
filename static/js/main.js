@@ -467,8 +467,7 @@ function initializeVirtualAssistant() {
             chatContainer.appendChild(messageDiv);
         }
         
-        // Scroll to bottom
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        // Don't auto-scroll - let user read and scroll manually
     }
     
     function formatMessage(message) {
@@ -550,8 +549,7 @@ function initializeVirtualAssistant() {
             });
         });
         
-        // Scroll to bottom
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        // Don't auto-scroll - let user read and scroll manually
     }
     
     function showTypingIndicator() {
@@ -573,7 +571,7 @@ function initializeVirtualAssistant() {
         `;
         
         chatContainer.appendChild(typingDiv);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        // Don't auto-scroll - let user read and scroll manually
     }
     
     function hideTypingIndicator() {
