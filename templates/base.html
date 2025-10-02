@@ -144,9 +144,43 @@
         </div>
     </footer>
 
+    <!-- Mobile Install Popup -->
+    <div class="mobile-install-popup" id="mobileInstallPopup">
+        <div class="install-popup-content">
+            <img src="{{ url_for('static', filename='icon-192.png') }}" alt="SENAI Salas App" class="install-popup-icon">
+            <div class="install-popup-text">
+                <h6>Instale nosso App!</h6>
+                <p>Tenha acesso rápido às salas direto na tela inicial do seu celular</p>
+            </div>
+            <div class="install-popup-buttons">
+                <button class="btn btn-install" id="installAppBtn">
+                    <i class="fas fa-download me-1"></i>Instalar
+                </button>
+                <button class="btn btn-dismiss" id="dismissInstallBtn">
+                    Agora não
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Virtual Assistant Button -->
     <div class="virtual-assistant-btn" id="virtualAssistantBtn" title="Assistente Virtual - Pergunte sobre as salas e horários">
         <i class="fas fa-robot"></i>
+    </div>
+
+    <!-- Generic Instructions Modal -->
+    <div class="modal fade" id="instructionsModal" tabindex="-1" aria-labelledby="instructionsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="instructionsModalLabel">Instruções</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Content will be dynamically inserted -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Virtual Assistant Modal -->

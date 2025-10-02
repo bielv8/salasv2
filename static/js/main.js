@@ -588,3 +588,175 @@ function initializeVirtualAssistant() {
 if (window.SenaiClassrooms) {
     window.SenaiClassrooms.initializeVirtualAssistant = initializeVirtualAssistant;
 }
+
+// PWA Mobile Install Popup
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMobileInstallPopup();
+});
+
+function initializeMobileInstallPopup() {
+    const installPopup = document.getElementById('mobileInstallPopup');
+    const installBtn = document.getElementById('installAppBtn');
+    const dismissBtn = document.getElementById('dismissInstallBtn');
+    
+    if (!installPopup || !installBtn || !dismissBtn) {
+        return; // Elements not found
+    }
+    
+    let deferredPrompt;
+    
+    // Check if user has dismissed the popup before
+    const hasDismissed = localStorage.getItem('pwa_install_dismissed');
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isInstalled = window.navigator.standalone === true; // iOS
+    
+    // Don't show if already installed or dismissed
+    if (isStandalone || isInstalled || hasDismissed) {
+        return;
+    }
+    
+    // Detect mobile device
+    function isMobileDevice() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+    
+    // Listen for the beforeinstallprompt event
+    window.addEventListener('beforeinstallprompt', function(e) {
+        // Prevent the default browser install prompt
+        e.preventDefault();
+        
+        // Store the event for later use
+        deferredPrompt = e;
+        
+        // Show popup only on mobile devices
+        if (isMobileDevice()) {
+            setTimeout(() => {
+                installPopup.classList.add('show');
+            }, 2000); // Show after 2 seconds
+        }
+    });
+    
+    // Install button click handler
+    installBtn.addEventListener('click', function() {
+        // Hide the popup
+        installPopup.classList.remove('show');
+        
+        if (!deferredPrompt) {
+            // If no prompt available, show instructions
+            showInstallInstructions();
+            return;
+        }
+        
+        // Show the install prompt
+        deferredPrompt.prompt();
+        
+        // Wait for the user's response
+        deferredPrompt.userChoice.then(function(choiceResult) {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+                localStorage.setItem('pwa_install_dismissed', 'true');
+            } else {
+                console.log('User dismissed the install prompt');
+            }
+            
+            // Clear the deferred prompt
+            deferredPrompt = null;
+        });
+    });
+    
+    // Dismiss button click handler
+    dismissBtn.addEventListener('click', function() {
+        installPopup.classList.remove('show');
+        localStorage.setItem('pwa_install_dismissed', 'true');
+    });
+    
+    // Show install instructions for iOS and other browsers
+    function showInstallInstructions() {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/.test(navigator.userAgent);
+        
+        let instructions = '';
+        
+        if (isIOS) {
+            instructions = `
+                <h5><i class="fab fa-apple me-2"></i>Como instalar no iOS:</h5>
+                <ol class="text-start">
+                    <li>Toque no botão <strong>Compartilhar</strong> <i class="fas fa-share"></i> no Safari</li>
+                    <li>Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong> <i class="fas fa-plus-square"></i></li>
+                    <li>Toque em <strong>"Adicionar"</strong> no canto superior direito</li>
+                </ol>
+            `;
+        } else if (isAndroid) {
+            instructions = `
+                <h5><i class="fab fa-android me-2"></i>Como instalar no Android:</h5>
+                <ol class="text-start">
+                    <li>Toque no menu <strong>⋮</strong> no Chrome</li>
+                    <li>Toque em <strong>"Adicionar à tela inicial"</strong> <i class="fas fa-mobile-alt"></i></li>
+                    <li>Toque em <strong>"Adicionar"</strong></li>
+                </ol>
+            `;
+        } else {
+            instructions = `
+                <h5><i class="fas fa-mobile-alt me-2"></i>Como instalar:</h5>
+                <p class="text-start">
+                    No seu navegador, procure pela opção de 
+                    <strong>"Adicionar à tela inicial"</strong> ou 
+                    <strong>"Instalar aplicativo"</strong> no menu.
+                </p>
+            `;
+        }
+        
+        const modalBody = `
+            <div class="text-center">
+                <img src="${window.location.origin}/static/icon-192.png" 
+                     alt="SENAI Salas" 
+                     style="width: 100px; height: 100px; border-radius: 20px; margin-bottom: 20px;">
+                ${instructions}
+                <p class="mt-3 text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Com o app instalado, você terá acesso rápido às salas direto da tela inicial!
+                </p>
+            </div>
+        `;
+        
+        // Show modal with instructions
+        if (window.SenaiClassrooms && window.SenaiClassrooms.showModal) {
+            window.SenaiClassrooms.showModal('instructionsModal', '📱 Instalar App SENAI Salas', modalBody);
+        } else {
+            alert(instructions.replace(/<[^>]*>/g, ''));
+        }
+    }
+    
+    // Listen for app installed event
+    window.addEventListener('appinstalled', function() {
+        console.log('PWA was installed');
+        localStorage.setItem('pwa_install_dismissed', 'true');
+        
+        // Show success notification
+        if (window.SenaiClassrooms && window.SenaiClassrooms.showNotification) {
+            window.SenaiClassrooms.showNotification(
+                '✅ App instalado com sucesso! Você pode acessá-lo pela tela inicial.',
+                'success',
+                5000
+            );
+        }
+    });
+    
+    // For iOS: Show popup on mobile even without beforeinstallprompt
+    if (isMobileDevice() && /iPad|iPhone|iPod/.test(navigator.userAgent) && !isInstalled) {
+        setTimeout(() => {
+            installPopup.classList.add('show');
+        }, 3000);
+        
+        // Override install button for iOS
+        installBtn.addEventListener('click', function() {
+            installPopup.classList.remove('show');
+            showInstallInstructions();
+        }, { once: true });
+    }
+}
+
+// Add to global functions
+if (window.SenaiClassrooms) {
+    window.SenaiClassrooms.initializeMobileInstallPopup = initializeMobileInstallPopup;
+}

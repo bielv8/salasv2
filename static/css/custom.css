@@ -305,6 +305,103 @@ footer {
     margin-top: auto;
 }
 
+/* Mobile Install Popup */
+.mobile-install-popup {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, var(--senai-blue) 0%, var(--senai-light-blue) 100%);
+    color: white;
+    padding: 20px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 9999;
+    display: none;
+    animation: slideUp 0.4s ease-out;
+}
+
+.mobile-install-popup.show {
+    display: block;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.install-popup-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.install-popup-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.install-popup-text {
+    flex: 1;
+}
+
+.install-popup-text h6 {
+    margin: 0 0 5px 0;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.install-popup-text p {
+    margin: 0;
+    font-size: 0.85rem;
+    opacity: 0.95;
+}
+
+.install-popup-buttons {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.install-popup-buttons .btn {
+    font-size: 0.9rem;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.btn-install {
+    background: white;
+    color: var(--senai-blue);
+    border: none;
+}
+
+.btn-install:hover {
+    background: #f0f0f0;
+    color: var(--senai-blue);
+}
+
+.btn-dismiss {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-dismiss:hover {
+    background: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .card-header h3,
@@ -322,6 +419,86 @@ footer {
     .btn-group-sm .btn {
         padding: 0.25rem 0.5rem;
         font-size: 0.75rem;
+    }
+    
+    .navbar-brand {
+        font-size: 0.95rem;
+    }
+    
+    .container {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .table {
+        font-size: 0.85rem;
+    }
+    
+    .table th,
+    .table td {
+        padding: 0.5rem;
+    }
+    
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    
+    .install-popup-content {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .install-popup-buttons {
+        width: 100%;
+        flex-direction: column;
+    }
+    
+    .install-popup-buttons .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 576px) {
+    .navbar-brand {
+        font-size: 0.85rem;
+    }
+    
+    .nav-link {
+        font-size: 0.9rem;
+    }
+    
+    .card-title {
+        font-size: 1.1rem;
+    }
+    
+    .btn {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.75rem;
+    }
+    
+    footer {
+        font-size: 0.85rem;
+    }
+    
+    .mobile-install-popup {
+        padding: 15px;
+    }
+    
+    .install-popup-icon {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .install-popup-text h6 {
+        font-size: 0.95rem;
+    }
+    
+    .install-popup-text p {
+        font-size: 0.8rem;
     }
 }
 
