@@ -3765,6 +3765,10 @@ def upload_class_group(classroom_id):
     
     file = request.files['excel_file']
     class_group_name = request.form.get('class_group_name', '').strip()
+    shift = request.form.get('shift', '').strip()
+    start_time = request.form.get('start_time', '').strip()
+    end_time = request.form.get('end_time', '').strip()
+    days_of_week = request.form.getlist('days_of_week')
     
     if file.filename == '':
         flash('Nenhum arquivo foi selecionado', 'error')
@@ -3811,13 +3815,16 @@ def upload_class_group(classroom_id):
             return redirect(url_for('asset_management', classroom_id=classroom_id))
         
         # Create class group
-        class_group = ClassGroup(
-            classroom_id=classroom_id,
-            name=class_group_name,
-            excel_filename=secure_filename(file.filename),
-            excel_data=excel_data,
-            excel_mimetype=file.mimetype
-        )
+        class_group = ClassGroup()
+        class_group.classroom_id = classroom_id
+        class_group.name = class_group_name
+        class_group.excel_filename = secure_filename(file.filename)
+        class_group.excel_data = excel_data
+        class_group.excel_mimetype = file.mimetype
+        class_group.shift = shift
+        class_group.start_time = start_time
+        class_group.end_time = end_time
+        class_group.days_of_week = json.dumps(days_of_week) if days_of_week else ''
         db.session.add(class_group)
         db.session.flush()  # Get class_group.id
         
