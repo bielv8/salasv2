@@ -3969,8 +3969,8 @@ def assign_students_page(classroom_id):
         workstations.append({
             'id': ws.id,
             'number': ws.number,
-            'x_position': ws.x_position,
-            'y_position': ws.y_position,
+            'position_x': ws.position_x,
+            'position_y': ws.position_y,
             'notes': ws.notes
         })
     
@@ -4171,3 +4171,271 @@ def download_class_group_excel(group_id):
         as_attachment=True,
         download_name=class_group.excel_filename or f'turma_{class_group.id}.xlsx'
     )
+
+@app.route('/classroom/<int:classroom_id>/attendance/start', methods=['GET', 'POST'])
+@require_admin_auth
+def start_attendance(classroom_id):
+    """Start or view an attendance session"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    
+    if request.method == 'POST':
+        try:
+            from models import AttendanceSession, AttendanceRecord, WorkstationAssignment
+            
+            class_group_id = int(request.form.get('class_group_id'))
+            session_date_str = request.form.get('session_date')
+            
+            class_group = ClassGroup.query.get_or_404(class_group_id)
+            if class_group.classroom_id != classroom_id:
+                flash('Turma não pertence a esta sala', 'error')
+                return redirect(url_for('asset_management', classroom_id=classroom_id))
+            
+            session_date = datetime.strptime(session_date_str, '%Y-%m-%d').date()
+            
+            existing_session = AttendanceSession.query.filter_by(
+                classroom_id=classroom_id,
+                class_group_id=class_group_id,
+                session_date=session_date
+            ).first()
+            
+            if existing_session:
+                return redirect(url_for('attendance_page', session_id=existing_session.id))
+            
+            session = AttendanceSession(
+                classroom_id=classroom_id,
+                class_group_id=class_group_id,
+                session_date=session_date,
+                status='active',
+                created_by='admin'
+            )
+            db.session.add(session)
+            db.session.flush()
+            
+            students = Student.query.filter_by(class_group_id=class_group_id).all()
+            assignments = WorkstationAssignment.query.filter_by(class_group_id=class_group_id).all()
+            assignment_map = {a.student_id: a.workstation_id for a in assignments}
+            
+            for student in students:
+                record = AttendanceRecord(
+                    attendance_session_id=session.id,
+                    student_id=student.id,
+                    workstation_id=assignment_map.get(student.id),
+                    status='absent'
+                )
+                db.session.add(record)
+            
+            db.session.commit()
+            flash('Sessão de chamada iniciada com sucesso!', 'success')
+            return redirect(url_for('attendance_page', session_id=session.id))
+            
+        except Exception as e:
+            db.session.rollback()
+            import logging
+            logging.error(f"Error starting attendance session: {e}")
+            import traceback
+            traceback.print_exc()
+            flash(f'Erro ao iniciar sessão: {str(e)}', 'error')
+    
+    class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
+    return render_template('start_attendance.html',
+                         classroom=classroom,
+                         class_groups=class_groups,
+                         today=get_brazil_time().date())
+
+@app.route('/attendance/<int:session_id>')
+@require_admin_auth
+def attendance_page(session_id):
+    """Attendance management page with real-time status"""
+    from models import AttendanceSession, AttendanceRecord
+    
+    session = AttendanceSession.query.get_or_404(session_id)
+    classroom = session.classroom
+    class_group = session.class_group
+    layout = ClassroomLayout.query.filter_by(classroom_id=classroom.id).first()
+    
+    if not layout:
+        flash('Esta sala não possui layout configurado', 'error')
+        return redirect(url_for('asset_management', classroom_id=classroom.id))
+    
+    layout_data = {}
+    if layout.layout_data:
+        try:
+            layout_data = json.loads(layout.layout_data)
+        except:
+            layout_data = {}
+    
+    workstations = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    records = AttendanceRecord.query.filter_by(attendance_session_id=session_id).all()
+    
+    records_by_student = {r.student_id: r for r in records}
+    records_by_workstation = {r.workstation_id: r for r in records if r.workstation_id}
+    
+    return render_template('attendance.html',
+                         session=session,
+                         classroom=classroom,
+                         class_group=class_group,
+                         layout=layout,
+                         layout_data=layout_data,
+                         workstations=workstations,
+                         records=records,
+                         records_by_student=records_by_student,
+                         records_by_workstation=records_by_workstation)
+
+@app.route('/api/attendance/<int:session_id>/update', methods=['POST'])
+@require_admin_auth
+def update_attendance(session_id):
+    """Update attendance status for a student"""
+    from models import AttendanceSession, AttendanceRecord
+    
+    try:
+        session = AttendanceSession.query.get_or_404(session_id)
+        data = request.get_json()
+        
+        student_id = int(data.get('student_id'))
+        status = data.get('status')
+        workstation_id = data.get('workstation_id')
+        
+        if status not in ['present', 'absent', 'unassigned']:
+            return jsonify({'success': False, 'error': 'Status inválido'}), 400
+        
+        record = AttendanceRecord.query.filter_by(
+            attendance_session_id=session_id,
+            student_id=student_id
+        ).first()
+        
+        if not record:
+            return jsonify({'success': False, 'error': 'Registro não encontrado'}), 404
+        
+        record.status = status
+        record.workstation_id = int(workstation_id) if workstation_id else None
+        record.updated_at = datetime.utcnow()
+        
+        if status == 'present' and not record.check_in_time:
+            record.check_in_time = datetime.utcnow()
+        elif status == 'absent':
+            record.check_in_time = None
+            record.check_out_time = None
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Presença atualizada',
+            'record': record.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.error(f"Error updating attendance: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/attendance/<int:session_id>/status')
+def get_attendance_status(session_id):
+    """Get current attendance status (for real-time updates)"""
+    from models import AttendanceSession, AttendanceRecord
+    
+    session = AttendanceSession.query.get_or_404(session_id)
+    records = AttendanceRecord.query.filter_by(attendance_session_id=session_id).all()
+    
+    return jsonify({
+        'success': True,
+        'session': session.to_dict(),
+        'records': [r.to_dict() for r in records]
+    })
+
+@app.route('/attendance/<int:session_id>/export')
+@require_admin_auth
+def export_attendance(session_id):
+    """Export attendance report to Excel"""
+    from models import AttendanceSession, AttendanceRecord
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    
+    session = AttendanceSession.query.get_or_404(session_id)
+    records = AttendanceRecord.query.filter_by(attendance_session_id=session_id).order_by(AttendanceRecord.student_id).all()
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Relatório de Presença"
+    
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF")
+    
+    headers = ['Data', 'Turma', 'Aluno', 'Computador', 'Status', 'Check-in', 'Observações']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal='center')
+    
+    for row, record in enumerate(records, 2):
+        ws.cell(row=row, column=1, value=session.session_date.strftime('%d/%m/%Y'))
+        ws.cell(row=row, column=2, value=session.class_group.name)
+        ws.cell(row=row, column=3, value=record.student.name)
+        ws.cell(row=row, column=4, value=f"#{record.workstation.number}" if record.workstation else "Sem estação")
+        
+        status_cell = ws.cell(row=row, column=5, value='Presente' if record.status == 'present' else 'Faltou')
+        if record.status == 'present':
+            status_cell.fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+        else:
+            status_cell.fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        
+        ws.cell(row=row, column=6, value=record.check_in_time.strftime('%H:%M:%S') if record.check_in_time else '')
+        ws.cell(row=row, column=7, value=record.notes)
+    
+    for col in range(1, 8):
+        ws.column_dimensions[chr(64 + col)].width = 18
+    
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    filename = f"relatorio_presenca_{session.class_group.name}_{session.session_date.strftime('%Y%m%d')}.xlsx"
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename
+    )
+
+@app.route('/classroom/<int:classroom_id>/attendance/reports')
+@require_admin_auth
+def attendance_reports(classroom_id):
+    """View and filter attendance reports"""
+    from models import AttendanceSession
+    
+    classroom = Classroom.query.get_or_404(classroom_id)
+    
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    group_id = request.args.get('group_id', type=int)
+    
+    query = AttendanceSession.query.filter_by(classroom_id=classroom_id)
+    
+    if start_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            query = query.filter(AttendanceSession.session_date >= start_date_obj)
+        except:
+            pass
+    
+    if end_date:
+        try:
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            query = query.filter(AttendanceSession.session_date <= end_date_obj)
+        except:
+            pass
+    
+    if group_id:
+        query = query.filter_by(class_group_id=group_id)
+    
+    sessions = query.order_by(AttendanceSession.session_date.desc()).all()
+    class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
+    
+    return render_template('attendance_reports.html',
+                         classroom=classroom,
+                         sessions=sessions,
+                         class_groups=class_groups,
+                         filters={'start_date': start_date, 'end_date': end_date, 'group_id': group_id})

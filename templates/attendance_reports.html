@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Relatórios de Chamada - {{ classroom.name }} - SENAI{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h2><i class="fas fa-chart-bar me-2"></i>Relatórios de Chamada - {{ classroom.name }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Início</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}">{{ classroom.name }}</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('asset_management', classroom_id=classroom.id) }}">Gestão</a></li>
+                    <li class="breadcrumb-item active">Relatórios</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" action="{{ url_for('attendance_reports', classroom_id=classroom.id) }}">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label for="start_date" class="form-label">Data Início</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date" 
+                                       value="{{ filters.start_date or '' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="end_date" class="form-label">Data Fim</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date" 
+                                       value="{{ filters.end_date or '' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="group_id" class="form-label">Turma</label>
+                                <select class="form-select" id="group_id" name="group_id">
+                                    <option value="">Todas as turmas</option>
+                                    {% for group in class_groups %}
+                                    <option value="{{ group.id }}" {% if filters.group_id == group.id %}selected{% endif %}>
+                                        {{ group.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-2"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Sessões de Chamada ({{ sessions|length }})</h5>
+                    <a href="{{ url_for('start_attendance', classroom_id=classroom.id) }}" class="btn btn-success btn-sm">
+                        <i class="fas fa-plus me-2"></i>Nova Chamada
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if sessions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Turma</th>
+                                    <th>Total Alunos</th>
+                                    <th>Presentes</th>
+                                    <th>Ausentes</th>
+                                    <th>% Presença</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in sessions %}
+                                {% set session_dict = session.to_dict() %}
+                                {% set total = session_dict.total_students %}
+                                {% set present = session_dict.present_count %}
+                                {% set absent = session_dict.absent_count %}
+                                {% set percentage = ((present / total * 100) if total > 0 else 0) | round(1) %}
+                                <tr>
+                                    <td>{{ session.session_date.strftime('%d/%m/%Y') }}</td>
+                                    <td>{{ session.class_group.name }}</td>
+                                    <td>{{ total }}</td>
+                                    <td><span class="badge bg-success">{{ present }}</span></td>
+                                    <td><span class="badge bg-danger">{{ absent }}</span></td>
+                                    <td>
+                                        <div class="progress" style="height: 25px;">
+                                            <div class="progress-bar {% if percentage >= 75 %}bg-success{% elif percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                 role="progressbar" style="width: {{ percentage }}%">
+                                                {{ percentage }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{{ url_for('attendance_page', session_id=session.id) }}" 
+                                               class="btn btn-primary" title="Ver/Editar">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{{ url_for('export_attendance', session_id=session.id) }}" 
+                                               class="btn btn-success" title="Exportar Excel">
+                                                <i class="fas fa-file-excel"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Nenhuma sessão de chamada encontrada com os filtros selecionados.
+                        <a href="{{ url_for('start_attendance', classroom_id=classroom.id) }}" class="alert-link">Iniciar uma nova chamada</a>.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if sessions %}
+    <div class="row mt-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Resumo do Período</h5>
+                </div>
+                <div class="card-body">
+                    {% set total_sessions = sessions|length %}
+                    {% set total_students = sessions|sum(attribute='records')|length %}
+                    {% set total_present = sessions|map(attribute='records')|sum(start=[])|selectattr('status', 'equalto', 'present')|list|length %}
+                    {% set total_absent = sessions|map(attribute='records')|sum(start=[])|selectattr('status', 'equalto', 'absent')|list|length %}
+                    {% set avg_percentage = ((total_present / (total_present + total_absent) * 100) if (total_present + total_absent) > 0 else 0) | round(1) %}
+                    
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h3 class="text-primary">{{ total_sessions }}</h3>
+                            <p class="text-muted">Sessões</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-success">{{ total_present }}</h3>
+                            <p class="text-muted">Total Presentes</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="text-danger">{{ total_absent }}</h3>
+                            <p class="text-muted">Total Ausentes</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h3 class="{% if avg_percentage >= 75 %}text-success{% elif avg_percentage >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ avg_percentage }}%
+                            </h3>
+                            <p class="text-muted">Média de Presença</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

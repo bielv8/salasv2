@@ -107,6 +107,33 @@
             </div>
 
             <div class="card mt-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="fas fa-clipboard-check me-2"></i>Chamada e Presença</h5>
+                </div>
+                <div class="card-body">
+                    {% if layout and class_groups %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Sistema de chamada com identificação em tempo real de computadores utilizados
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{{ url_for('start_attendance', classroom_id=classroom.id) }}" class="btn btn-success">
+                            <i class="fas fa-play-circle me-2"></i>Iniciar Chamada
+                        </a>
+                        <a href="{{ url_for('attendance_reports', classroom_id=classroom.id) }}" class="btn btn-primary">
+                            <i class="fas fa-chart-bar me-2"></i>Relatórios
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Configure o layout e adicione turmas antes de usar a chamada
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mt-4">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Como Usar</h5>
                 </div>

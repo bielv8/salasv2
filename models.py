@@ -334,3 +334,70 @@ class WorkstationAssignment(db.Model):
             'student_id': self.student_id,
             'student_name': self.student.name if self.student else ''
         }
+
+class AttendanceSession(db.Model):
+    """Represents an attendance session for a class group on a specific date"""
+    id = db.Column(db.Integer, primary_key=True)
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classroom.id'), nullable=False)
+    class_group_id = db.Column(db.Integer, db.ForeignKey('class_group.id'), nullable=False)
+    session_date = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(20), default='active')
+    created_by = db.Column(db.String(100), default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    classroom = db.relationship('Classroom', backref='attendance_sessions')
+    class_group = db.relationship('ClassGroup', backref='attendance_sessions')
+    records = db.relationship('AttendanceRecord', backref='session', lazy=True, cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<AttendanceSession {self.id} - {self.session_date}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'classroom_id': self.classroom_id,
+            'classroom_name': self.classroom.name if self.classroom else '',
+            'class_group_id': self.class_group_id,
+            'class_group_name': self.class_group.name if self.class_group else '',
+            'session_date': self.session_date.strftime('%Y-%m-%d') if self.session_date else '',
+            'status': self.status,
+            'created_by': self.created_by,
+            'created_at': self.created_at.strftime('%d/%m/%Y às %H:%M') if self.created_at else '',
+            'total_students': len(self.records) if self.records else 0,
+            'present_count': sum(1 for r in self.records if r.status == 'present') if self.records else 0,
+            'absent_count': sum(1 for r in self.records if r.status == 'absent') if self.records else 0
+        }
+
+class AttendanceRecord(db.Model):
+    """Records individual student attendance for a session"""
+    id = db.Column(db.Integer, primary_key=True)
+    attendance_session_id = db.Column(db.Integer, db.ForeignKey('attendance_session.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    workstation_id = db.Column(db.Integer, db.ForeignKey('workstation.id'), nullable=True)
+    status = db.Column(db.String(20), default='absent')
+    check_in_time = db.Column(db.DateTime, nullable=True)
+    check_out_time = db.Column(db.DateTime, nullable=True)
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    student = db.relationship('Student', backref='attendance_records')
+    workstation = db.relationship('Workstation', backref='attendance_records')
+    
+    def __repr__(self):
+        return f'<AttendanceRecord {self.id} - Student#{self.student_id} - {self.status}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'attendance_session_id': self.attendance_session_id,
+            'student_id': self.student_id,
+            'student_name': self.student.name if self.student else '',
+            'workstation_id': self.workstation_id,
+            'workstation_number': self.workstation.number if self.workstation else None,
+            'status': self.status,
+            'check_in_time': self.check_in_time.strftime('%H:%M:%S') if self.check_in_time else '',
+            'check_out_time': self.check_out_time.strftime('%H:%M:%S') if self.check_out_time else '',
+            'notes': self.notes
+        }

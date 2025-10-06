@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar Chamada - {{ classroom.name }} - SENAI{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h2><i class="fas fa-user-check me-2"></i>Iniciar Chamada - {{ classroom.name }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Início</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}">{{ classroom.name }}</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('asset_management', classroom_id=classroom.id) }}">Gestão de Patrimônio</a></li>
+                    <li class="breadcrumb-item active">Iniciar Chamada</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>Nova Sessão de Chamada</h5>
+                </div>
+                <div class="card-body">
+                    {% if class_groups %}
+                    <form method="POST" action="{{ url_for('start_attendance', classroom_id=classroom.id) }}">
+                        <div class="mb-3">
+                            <label for="class_group_id" class="form-label">Selecione a Turma</label>
+                            <select class="form-select" id="class_group_id" name="class_group_id" required>
+                                <option value="">Escolha uma turma...</option>
+                                {% for group in class_groups %}
+                                <option value="{{ group.id }}">
+                                    {{ group.name }} ({{ group.students|length }} alunos)
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="session_date" class="form-label">Data da Chamada</label>
+                            <input type="date" class="form-control" id="session_date" name="session_date" 
+                                   value="{{ today }}" required max="{{ today }}">
+                            <small class="form-text text-muted">Não é possível criar chamadas para datas futuras</small>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Como funciona:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>Todos os alunos começam marcados como ausentes</li>
+                                <li>Clique em cada aluno presente para marcar a presença</li>
+                                <li>O computador será atribuído automaticamente se já houver mapeamento</li>
+                                <li>Cores: <span class="badge bg-success">Verde = Presente</span> <span class="badge bg-danger">Vermelho = Faltou</span> <span class="badge bg-secondary">Cinza = Sem aluno</span></li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-play me-2"></i>Iniciar Chamada
+                            </button>
+                            <a href="{{ url_for('asset_management', classroom_id=classroom.id) }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Voltar
+                            </a>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Nenhuma turma cadastrada. <a href="{{ url_for('asset_management', classroom_id=classroom.id) }}">Adicione uma turma primeiro</a>.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
