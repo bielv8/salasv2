@@ -3,8 +3,11 @@ import sys
 import json
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app import app, db
-from models import Classroom, Schedule, Incident, ScheduleRequest, ClassGroup, Student, ClassroomLayout, Workstation, WorkstationAssignment, AttendanceSession, AttendanceRecord
+from models import Classroom, Schedule, Incident, ScheduleRequest, ClassGroup, Student, ClassroomLayout, Workstation, WorkstationAssignment, AttendanceSession, AttendanceRecord, User
 from datetime import datetime, timedelta
+from flask_login import login_user, logout_user, login_required, current_user
+from functools import wraps
+from forms import LoginForm, UserForm, UserEditForm, ChangePasswordForm
 
 # xAI Grok integration
 try:
@@ -72,15 +75,33 @@ def allowed_excel_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXCEL_EXTENSIONS
 
 def is_admin_authenticated():
-    return session.get('admin_authenticated', False)
+    """Check if current user is an authenticated admin"""
+    return current_user.is_authenticated and current_user.is_admin()
 
 def require_admin_auth(f):
+    """Decorator to require admin authentication"""
+    @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not is_admin_authenticated():
-            flash('Acesso negado. Autenticação necessária.', 'error')
+        if not current_user.is_authenticated:
+            flash('Faça login para acessar esta página.', 'error')
             return redirect(url_for('login'))
+        if not current_user.is_admin():
+            flash('Acesso negado. Apenas administradores podem acessar esta página.', 'error')
+            return redirect(url_for('index'))
         return f(*args, **kwargs)
-    decorated_function.__name__ = f.__name__
+    return decorated_function
+
+def require_teacher_or_admin(f):
+    """Decorator to require teacher or admin authentication"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('Faça login para acessar esta página.', 'error')
+            return redirect(url_for('login'))
+        if not (current_user.is_teacher() or current_user.is_admin()):
+            flash('Acesso negado. Apenas docentes e administradores podem acessar esta página.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
     return decorated_function
 
 @app.route('/')
@@ -155,25 +176,151 @@ def classroom_detail(classroom_id):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if request.method == 'POST':
-        password = request.form.get('password')
-        if password == ADMIN_PASSWORD:
-            session['admin_authenticated'] = True
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and user.check_password(form.password.data):
+            if not user.is_active:
+                flash('Sua conta está inativa. Entre em contato com o administrador.', 'error')
+                return redirect(url_for('login'))
+            
+            login_user(user, remember=True)
             session.permanent = True
             app.permanent_session_lifetime = timedelta(hours=2)
-            flash('Login realizado com sucesso!', 'success')
+            flash(f'Bem-vindo, {user.name}!', 'success')
+            
             next_page = request.args.get('next')
             return redirect(next_page or url_for('index'))
         else:
-            flash('Senha incorreta!', 'error')
+            flash('Usuário ou senha incorretos!', 'error')
     
-    return render_template('auth.html')
+    return render_template('auth.html', form=form)
 
 @app.route('/logout')
+@login_required
 def logout():
-    session.pop('admin_authenticated', None)
+    logout_user()
     flash('Logout realizado com sucesso!', 'success')
     return redirect(url_for('index'))
+
+# User management routes
+@app.route('/users')
+@require_admin_auth
+def users():
+    all_users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('users.html', users=all_users)
+
+@app.route('/users/add', methods=['GET', 'POST'])
+@require_admin_auth
+def add_user():
+    form = UserForm()
+    if form.validate_on_submit():
+        # Check if username already exists
+        existing_user = User.query.filter_by(username=form.username.data).first()
+        if existing_user:
+            flash('Nome de usuário já existe!', 'error')
+            return render_template('user_form.html', form=form, title='Adicionar Usuário')
+        
+        user = User(
+            username=form.username.data,
+            name=form.name.data,
+            role=form.role.data,
+            email=form.email.data
+        )
+        user.set_password(form.password.data)
+        user.created_by = current_user.id
+        
+        db.session.add(user)
+        db.session.commit()
+        
+        flash(f'Usuário {user.name} criado com sucesso!', 'success')
+        return redirect(url_for('users'))
+    
+    return render_template('user_form.html', form=form, title='Adicionar Usuário')
+
+@app.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
+@require_admin_auth
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    form = UserEditForm(obj=user)
+    
+    if form.validate_on_submit():
+        # Check if username is being changed and if it already exists
+        if form.username.data != user.username:
+            existing_user = User.query.filter_by(username=form.username.data).first()
+            if existing_user:
+                flash('Nome de usuário já existe!', 'error')
+                return render_template('user_edit_form.html', form=form, user=user, title='Editar Usuário')
+        
+        user.username = form.username.data
+        user.name = form.name.data
+        user.role = form.role.data
+        user.email = form.email.data
+        user.is_active = form.is_active.data == 'True'
+        
+        db.session.commit()
+        
+        flash(f'Usuário {user.name} atualizado com sucesso!', 'success')
+        return redirect(url_for('users'))
+    
+    # Set the form data for GET request
+    form.is_active.data = 'True' if user.is_active else 'False'
+    
+    return render_template('user_edit_form.html', form=form, user=user, title='Editar Usuário')
+
+@app.route('/users/delete/<int:user_id>', methods=['POST'])
+@require_admin_auth
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    # Prevent deleting yourself
+    if user.id == current_user.id:
+        flash('Você não pode deletar sua própria conta!', 'error')
+        return redirect(url_for('users'))
+    
+    username = user.name
+    db.session.delete(user)
+    db.session.commit()
+    
+    flash(f'Usuário {username} deletado com sucesso!', 'success')
+    return redirect(url_for('users'))
+
+@app.route('/users/change-password/<int:user_id>', methods=['GET', 'POST'])
+@require_admin_auth
+def change_user_password(user_id):
+    user = User.query.get_or_404(user_id)
+    form = ChangePasswordForm()
+    
+    if form.validate_on_submit():
+        user.set_password(form.password.data)
+        db.session.commit()
+        
+        flash(f'Senha do usuário {user.name} alterada com sucesso!', 'success')
+        return redirect(url_for('users'))
+    
+    return render_template('change_password_form.html', form=form, user=user, title='Alterar Senha')
+
+@app.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html', user=current_user)
+
+@app.route('/profile/change-password', methods=['GET', 'POST'])
+@login_required
+def change_my_password():
+    form = ChangePasswordForm()
+    
+    if form.validate_on_submit():
+        current_user.set_password(form.password.data)
+        db.session.commit()
+        
+        flash('Sua senha foi alterada com sucesso!', 'success')
+        return redirect(url_for('profile'))
+    
+    return render_template('change_password_form.html', form=form, user=current_user, title='Alterar Minha Senha', is_self=True)
 
 @app.route('/install')
 def install_instructions():
