@@ -302,6 +302,11 @@ class Student(db.Model):
     row_number = db.Column(db.Integer)  # Original row in Excel for reference
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    def __init__(self, class_group_id=0, name='', row_number=None):
+        self.class_group_id = class_group_id
+        self.name = name
+        self.row_number = row_number
+    
     def __repr__(self):
         return f'<Student {self.name}>'
     
@@ -325,6 +330,9 @@ class ClassroomLayout(db.Model):
     classroom = db.relationship('Classroom', backref=db.backref('layout', uselist=False, cascade='all, delete-orphan'))
     workstations = db.relationship('Workstation', backref='layout', lazy=True, cascade='all, delete-orphan')
     
+    def __init__(self, classroom_id=0):
+        self.classroom_id = classroom_id
+    
     def __repr__(self):
         return f'<ClassroomLayout for {self.classroom.name if self.classroom else "Unknown"}>'
 
@@ -341,6 +349,13 @@ class Workstation(db.Model):
     
     # Relationships
     assignments = db.relationship('WorkstationAssignment', backref='workstation', lazy=True, cascade='all, delete-orphan')
+    
+    def __init__(self, layout_id=0, number=0, position_x=0, position_y=0, notes=''):
+        self.layout_id = layout_id
+        self.number = number
+        self.position_x = position_x
+        self.position_y = position_y
+        self.notes = notes
     
     def __repr__(self):
         return f'<Workstation #{self.number}>'
@@ -366,10 +381,15 @@ class WorkstationAssignment(db.Model):
     class_group = db.relationship('ClassGroup', backref='assignments')
     student = db.relationship('Student', backref='assignments')
     
-    # Unique constraint: one student per workstation per class group
+    # Unique constraint: each student can only be assigned to one workstation per class group
     __table_args__ = (
-        db.UniqueConstraint('workstation_id', 'class_group_id', name='unique_workstation_class'),
+        db.UniqueConstraint('student_id', 'class_group_id', name='unique_student_class'),
     )
+    
+    def __init__(self, workstation_id=0, class_group_id=0, student_id=0):
+        self.workstation_id = workstation_id
+        self.class_group_id = class_group_id
+        self.student_id = student_id
     
     def __repr__(self):
         return f'<WorkstationAssignment W#{self.workstation_id} -> Student#{self.student_id}>'
@@ -397,6 +417,13 @@ class AttendanceSession(db.Model):
     classroom = db.relationship('Classroom', backref='attendance_sessions')
     class_group = db.relationship('ClassGroup', backref='attendance_sessions')
     records = db.relationship('AttendanceRecord', backref='session', lazy=True, cascade='all, delete-orphan')
+    
+    def __init__(self, classroom_id=0, class_group_id=0, session_date=None, status='active', created_by=''):
+        self.classroom_id = classroom_id
+        self.class_group_id = class_group_id
+        self.session_date = session_date
+        self.status = status
+        self.created_by = created_by
     
     def __repr__(self):
         return f'<AttendanceSession {self.id} - {self.session_date}>'
@@ -432,6 +459,12 @@ class AttendanceRecord(db.Model):
     
     student = db.relationship('Student', backref='attendance_records')
     workstation = db.relationship('Workstation', backref='attendance_records')
+    
+    def __init__(self, attendance_session_id=0, student_id=0, workstation_id=None, status='absent'):
+        self.attendance_session_id = attendance_session_id
+        self.student_id = student_id
+        self.workstation_id = workstation_id
+        self.status = status
     
     def __repr__(self):
         return f'<AttendanceRecord {self.id} - Student#{self.student_id} - {self.status}>'
