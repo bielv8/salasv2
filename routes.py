@@ -4662,7 +4662,7 @@ def download_class_group_excel(group_id):
     )
 
 @app.route('/classroom/<int:classroom_id>/attendance/start', methods=['GET', 'POST'])
-@require_admin_auth
+@require_teacher_or_admin
 def start_attendance(classroom_id):
     """Start or view an attendance session"""
     classroom = Classroom.query.get_or_404(classroom_id)
@@ -4695,7 +4695,7 @@ def start_attendance(classroom_id):
                 class_group_id=class_group_id,
                 session_date=session_date,
                 status='active',
-                created_by='admin'
+                created_by=current_user.name
             )
             db.session.add(session)
             db.session.flush()
@@ -4732,7 +4732,7 @@ def start_attendance(classroom_id):
                          today=get_brazil_time().date())
 
 @app.route('/attendance/<int:session_id>')
-@require_admin_auth
+@require_teacher_or_admin
 def attendance_page(session_id):
     """Attendance management page with real-time status"""
     from models import AttendanceSession, AttendanceRecord
@@ -4774,7 +4774,7 @@ def attendance_page(session_id):
                          records_by_workstation=records_by_workstation)
 
 @app.route('/api/attendance/<int:session_id>/update', methods=['POST'])
-@require_admin_auth
+@require_teacher_or_admin
 def update_attendance(session_id):
     """Update attendance status for a student"""
     from models import AttendanceSession, AttendanceRecord
@@ -4837,7 +4837,7 @@ def get_attendance_status(session_id):
     })
 
 @app.route('/attendance/<int:session_id>/export')
-@require_admin_auth
+@require_teacher_or_admin
 def export_attendance(session_id):
     """Export attendance report to Excel"""
     from models import AttendanceSession, AttendanceRecord
@@ -4893,7 +4893,7 @@ def export_attendance(session_id):
     )
 
 @app.route('/classroom/<int:classroom_id>/attendance/reports')
-@require_admin_auth
+@require_teacher_or_admin
 def attendance_reports(classroom_id):
     """View and filter attendance reports"""
     from models import AttendanceSession
