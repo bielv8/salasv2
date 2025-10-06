@@ -4115,8 +4115,8 @@ def layout_view(classroom_id):
             # Get present students from all sessions
             for session in sessions:
                 records = AttendanceRecord.query.filter_by(
-                    session_id=session.id,
-                    is_present=True
+                    attendance_session_id=session.id,
+                    status='present'
                 ).all()
                 for record in records:
                     present_students.add(record.student_id)
@@ -4143,8 +4143,8 @@ def layout_view(classroom_id):
         # Get present students from all sessions
         for session in sessions:
             records = AttendanceRecord.query.filter_by(
-                session_id=session.id,
-                is_present=True
+                attendance_session_id=session.id,
+                status='present'
             ).all()
             for record in records:
                 present_students.add(record.student_id)
@@ -4348,7 +4348,8 @@ def attendance_page(session_id):
         except:
             layout_data = {}
     
-    workstations = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    workstations_db = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    workstations = [ws.to_dict() for ws in workstations_db]
     records = AttendanceRecord.query.filter_by(attendance_session_id=session_id).all()
     
     records_by_student = {r.student_id: r for r in records}
