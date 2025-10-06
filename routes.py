@@ -3,7 +3,7 @@ import sys
 import json
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app import app, db
-from models import Classroom, Schedule, Incident, ScheduleRequest
+from models import Classroom, Schedule, Incident, ScheduleRequest, ClassGroup, Student, ClassroomLayout, Workstation, WorkstationAssignment
 from datetime import datetime, timedelta
 
 # xAI Grok integration
@@ -3735,3 +3735,428 @@ Percebi que você disse: *"{user_message}"*
 **💬 Solicite no sistema** - Para reservas e agendamentos
 
 **🤝 Como posso te ajudar de verdade?** Me faça uma pergunta mais específica! ✨{get_question_menu()}"""
+
+# ============================================================================
+# ASSET MANAGEMENT ROUTES (GESTÃO DE PATRIMÔNIO)
+# ============================================================================
+
+@app.route('/classroom/<int:classroom_id>/asset_management')
+@require_admin_auth
+def asset_management(classroom_id):
+    """Main asset management page for a classroom"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
+    layout = ClassroomLayout.query.filter_by(classroom_id=classroom_id).first()
+    
+    return render_template('asset_management.html', 
+                         classroom=classroom, 
+                         class_groups=class_groups,
+                         layout=layout)
+
+@app.route('/classroom/<int:classroom_id>/upload_class_group', methods=['POST'])
+@require_admin_auth
+def upload_class_group(classroom_id):
+    """Upload Excel file with student names to create a class group"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    
+    if 'excel_file' not in request.files:
+        flash('Nenhum arquivo Excel foi enviado', 'error')
+        return redirect(url_for('asset_management', classroom_id=classroom_id))
+    
+    file = request.files['excel_file']
+    class_group_name = request.form.get('class_group_name', '').strip()
+    
+    if file.filename == '':
+        flash('Nenhum arquivo foi selecionado', 'error')
+        return redirect(url_for('asset_management', classroom_id=classroom_id))
+    
+    if not class_group_name:
+        flash('O nome da turma é obrigatório', 'error')
+        return redirect(url_for('asset_management', classroom_id=classroom_id))
+    
+    if not allowed_excel_file(file.filename):
+        flash('Apenas arquivos Excel (.xlsx, .xls) são permitidos', 'error')
+        return redirect(url_for('asset_management', classroom_id=classroom_id))
+    
+    try:
+        if not EXCEL_AVAILABLE:
+            flash('Funcionalidade Excel não está disponível', 'error')
+            return redirect(url_for('asset_management', classroom_id=classroom_id))
+        
+        # Read Excel file
+        excel_data = file.read()
+        file.seek(0)
+        
+        # Parse Excel to extract student names
+        workbook = openpyxl.load_workbook(io.BytesIO(excel_data))
+        sheet = workbook.active
+        
+        students_data = []
+        row_num = 0
+        
+        # Read student names from first column (skip header if present)
+        for row in sheet.iter_rows(min_row=1, values_only=True):
+            if row[0]:  # If first cell has data
+                student_name = str(row[0]).strip()
+                # Skip header row if it contains common header words
+                if row_num == 0 and any(keyword in student_name.lower() for keyword in ['nome', 'aluno', 'student', 'name']):
+                    row_num += 1
+                    continue
+                if student_name:  # If not empty after strip
+                    students_data.append({'name': student_name, 'row_number': row_num})
+                    row_num += 1
+        
+        if not students_data:
+            flash('Nenhum nome de aluno foi encontrado no arquivo Excel', 'error')
+            return redirect(url_for('asset_management', classroom_id=classroom_id))
+        
+        # Create class group
+        class_group = ClassGroup(
+            classroom_id=classroom_id,
+            name=class_group_name,
+            excel_filename=secure_filename(file.filename),
+            excel_data=excel_data,
+            excel_mimetype=file.mimetype
+        )
+        db.session.add(class_group)
+        db.session.flush()  # Get class_group.id
+        
+        # Create student records
+        for student_data in students_data:
+            student = Student(
+                class_group_id=class_group.id,
+                name=student_data['name'],
+                row_number=student_data['row_number']
+            )
+            db.session.add(student)
+        
+        db.session.commit()
+        flash(f'Turma "{class_group_name}" criada com sucesso! {len(students_data)} alunos adicionados.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.error(f"Error uploading class group: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Erro ao processar arquivo Excel: {str(e)}', 'error')
+    
+    return redirect(url_for('asset_management', classroom_id=classroom_id))
+
+@app.route('/classroom/<int:classroom_id>/delete_class_group/<int:group_id>', methods=['POST'])
+@require_admin_auth
+def delete_class_group(classroom_id, group_id):
+    """Delete a class group and all its students"""
+    class_group = ClassGroup.query.get_or_404(group_id)
+    
+    if class_group.classroom_id != classroom_id:
+        flash('Turma não pertence a esta sala', 'error')
+        return redirect(url_for('asset_management', classroom_id=classroom_id))
+    
+    try:
+        group_name = class_group.name
+        db.session.delete(class_group)
+        db.session.commit()
+        flash(f'Turma "{group_name}" excluída com sucesso', 'success')
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.error(f"Error deleting class group: {e}")
+        flash('Erro ao excluir turma', 'error')
+    
+    return redirect(url_for('asset_management', classroom_id=classroom_id))
+
+@app.route('/classroom/<int:classroom_id>/layout_designer')
+@require_admin_auth
+def layout_designer(classroom_id):
+    """Layout designer page for creating/editing room layout"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    layout = ClassroomLayout.query.filter_by(classroom_id=classroom_id).first()
+    
+    # Get existing workstations if layout exists
+    workstations = []
+    layout_data = {}
+    if layout:
+        workstations = Workstation.query.filter_by(layout_id=layout.id).all()
+        if layout.layout_data:
+            try:
+                layout_data = json.loads(layout.layout_data)
+            except:
+                layout_data = {}
+    
+    return render_template('layout_designer.html',
+                         classroom=classroom,
+                         layout=layout,
+                         workstations=workstations,
+                         layout_data=layout_data)
+
+@app.route('/classroom/<int:classroom_id>/save_layout', methods=['POST'])
+@require_admin_auth
+def save_layout(classroom_id):
+    """Save room layout design"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    
+    try:
+        # Get layout data from form
+        grid_width = int(request.form.get('grid_width', 10))
+        grid_height = int(request.form.get('grid_height', 8))
+        workstations_json = request.form.get('workstations', '[]')
+        
+        workstations_data = json.loads(workstations_json)
+        
+        if not workstations_data:
+            flash('Adicione pelo menos um computador ao layout', 'error')
+            return redirect(url_for('layout_designer', classroom_id=classroom_id))
+        
+        # Create or update layout
+        layout = ClassroomLayout.query.filter_by(classroom_id=classroom_id).first()
+        if not layout:
+            layout = ClassroomLayout(classroom_id=classroom_id)
+            db.session.add(layout)
+        
+        # Save grid metadata
+        layout.layout_data = json.dumps({
+            'grid_width': grid_width,
+            'grid_height': grid_height,
+            'created_at': datetime.utcnow().isoformat()
+        })
+        db.session.flush()  # Get layout.id
+        
+        # Delete existing workstations
+        Workstation.query.filter_by(layout_id=layout.id).delete()
+        
+        # Create new workstations
+        for ws_data in workstations_data:
+            workstation = Workstation(
+                layout_id=layout.id,
+                number=ws_data['number'],
+                position_x=ws_data['x'],
+                position_y=ws_data['y'],
+                notes=ws_data.get('notes', '')
+            )
+            db.session.add(workstation)
+        
+        db.session.commit()
+        flash(f'Layout salvo com sucesso! {len(workstations_data)} computadores configurados.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.error(f"Error saving layout: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Erro ao salvar layout: {str(e)}', 'error')
+    
+    return redirect(url_for('asset_management', classroom_id=classroom_id))
+
+@app.route('/classroom/<int:classroom_id>/assign_students')
+@require_admin_auth
+def assign_students_page(classroom_id):
+    """Page for assigning students to workstations"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    layout = ClassroomLayout.query.filter_by(classroom_id=classroom_id).first()
+    
+    if not layout:
+        flash('Crie um layout primeiro antes de atribuir alunos', 'error')
+        return redirect(url_for('asset_management', classroom_id=classroom_id))
+    
+    class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
+    workstations = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    
+    # Get selected class group
+    selected_group_id = request.args.get('group_id', type=int)
+    selected_group = None
+    current_assignments = {}
+    
+    if selected_group_id:
+        selected_group = ClassGroup.query.get(selected_group_id)
+        if selected_group and selected_group.classroom_id == classroom_id:
+            # Get current assignments for this group
+            assignments = WorkstationAssignment.query.filter_by(class_group_id=selected_group_id).all()
+            for assignment in assignments:
+                current_assignments[assignment.workstation_id] = assignment
+    
+    return render_template('assign_students.html',
+                         classroom=classroom,
+                         layout=layout,
+                         class_groups=class_groups,
+                         workstations=workstations,
+                         selected_group=selected_group,
+                         current_assignments=current_assignments)
+
+@app.route('/classroom/<int:classroom_id>/save_assignments', methods=['POST'])
+@require_admin_auth
+def save_assignments(classroom_id):
+    """Save student assignments to workstations"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    
+    try:
+        class_group_id = int(request.form.get('class_group_id'))
+        assignments_json = request.form.get('assignments', '{}')
+        
+        assignments_data = json.loads(assignments_json)
+        
+        class_group = ClassGroup.query.get_or_404(class_group_id)
+        if class_group.classroom_id != classroom_id:
+            flash('Turma não pertence a esta sala', 'error')
+            return redirect(url_for('assign_students_page', classroom_id=classroom_id))
+        
+        # Delete existing assignments for this group
+        WorkstationAssignment.query.filter_by(class_group_id=class_group_id).delete()
+        
+        # Create new assignments
+        assignment_count = 0
+        for workstation_id_str, student_id in assignments_data.items():
+            if student_id:  # Only create if student is assigned
+                workstation_id = int(workstation_id_str)
+                assignment = WorkstationAssignment(
+                    workstation_id=workstation_id,
+                    class_group_id=class_group_id,
+                    student_id=int(student_id)
+                )
+                db.session.add(assignment)
+                assignment_count += 1
+        
+        db.session.commit()
+        flash(f'Atribuições salvas com sucesso! {assignment_count} computadores atribuídos.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.error(f"Error saving assignments: {e}")
+        import traceback
+        traceback.print_exc()
+        flash(f'Erro ao salvar atribuições: {str(e)}', 'error')
+    
+    return redirect(url_for('assign_students_page', classroom_id=classroom_id, group_id=class_group_id))
+
+@app.route('/classroom/<int:classroom_id>/layout_view')
+def layout_view(classroom_id):
+    """Public view of room layout (read-only)"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    layout = ClassroomLayout.query.filter_by(classroom_id=classroom_id).first()
+    
+    if not layout:
+        flash('Esta sala ainda não possui um layout configurado', 'info')
+        return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+    
+    class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
+    workstations = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    
+    # Get selected class group for filtering
+    selected_group_id = request.args.get('group_id', type=int)
+    selected_group = None
+    assignments_map = {}
+    
+    if selected_group_id:
+        selected_group = ClassGroup.query.get(selected_group_id)
+        if selected_group and selected_group.classroom_id == classroom_id:
+            assignments = WorkstationAssignment.query.filter_by(class_group_id=selected_group_id).all()
+            for assignment in assignments:
+                assignments_map[assignment.workstation_id] = assignment.student
+    
+    # Parse layout data
+    layout_data = {}
+    if layout.layout_data:
+        try:
+            layout_data = json.loads(layout.layout_data)
+        except:
+            layout_data = {}
+    
+    return render_template('layout_view.html',
+                         classroom=classroom,
+                         layout=layout,
+                         layout_data=layout_data,
+                         class_groups=class_groups,
+                         workstations=workstations,
+                         selected_group=selected_group,
+                         assignments_map=assignments_map)
+
+# API endpoints for AJAX requests
+
+@app.route('/api/classroom/<int:classroom_id>/class_groups')
+def api_class_groups(classroom_id):
+    """Get all class groups for a classroom"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
+    
+    return jsonify({
+        'success': True,
+        'class_groups': [group.to_dict() for group in class_groups]
+    })
+
+@app.route('/api/classroom/<int:classroom_id>/students/<int:group_id>')
+def api_students(classroom_id, group_id):
+    """Get all students in a class group"""
+    class_group = ClassGroup.query.get_or_404(group_id)
+    
+    if class_group.classroom_id != classroom_id:
+        return jsonify({'success': False, 'error': 'Group does not belong to classroom'}), 403
+    
+    students = Student.query.filter_by(class_group_id=group_id).order_by(Student.name).all()
+    
+    return jsonify({
+        'success': True,
+        'students': [student.to_dict() for student in students]
+    })
+
+@app.route('/api/classroom/<int:classroom_id>/workstations')
+def api_workstations(classroom_id):
+    """Get all workstations for a classroom"""
+    layout = ClassroomLayout.query.filter_by(classroom_id=classroom_id).first()
+    
+    if not layout:
+        return jsonify({'success': False, 'error': 'No layout found'}), 404
+    
+    workstations = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    
+    layout_data = {}
+    if layout.layout_data:
+        try:
+            layout_data = json.loads(layout.layout_data)
+        except:
+            pass
+    
+    return jsonify({
+        'success': True,
+        'layout_data': layout_data,
+        'workstations': [ws.to_dict() for ws in workstations]
+    })
+
+@app.route('/api/workstation/<int:workstation_id>/update_notes', methods=['POST'])
+@require_admin_auth
+def update_workstation_notes(workstation_id):
+    """Update notes for a workstation"""
+    workstation = Workstation.query.get_or_404(workstation_id)
+    
+    try:
+        data = request.get_json()
+        notes = data.get('notes', '')
+        
+        workstation.notes = notes
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Observações atualizadas'})
+        
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.error(f"Error updating workstation notes: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/download_class_group_excel/<int:group_id>')
+@require_admin_auth
+def download_class_group_excel(group_id):
+    """Download the original Excel file for a class group"""
+    class_group = ClassGroup.query.get_or_404(group_id)
+    
+    if not class_group.excel_data:
+        flash('Arquivo Excel não encontrado', 'error')
+        return redirect(url_for('asset_management', classroom_id=class_group.classroom_id))
+    
+    return send_file(
+        io.BytesIO(class_group.excel_data),
+        mimetype=class_group.excel_mimetype or 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=class_group.excel_filename or f'turma_{class_group.id}.xlsx'
+    )
