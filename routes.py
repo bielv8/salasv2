@@ -4041,11 +4041,21 @@ Percebi que você disse: *"{user_message}"*
 # ============================================================================
 
 @app.route('/classroom/<int:classroom_id>/asset_management')
-@require_admin_auth
+@require_teacher_or_admin
 def asset_management(classroom_id):
     """Main asset management page for a classroom"""
     classroom = Classroom.query.get_or_404(classroom_id)
-    class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
+    
+    # Filter class groups based on user role
+    if current_user.is_admin():
+        class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
+    else:
+        # Teachers only see their own class groups
+        class_groups = ClassGroup.query.filter_by(
+            classroom_id=classroom_id,
+            teacher_id=current_user.id
+        ).all()
+    
     layout = ClassroomLayout.query.filter_by(classroom_id=classroom_id).first()
     
     return render_template('asset_management.html', 
@@ -4054,7 +4064,7 @@ def asset_management(classroom_id):
                          layout=layout)
 
 @app.route('/classroom/<int:classroom_id>/upload_class_group', methods=['POST'])
-@require_admin_auth
+@require_teacher_or_admin
 def upload_class_group(classroom_id):
     """Upload Excel file with student names to create a class group"""
     classroom = Classroom.query.get_or_404(classroom_id)
@@ -4117,6 +4127,7 @@ def upload_class_group(classroom_id):
         # Create class group
         class_group = ClassGroup()
         class_group.classroom_id = classroom_id
+        class_group.teacher_id = current_user.id
         class_group.name = class_group_name
         class_group.excel_filename = secure_filename(file.filename)
         class_group.excel_data = excel_data
@@ -4151,13 +4162,18 @@ def upload_class_group(classroom_id):
     return redirect(url_for('asset_management', classroom_id=classroom_id))
 
 @app.route('/classroom/<int:classroom_id>/delete_class_group/<int:group_id>', methods=['POST'])
-@require_admin_auth
+@require_teacher_or_admin
 def delete_class_group(classroom_id, group_id):
     """Delete a class group and all its students"""
     class_group = ClassGroup.query.get_or_404(group_id)
     
     if class_group.classroom_id != classroom_id:
         flash('Turma não pertence a esta sala', 'error')
+        return redirect(url_for('asset_management', classroom_id=classroom_id))
+    
+    # Teachers can only delete their own class groups
+    if not current_user.is_admin() and class_group.teacher_id != current_user.id:
+        flash('Você só pode deletar suas próprias turmas', 'error')
         return redirect(url_for('asset_management', classroom_id=classroom_id))
     
     try:
