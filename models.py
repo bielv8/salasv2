@@ -220,6 +220,11 @@ class ScheduleRequest(db.Model):
     def __repr__(self):
         return f'<ScheduleRequest {self.id} - {self.event_name}>'
 
+class_group_teachers = db.Table('class_group_teachers',
+    db.Column('class_group_id', db.Integer, db.ForeignKey('class_group.id'), primary_key=True),
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True)
+)
+
 class ClassGroup(db.Model):
     """Represents a class/group of students for asset management"""
     id = db.Column(db.Integer, primary_key=True)
@@ -242,6 +247,7 @@ class ClassGroup(db.Model):
     # Relationships
     classroom = db.relationship('Classroom', backref=db.backref('class_groups', lazy=True, cascade='all, delete-orphan'))
     teacher = db.relationship('User', backref=db.backref('class_groups', lazy=True), foreign_keys=[teacher_id])
+    teachers = db.relationship('User', secondary=class_group_teachers, backref=db.backref('teaching_groups', lazy='dynamic'))
     students = db.relationship('Student', backref='class_group', lazy=True, cascade='all, delete-orphan')
     
     def __repr__(self):
@@ -284,6 +290,7 @@ class ClassGroup(db.Model):
             return False
     
     def to_dict(self):
+        teacher_names = [t.name for t in self.teachers] if self.teachers else []
         return {
             'id': self.id,
             'classroom_id': self.classroom_id,
@@ -295,7 +302,9 @@ class ClassGroup(db.Model):
             'end_time': self.end_time,
             'days_of_week': self.days_of_week,
             'created_at': self.created_at.strftime('%d/%m/%Y às %H:%M') if self.created_at else '',
-            'is_active_now': self.is_active_now()
+            'is_active_now': self.is_active_now(),
+            'teachers': teacher_names,
+            'teacher_names': ', '.join(teacher_names) if teacher_names else 'Sem docente atribuído'
         }
 
 class Student(db.Model):

@@ -4062,18 +4062,26 @@ def asset_management(classroom_id):
     if current_user.is_admin():
         class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
     else:
-        # Teachers only see their own class groups
-        class_groups = ClassGroup.query.filter_by(
-            classroom_id=classroom_id,
-            teacher_id=current_user.id
+        # Teachers see class groups where they are assigned (either as teacher_id or in teachers list)
+        class_groups = ClassGroup.query.filter(
+            ClassGroup.classroom_id == classroom_id
+        ).filter(
+            db.or_(
+                ClassGroup.teacher_id == current_user.id,
+                ClassGroup.teachers.any(User.id == current_user.id)
+            )
         ).all()
     
     layout = ClassroomLayout.query.filter_by(classroom_id=classroom_id).first()
     
+    # Get all teachers for the teacher selection dropdown
+    all_teachers = User.query.filter_by(role='teacher', is_active=True).order_by(User.name).all()
+    
     return render_template('asset_management.html', 
                          classroom=classroom, 
                          class_groups=class_groups,
-                         layout=layout)
+                         layout=layout,
+                         all_teachers=all_teachers)
 
 @app.route('/classroom/<int:classroom_id>/upload_class_group', methods=['POST'])
 @require_teacher_or_admin
@@ -4091,6 +4099,7 @@ def upload_class_group(classroom_id):
     start_time = request.form.get('start_time', '').strip()
     end_time = request.form.get('end_time', '').strip()
     days_of_week = request.form.getlist('days_of_week')
+    teacher_ids = request.form.getlist('teacher_ids')
     
     if file.filename == '':
         flash('Nenhum arquivo foi selecionado', 'error')
@@ -4151,6 +4160,17 @@ def upload_class_group(classroom_id):
         db.session.add(class_group)
         db.session.flush()  # Get class_group.id
         
+        # Add teachers to the class group (many-to-many relationship)
+        if teacher_ids:
+            for teacher_id in teacher_ids:
+                teacher = User.query.get(int(teacher_id))
+                if teacher and teacher.role == 'teacher':
+                    class_group.teachers.append(teacher)
+        
+        # If admin is creating and no teachers selected, add current user if they're a teacher
+        if not teacher_ids and current_user.role == 'teacher':
+            class_group.teachers.append(current_user)
+        
         # Create student records
         for student_data in students_data:
             student = Student(
@@ -4183,10 +4203,13 @@ def delete_class_group(classroom_id, group_id):
         flash('Turma não pertence a esta sala', 'error')
         return redirect(url_for('asset_management', classroom_id=classroom_id))
     
-    # Teachers can only delete their own class groups
-    if not current_user.is_admin() and class_group.teacher_id != current_user.id:
-        flash('Você só pode deletar suas próprias turmas', 'error')
-        return redirect(url_for('asset_management', classroom_id=classroom_id))
+    # Teachers can only delete class groups where they are assigned
+    if not current_user.is_admin():
+        is_assigned = (class_group.teacher_id == current_user.id or 
+                      current_user in class_group.teachers)
+        if not is_assigned:
+            flash('Você só pode deletar turmas onde está atribuído como docente', 'error')
+            return redirect(url_for('asset_management', classroom_id=classroom_id))
     
     try:
         group_name = class_group.name
@@ -4202,7 +4225,7 @@ def delete_class_group(classroom_id, group_id):
     return redirect(url_for('asset_management', classroom_id=classroom_id))
 
 @app.route('/classroom/<int:classroom_id>/layout_designer')
-@require_admin_auth
+@require_teacher_or_admin
 def layout_designer(classroom_id):
     """Layout designer page for creating/editing room layout"""
     classroom = Classroom.query.get_or_404(classroom_id)
@@ -4227,7 +4250,7 @@ def layout_designer(classroom_id):
                          layout_data=layout_data)
 
 @app.route('/classroom/<int:classroom_id>/save_layout', methods=['POST'])
-@require_admin_auth
+@require_teacher_or_admin
 def save_layout(classroom_id):
     """Save room layout design"""
     classroom = Classroom.query.get_or_404(classroom_id)
@@ -4286,7 +4309,7 @@ def save_layout(classroom_id):
     return redirect(url_for('asset_management', classroom_id=classroom_id))
 
 @app.route('/classroom/<int:classroom_id>/assign_students')
-@require_admin_auth
+@require_teacher_or_admin
 def assign_students_page(classroom_id):
     """Page for assigning students to workstations"""
     classroom = Classroom.query.get_or_404(classroom_id)
@@ -4349,7 +4372,7 @@ def assign_students_page(classroom_id):
                          current_assignments=current_assignments)
 
 @app.route('/classroom/<int:classroom_id>/save_assignments', methods=['POST'])
-@require_admin_auth
+@require_teacher_or_admin
 def save_assignments(classroom_id):
     """Save student assignments to workstations"""
     classroom = Classroom.query.get_or_404(classroom_id)
