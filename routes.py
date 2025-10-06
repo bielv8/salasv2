@@ -190,6 +190,12 @@ def login():
             login_user(user, remember=True)
             session.permanent = True
             app.permanent_session_lifetime = timedelta(hours=2)
+            
+            # Check if user needs to change password (first login)
+            if user.first_login:
+                flash('Por favor, altere sua senha antes de continuar.', 'warning')
+                return redirect(url_for('force_password_change'))
+            
             flash(f'Bem-vindo, {user.name}!', 'success')
             
             next_page = request.args.get('next')
@@ -422,6 +428,31 @@ def change_my_password():
         return redirect(url_for('profile'))
     
     return render_template('change_password_form.html', form=form, user=current_user, title='Alterar Minha Senha', is_self=True)
+
+@app.route('/force-password-change', methods=['GET', 'POST'])
+@login_required
+def force_password_change():
+    """Force user to change password on first login"""
+    # If user already changed password, redirect to index
+    if not current_user.first_login:
+        return redirect(url_for('index'))
+    
+    form = ChangePasswordForm()
+    
+    if form.validate_on_submit():
+        current_user.set_password(form.password.data)
+        current_user.first_login = False
+        db.session.commit()
+        
+        flash('Senha alterada com sucesso! Bem-vindo ao sistema.', 'success')
+        return redirect(url_for('index'))
+    
+    return render_template('change_password_form.html', 
+                          form=form, 
+                          user=current_user, 
+                          title='Alterar Senha - Primeiro Acesso', 
+                          is_self=True, 
+                          force_change=True)
 
 @app.route('/install')
 def install_instructions():
