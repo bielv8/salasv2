@@ -3977,11 +3977,16 @@ def assign_students_page(classroom_id):
     # Get selected class group
     selected_group_id = request.args.get('group_id', type=int)
     selected_group = None
+    selected_group_dict = None
     current_assignments = {}
     
     if selected_group_id:
         selected_group = ClassGroup.query.get(selected_group_id)
         if selected_group and selected_group.classroom_id == classroom_id:
+            # Convert to dict with students
+            selected_group_dict = selected_group.to_dict()
+            selected_group_dict['students'] = [s.to_dict() for s in selected_group.students]
+            
             # Get current assignments for this group
             assignments = WorkstationAssignment.query.filter_by(class_group_id=selected_group_id).all()
             for assignment in assignments:
@@ -3992,7 +3997,7 @@ def assign_students_page(classroom_id):
                          layout=layout,
                          class_groups=class_groups,
                          workstations=workstations,
-                         selected_group=selected_group,
+                         selected_group=selected_group_dict,
                          current_assignments=current_assignments)
 
 @app.route('/classroom/<int:classroom_id>/save_assignments', methods=['POST'])
