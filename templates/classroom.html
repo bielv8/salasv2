@@ -280,13 +280,19 @@
                         </a>
                         {% endif %}
                         
-                        {% if current_user.is_authenticated and (current_user.is_teacher() or current_user.is_admin()) %}
-                        <a href="{{ url_for('asset_management', classroom_id=classroom.id) }}" class="btn btn-success">
-                            <i class="fas fa-chalkboard-teacher me-2"></i>Minhas Turmas
-                        </a>
-                        <a href="{{ url_for('start_attendance', classroom_id=classroom.id) }}" class="btn btn-primary btn-lg shadow-lg">
-                            <i class="fas fa-clipboard-check me-2"></i>Fazer Chamada
-                        </a>
+                        {% if current_user.is_authenticated and current_user.is_teacher() %}
+                            {% if user_has_groups_in_classroom %}
+                            <a href="{{ url_for('asset_management', classroom_id=classroom.id) }}" class="btn btn-success">
+                                <i class="fas fa-chalkboard-teacher me-2"></i>Minhas Turmas
+                            </a>
+                            <a href="{{ url_for('start_attendance', classroom_id=classroom.id) }}" class="btn btn-primary btn-lg shadow-lg">
+                                <i class="fas fa-clipboard-check me-2"></i>Fazer Chamada
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for('asset_management', classroom_id=classroom.id) }}" class="btn btn-outline-success">
+                                <i class="fas fa-plus-circle me-2"></i>Criar Turma
+                            </a>
+                            {% endif %}
                         {% endif %}
                         
                         {% if session.admin_authenticated %}
