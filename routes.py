@@ -9,9 +9,14 @@ from datetime import datetime, timedelta
 # xAI Grok integration
 try:
     from openai import OpenAI
-    XAI_AVAILABLE = True
-    # Create a custom OpenAI client with the X.AI endpoint
-    xai_client = OpenAI(base_url="https://api.x.ai/v1", api_key=os.environ.get("XAI_API_KEY"))
+    # Check if API key is available before creating client
+    xai_api_key = os.environ.get("XAI_API_KEY")
+    if xai_api_key:
+        xai_client = OpenAI(base_url="https://api.x.ai/v1", api_key=xai_api_key)
+        XAI_AVAILABLE = True
+    else:
+        XAI_AVAILABLE = False
+        xai_client = None
 except ImportError:
     XAI_AVAILABLE = False
     xai_client = None
@@ -55,7 +60,7 @@ except ImportError as e:
     openpyxl = Font = Alignment = PatternFill = None
     EXCEL_AVAILABLE = False
 
-ADMIN_PASSWORD = "senai103103"
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "senai103103")
 # All files are now stored in PostgreSQL database, no local file storage
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 ALLOWED_EXCEL_EXTENSIONS = {'xlsx', 'xls'}
