@@ -141,6 +141,18 @@ with app.app_context():
                 except:
                     pass  # Column already exists
                 
+                # Add teacher_id column to class_group table
+                try:
+                    conn.execute(text("ALTER TABLE class_group ADD COLUMN teacher_id INTEGER REFERENCES \"user\"(id)"))
+                except:
+                    pass  # Column already exists
+                
+                # Add first_login column to user table
+                try:
+                    conn.execute(text("ALTER TABLE \"user\" ADD COLUMN first_login BOOLEAN DEFAULT TRUE"))
+                except:
+                    pass  # Column already exists
+                
                 conn.commit()
         except Exception as migration_error:
             import logging

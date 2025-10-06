@@ -224,6 +224,7 @@ class ClassGroup(db.Model):
     """Represents a class/group of students for asset management"""
     id = db.Column(db.Integer, primary_key=True)
     classroom_id = db.Column(db.Integer, db.ForeignKey('classroom.id'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     name = db.Column(db.String(200), nullable=False)  # Nome da turma
     excel_filename = db.Column(db.String(255), default='')
     excel_data = db.Column(db.LargeBinary)  # Store Excel file
@@ -240,6 +241,7 @@ class ClassGroup(db.Model):
     
     # Relationships
     classroom = db.relationship('Classroom', backref=db.backref('class_groups', lazy=True, cascade='all, delete-orphan'))
+    teacher = db.relationship('User', backref=db.backref('class_groups', lazy=True), foreign_keys=[teacher_id])
     students = db.relationship('Student', backref='class_group', lazy=True, cascade='all, delete-orphan')
     
     def __repr__(self):
@@ -494,15 +496,17 @@ class User(db.Model, UserMixin):
     role = db.Column(db.String(50), nullable=False, default='teacher')  # 'admin' or 'teacher'
     email = db.Column(db.String(120), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
+    first_login = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     
-    def __init__(self, username='', name='', role='teacher', email=''):
+    def __init__(self, username='', name='', role='teacher', email='', first_login=True):
         self.username = username
         self.name = name
         self.role = role
         self.email = email
         self.is_active = True
+        self.first_login = first_login
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
