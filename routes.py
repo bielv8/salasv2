@@ -3981,6 +3981,14 @@ def assign_students_page(classroom_id):
             'notes': ws.notes
         })
     
+    # Parse layout data
+    layout_data = {}
+    if layout and layout.layout_data:
+        try:
+            layout_data = json.loads(layout.layout_data)
+        except:
+            layout_data = {}
+    
     # Get selected class group
     selected_group_id = request.args.get('group_id', type=int)
     selected_group = None
@@ -4002,6 +4010,7 @@ def assign_students_page(classroom_id):
     return render_template('assign_students.html',
                          classroom=classroom,
                          layout=layout,
+                         layout_data=layout_data,
                          class_groups=class_groups,
                          workstations=workstations,
                          selected_group=selected_group_dict,

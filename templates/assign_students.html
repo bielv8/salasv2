@@ -150,7 +150,7 @@
 const workstations = {{ workstations|tojson if workstations else '[]' }};
 const students = {{ selected_group.students|tojson if selected_group else '[]' }};
 const currentAssignments = {{ current_assignments|tojson if current_assignments else '{}' }};
-const layoutData = {{ layout.layout_data|tojson if layout and layout.layout_data else '{}' }};
+const layoutData = {{ layout_data|tojson }};
 
 let assignments = {};
 
