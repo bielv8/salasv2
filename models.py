@@ -217,3 +217,120 @@ class ScheduleRequest(db.Model):
     
     def __repr__(self):
         return f'<ScheduleRequest {self.id} - {self.event_name}>'
+
+class ClassGroup(db.Model):
+    """Represents a class/group of students for asset management"""
+    id = db.Column(db.Integer, primary_key=True)
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classroom.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)  # Nome da turma
+    excel_filename = db.Column(db.String(255), default='')
+    excel_data = db.Column(db.LargeBinary)  # Store Excel file
+    excel_mimetype = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    classroom = db.relationship('Classroom', backref=db.backref('class_groups', lazy=True, cascade='all, delete-orphan'))
+    students = db.relationship('Student', backref='class_group', lazy=True, cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<ClassGroup {self.name}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'classroom_id': self.classroom_id,
+            'name': self.name,
+            'excel_filename': self.excel_filename,
+            'student_count': len(self.students) if self.students else 0,
+            'created_at': self.created_at.strftime('%d/%m/%Y às %H:%M') if self.created_at else ''
+        }
+
+class Student(db.Model):
+    """Represents an individual student in a class group"""
+    id = db.Column(db.Integer, primary_key=True)
+    class_group_id = db.Column(db.Integer, db.ForeignKey('class_group.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    row_number = db.Column(db.Integer)  # Original row in Excel for reference
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<Student {self.name}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'class_group_id': self.class_group_id,
+            'name': self.name,
+            'row_number': self.row_number
+        }
+
+class ClassroomLayout(db.Model):
+    """Stores the layout design for a classroom"""
+    id = db.Column(db.Integer, primary_key=True)
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classroom.id'), nullable=False, unique=True)
+    layout_data = db.Column(db.Text)  # JSON with grid dimensions and metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    classroom = db.relationship('Classroom', backref=db.backref('layout', uselist=False, cascade='all, delete-orphan'))
+    workstations = db.relationship('Workstation', backref='layout', lazy=True, cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<ClassroomLayout for {self.classroom.name if self.classroom else "Unknown"}>'
+
+class Workstation(db.Model):
+    """Represents a numbered workstation/PC in the layout"""
+    id = db.Column(db.Integer, primary_key=True)
+    layout_id = db.Column(db.Integer, db.ForeignKey('classroom_layout.id'), nullable=False)
+    number = db.Column(db.Integer, nullable=False)  # PC number
+    position_x = db.Column(db.Integer, nullable=False)  # Grid X position
+    position_y = db.Column(db.Integer, nullable=False)  # Grid Y position
+    notes = db.Column(db.Text, default='')  # Observações sobre o PC
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    assignments = db.relationship('WorkstationAssignment', backref='workstation', lazy=True, cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<Workstation #{self.number}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'number': self.number,
+            'position_x': self.position_x,
+            'position_y': self.position_y,
+            'notes': self.notes
+        }
+
+class WorkstationAssignment(db.Model):
+    """Links students to workstations for a specific class group"""
+    id = db.Column(db.Integer, primary_key=True)
+    workstation_id = db.Column(db.Integer, db.ForeignKey('workstation.id'), nullable=False)
+    class_group_id = db.Column(db.Integer, db.ForeignKey('class_group.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    class_group = db.relationship('ClassGroup', backref='assignments')
+    student = db.relationship('Student', backref='assignments')
+    
+    # Unique constraint: one student per workstation per class group
+    __table_args__ = (
+        db.UniqueConstraint('workstation_id', 'class_group_id', name='unique_workstation_class'),
+    )
+    
+    def __repr__(self):
+        return f'<WorkstationAssignment W#{self.workstation_id} -> Student#{self.student_id}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'workstation_id': self.workstation_id,
+            'class_group_id': self.class_group_id,
+            'student_id': self.student_id,
+            'student_name': self.student.name if self.student else ''
+        }
