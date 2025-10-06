@@ -284,8 +284,58 @@ function filterByGroup() {
     window.location.href = url.toString();
 }
 
+// Auto-refresh for real-time updates
+let refreshInterval;
+
+function startAutoRefresh() {
+    // Refresh every 10 seconds
+    refreshInterval = setInterval(function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupId = urlParams.get('group_id');
+        
+        let apiUrl = `/api/classroom/{{ classroom.id }}/layout_status`;
+        if (groupId) {
+            apiUrl += `?group_id=${groupId}`;
+        }
+        
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update present students array
+                    presentStudents = data.present_students;
+                    
+                    // Update assignments map
+                    const newAssignmentsMap = {};
+                    for (const [wsId, students] of Object.entries(data.assignments)) {
+                        newAssignmentsMap[parseInt(wsId)] = students;
+                    }
+                    assignmentsMap = newAssignmentsMap;
+                    
+                    // Re-render grid
+                    initializeGrid();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching real-time data:', error);
+            });
+    }, 10000); // 10 seconds
+}
+
+function stopAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     initializeGrid();
+    
+    // Start auto-refresh for real-time updates
+    startAutoRefresh();
+    
+    // Stop auto-refresh when user leaves page
+    window.addEventListener('beforeunload', stopAutoRefresh);
     
     // Initialize Bootstrap tooltips
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));

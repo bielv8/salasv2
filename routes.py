@@ -4485,6 +4485,56 @@ def layout_view(classroom_id):
 
 # API endpoints for AJAX requests
 
+@app.route('/api/classroom/<int:classroom_id>/layout_status')
+def api_layout_status(classroom_id):
+    """Get real-time layout status with attendance data"""
+    classroom = Classroom.query.get_or_404(classroom_id)
+    layout = ClassroomLayout.query.filter_by(classroom_id=classroom_id).first()
+    
+    if not layout:
+        return jsonify({'success': False, 'error': 'Layout not found'}), 404
+    
+    # Get selected class group
+    selected_group_id = request.args.get('group_id', type=int)
+    
+    assignments_map = {}
+    present_students = set()
+    
+    if selected_group_id:
+        selected_group = ClassGroup.query.get(selected_group_id)
+        if selected_group and selected_group.classroom_id == classroom_id:
+            assignments = WorkstationAssignment.query.filter_by(class_group_id=selected_group_id).all()
+            for assignment in assignments:
+                ws_id = assignment.workstation_id
+                if ws_id not in assignments_map:
+                    assignments_map[str(ws_id)] = []
+                student_dict = assignment.student.to_dict()
+                student_dict['class_group_name'] = assignment.class_group.name
+                assignments_map[str(ws_id)].append(student_dict)
+            
+            # Get today's attendance
+            from datetime import date
+            today = date.today()
+            sessions = AttendanceSession.query.filter_by(
+                classroom_id=classroom_id,
+                class_group_id=selected_group_id,
+                session_date=today
+            ).all()
+            
+            for session in sessions:
+                records = AttendanceRecord.query.filter_by(
+                    attendance_session_id=session.id,
+                    status='present'
+                ).all()
+                for record in records:
+                    present_students.add(record.student_id)
+    
+    return jsonify({
+        'success': True,
+        'assignments': assignments_map,
+        'present_students': list(present_students)
+    })
+
 @app.route('/api/classroom/<int:classroom_id>/class_groups')
 def api_class_groups(classroom_id):
     """Get all class groups for a classroom"""
