@@ -45,12 +45,17 @@
                     <div class="d-flex gap-3 flex-wrap">
                         <div>
                             <span class="badge" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">
-                                <i class="fas fa-desktop me-1"></i>Com Aluno
+                                <i class="fas fa-user-check me-1"></i>Aluno Presente
+                            </span>
+                        </div>
+                        <div>
+                            <span class="badge" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%)">
+                                <i class="fas fa-user-clock me-1"></i>Aluno Ausente
                             </span>
                         </div>
                         <div>
                             <span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
-                                <i class="fas fa-desktop me-1"></i>Disponível
+                                <i class="fas fa-desktop me-1"></i>Sem Aluno
                             </span>
                         </div>
                     </div>
@@ -116,7 +121,11 @@
     box-shadow: 0 6px 12px rgba(0,0,0,0.4);
 }
 
-.workstation-view.assigned {
+.workstation-view.has-student {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.workstation-view.student-present {
     background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
 }
 
@@ -189,6 +198,7 @@
 const workstations = {{ workstations|tojson if workstations else '[]' }};
 const layoutData = {{ layout_data|tojson if layout_data else '{}' }};
 const assignmentsMap = {{ assignments_map|tojson if assignments_map else '{}' }};
+const presentStudents = {{ present_students|tojson if present_students else '[]' }};
 
 function initializeGrid() {
     if (!layoutData || !layoutData.grid_width) {
@@ -212,9 +222,15 @@ function initializeGrid() {
         div.style.gridColumn = (ws.position_x + 1);
         div.style.gridRow = (ws.position_y + 1);
         
-        const student = assignmentsMap[ws.id];
-        if (student) {
-            div.classList.add('assigned');
+        const students = assignmentsMap[ws.id] || [];
+        const hasPresent = students.some(s => presentStudents.includes(s.id));
+        
+        if (students.length > 0) {
+            if (hasPresent) {
+                div.classList.add('student-present');
+            } else {
+                div.classList.add('has-student');
+            }
         }
         
         let content = `
@@ -222,8 +238,12 @@ function initializeGrid() {
             <div class="workstation-view-number">#${ws.number}</div>
         `;
         
-        if (student) {
-            content += `<div class="workstation-view-student">${student.name}</div>`;
+        if (students.length > 0) {
+            students.forEach(student => {
+                const isPresent = presentStudents.includes(student.id);
+                const icon = isPresent ? '<i class="fas fa-check-circle me-1"></i>' : '<i class="fas fa-times-circle me-1"></i>';
+                content += `<div class="workstation-view-student">${icon}${student.name}</div>`;
+            });
         }
         
         if (ws.notes) {
@@ -234,11 +254,17 @@ function initializeGrid() {
         
         // Tooltip
         let tooltipContent = `PC #${ws.number}`;
-        if (student) {
-            tooltipContent += `\nAluno: ${student.name}`;
+        if (students.length > 0) {
+            tooltipContent += '\n\nAlunos:';
+            students.forEach(student => {
+                const status = presentStudents.includes(student.id) ? '✓ PRESENTE' : '✗ Ausente';
+                tooltipContent += `\n- ${student.name} (${student.class_group_name}) [${status}]`;
+            });
+        } else {
+            tooltipContent += '\nSem aluno atribuído';
         }
         if (ws.notes) {
-            tooltipContent += `\nObservações: ${ws.notes}`;
+            tooltipContent += `\n\nObservações: ${ws.notes}`;
         }
         div.title = tooltipContent;
         

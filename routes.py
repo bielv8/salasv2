@@ -4081,18 +4081,72 @@ def layout_view(classroom_id):
     # Convert workstations to JSON-serializable dictionaries
     workstations = [ws.to_dict() for ws in workstations_db]
     
+    # Get all assignments for all groups in this classroom
+    assignments_map = {}
+    present_students = set()
+    
     # Get selected class group for filtering
     selected_group_id = request.args.get('group_id', type=int)
     selected_group = None
-    assignments_map = {}
     
     if selected_group_id:
         selected_group = ClassGroup.query.get(selected_group_id)
         if selected_group and selected_group.classroom_id == classroom_id:
+            # Filter by selected group
             assignments = WorkstationAssignment.query.filter_by(class_group_id=selected_group_id).all()
             for assignment in assignments:
-                # Store as dict with workstation_id as key and student dict as value
-                assignments_map[assignment.workstation_id] = assignment.student.to_dict()
+                ws_id = assignment.workstation_id
+                if ws_id not in assignments_map:
+                    assignments_map[ws_id] = []
+                student_dict = assignment.student.to_dict()
+                student_dict['class_group_name'] = assignment.class_group.name
+                assignments_map[ws_id].append(student_dict)
+            
+            # Get today's attendance sessions for this group
+            from datetime import date
+            today = date.today()
+            sessions = AttendanceSession.query.filter_by(
+                classroom_id=classroom_id,
+                class_group_id=selected_group_id,
+                session_date=today
+            ).all()
+            
+            # Get present students from all sessions
+            for session in sessions:
+                records = AttendanceRecord.query.filter_by(
+                    session_id=session.id,
+                    is_present=True
+                ).all()
+                for record in records:
+                    present_students.add(record.student_id)
+    else:
+        # Show all assignments from all groups
+        for group in class_groups:
+            assignments = WorkstationAssignment.query.filter_by(class_group_id=group.id).all()
+            for assignment in assignments:
+                ws_id = assignment.workstation_id
+                if ws_id not in assignments_map:
+                    assignments_map[ws_id] = []
+                student_dict = assignment.student.to_dict()
+                student_dict['class_group_name'] = assignment.class_group.name
+                assignments_map[ws_id].append(student_dict)
+        
+        # Get today's attendance sessions for all groups
+        from datetime import date
+        today = date.today()
+        sessions = AttendanceSession.query.filter_by(
+            classroom_id=classroom_id,
+            session_date=today
+        ).all()
+        
+        # Get present students from all sessions
+        for session in sessions:
+            records = AttendanceRecord.query.filter_by(
+                session_id=session.id,
+                is_present=True
+            ).all()
+            for record in records:
+                present_students.add(record.student_id)
     
     # Parse layout data
     layout_data = {}
@@ -4109,7 +4163,8 @@ def layout_view(classroom_id):
                          class_groups=class_groups,
                          workstations=workstations,
                          selected_group=selected_group,
-                         assignments_map=assignments_map)
+                         assignments_map=assignments_map,
+                         present_students=list(present_students))
 
 # API endpoints for AJAX requests
 
