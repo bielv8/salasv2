@@ -243,6 +243,42 @@ class ClassGroup(db.Model):
     def __repr__(self):
         return f'<ClassGroup {self.name}>'
     
+    def is_active_now(self, current_time=None, current_day=None):
+        """Check if this class group is currently in session"""
+        if not self.shift or not self.start_time or not self.end_time:
+            return False
+        
+        if current_time is None:
+            current_time = datetime.utcnow()
+        if current_day is None:
+            current_day = current_time.weekday()
+        
+        # Check if current day is in the schedule
+        if self.days_of_week:
+            try:
+                import json
+                scheduled_days = json.loads(self.days_of_week)
+                if str(current_day) not in scheduled_days:
+                    return False
+            except:
+                return False
+        
+        # Check if current time is within class hours
+        try:
+            from datetime import time
+            start_parts = self.start_time.split(':')
+            end_parts = self.end_time.split(':')
+            
+            start = time(int(start_parts[0]), int(start_parts[1]))
+            end = time(int(end_parts[0]), int(end_parts[1]))
+            current = current_time.time()
+            
+            if end < start:
+                return current >= start or current <= end
+            return start <= current <= end
+        except:
+            return False
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -254,7 +290,8 @@ class ClassGroup(db.Model):
             'start_time': self.start_time,
             'end_time': self.end_time,
             'days_of_week': self.days_of_week,
-            'created_at': self.created_at.strftime('%d/%m/%Y às %H:%M') if self.created_at else ''
+            'created_at': self.created_at.strftime('%d/%m/%Y às %H:%M') if self.created_at else '',
+            'is_active_now': self.is_active_now()
         }
 
 class Student(db.Model):
