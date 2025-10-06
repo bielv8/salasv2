@@ -3,7 +3,7 @@ import sys
 import json
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app import app, db
-from models import Classroom, Schedule, Incident, ScheduleRequest, ClassGroup, Student, ClassroomLayout, Workstation, WorkstationAssignment
+from models import Classroom, Schedule, Incident, ScheduleRequest, ClassGroup, Student, ClassroomLayout, Workstation, WorkstationAssignment, AttendanceSession, AttendanceRecord
 from datetime import datetime, timedelta
 
 # xAI Grok integration
@@ -3884,7 +3884,8 @@ def layout_designer(classroom_id):
     workstations = []
     layout_data = {}
     if layout:
-        workstations = Workstation.query.filter_by(layout_id=layout.id).all()
+        workstations_db = Workstation.query.filter_by(layout_id=layout.id).all()
+        workstations = [ws.to_dict() for ws in workstations_db]
         if layout.layout_data:
             try:
                 layout_data = json.loads(layout.layout_data)
