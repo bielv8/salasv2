@@ -3961,7 +3961,18 @@ def assign_students_page(classroom_id):
         return redirect(url_for('asset_management', classroom_id=classroom_id))
     
     class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
-    workstations = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    workstations_db = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    
+    # Convert workstations to JSON-serializable dictionaries
+    workstations = []
+    for ws in workstations_db:
+        workstations.append({
+            'id': ws.id,
+            'number': ws.number,
+            'x_position': ws.x_position,
+            'y_position': ws.y_position,
+            'notes': ws.notes
+        })
     
     # Get selected class group
     selected_group_id = request.args.get('group_id', type=int)
