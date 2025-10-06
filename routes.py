@@ -303,6 +303,107 @@ def change_user_password(user_id):
     
     return render_template('change_password_form.html', form=form, user=user, title='Alterar Senha')
 
+@app.route('/users/import-excel', methods=['POST'])
+@require_admin_auth
+def import_users_excel():
+    """Import multiple users from an Excel file with NIF and name columns"""
+    if 'excel_file' not in request.files:
+        flash('Nenhum arquivo selecionado.', 'error')
+        return redirect(url_for('users'))
+    
+    excel_file = request.files['excel_file']
+    
+    if excel_file.filename == '':
+        flash('Nenhum arquivo selecionado.', 'error')
+        return redirect(url_for('users'))
+    
+    if not (excel_file and excel_file.filename and allowed_excel_file(excel_file.filename)):
+        flash('Formato de arquivo não permitido. Use apenas arquivos .xlsx ou .xls', 'error')
+        return redirect(url_for('users'))
+    
+    if not EXCEL_AVAILABLE:
+        flash('Funcionalidade de importação Excel não está disponível.', 'error')
+        return redirect(url_for('users'))
+    
+    try:
+        # Read the Excel file
+        workbook = openpyxl.load_workbook(excel_file)
+        sheet = workbook.active
+        
+        imported_count = 0
+        skipped_count = 0
+        errors = []
+        
+        # Assume first row is header, start from second row
+        for row_num, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+            if not row or len(row) < 2:
+                continue
+            
+            nif = str(row[0]).strip() if row[0] else ''
+            name = str(row[1]).strip() if row[1] else ''
+            
+            if not nif or not name:
+                skipped_count += 1
+                errors.append(f'Linha {row_num}: NIF ou nome vazio')
+                continue
+            
+            # Validate NIF format (should be like sn1077416)
+            import re
+            if not re.match(r'^sn\d{6,8}$', nif.lower()):
+                skipped_count += 1
+                errors.append(f'Linha {row_num}: NIF "{nif}" não está no formato correto (ex: sn1077416)')
+                continue
+            
+            # Check if user already exists
+            existing_user = User.query.filter_by(username=nif.lower()).first()
+            if existing_user:
+                skipped_count += 1
+                errors.append(f'Linha {row_num}: Usuário com NIF "{nif}" já existe')
+                continue
+            
+            # Create new user
+            try:
+                user = User(
+                    username=nif.lower(),
+                    name=name,
+                    role='teacher',
+                    email=f'{nif.lower()}@senai.br',
+                    first_login=True
+                )
+                user.set_password('senai103')
+                user.created_by = current_user.id
+                
+                db.session.add(user)
+                imported_count += 1
+            except Exception as e:
+                skipped_count += 1
+                errors.append(f'Linha {row_num}: Erro ao criar usuário - {str(e)}')
+        
+        # Commit all changes
+        db.session.commit()
+        
+        # Show results
+        if imported_count > 0:
+            flash(f'✅ {imported_count} usuário(s) importado(s) com sucesso!', 'success')
+        
+        if skipped_count > 0:
+            flash(f'⚠️ {skipped_count} usuário(s) ignorado(s). Verifique os erros abaixo.', 'warning')
+            for error in errors[:10]:  # Show only first 10 errors
+                flash(error, 'warning')
+            if len(errors) > 10:
+                flash(f'... e mais {len(errors) - 10} erro(s)', 'warning')
+        
+        return redirect(url_for('users'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao processar arquivo Excel: {str(e)}', 'error')
+        import logging
+        logging.error(f'Excel import error: {e}')
+        import traceback
+        traceback.print_exc()
+        return redirect(url_for('users'))
+
 @app.route('/profile')
 @login_required
 def profile():
