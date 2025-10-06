@@ -4005,7 +4005,10 @@ def assign_students_page(classroom_id):
             # Get current assignments for this group
             assignments = WorkstationAssignment.query.filter_by(class_group_id=selected_group_id).all()
             for assignment in assignments:
-                current_assignments[assignment.workstation_id] = assignment
+                current_assignments[assignment.workstation_id] = {
+                    'workstation_id': assignment.workstation_id,
+                    'student_id': assignment.student_id
+                }
     
     return render_template('assign_students.html',
                          classroom=classroom,
