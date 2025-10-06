@@ -4057,7 +4057,10 @@ def layout_view(classroom_id):
         return redirect(url_for('classroom_detail', classroom_id=classroom_id))
     
     class_groups = ClassGroup.query.filter_by(classroom_id=classroom_id).all()
-    workstations = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    workstations_db = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
+    
+    # Convert workstations to JSON-serializable dictionaries
+    workstations = [ws.to_dict() for ws in workstations_db]
     
     # Get selected class group for filtering
     selected_group_id = request.args.get('group_id', type=int)
@@ -4069,7 +4072,8 @@ def layout_view(classroom_id):
         if selected_group and selected_group.classroom_id == classroom_id:
             assignments = WorkstationAssignment.query.filter_by(class_group_id=selected_group_id).all()
             for assignment in assignments:
-                assignments_map[assignment.workstation_id] = assignment.student
+                # Store as dict with workstation_id as key and student dict as value
+                assignments_map[assignment.workstation_id] = assignment.student.to_dict()
     
     # Parse layout data
     layout_data = {}
