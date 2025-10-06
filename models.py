@@ -226,6 +226,13 @@ class ClassGroup(db.Model):
     excel_filename = db.Column(db.String(255), default='')
     excel_data = db.Column(db.LargeBinary)  # Store Excel file
     excel_mimetype = db.Column(db.String(100))
+    
+    # Schedule information
+    shift = db.Column(db.String(20), default='')  # morning, afternoon, night, fullday
+    start_time = db.Column(db.String(10), default='')  # e.g., "08:00"
+    end_time = db.Column(db.String(10), default='')  # e.g., "12:00"
+    days_of_week = db.Column(db.Text, default='')  # JSON array: [0,1,2,3,4] for Mon-Fri
+    
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -243,6 +250,10 @@ class ClassGroup(db.Model):
             'name': self.name,
             'excel_filename': self.excel_filename,
             'student_count': len(self.students) if self.students else 0,
+            'shift': self.shift,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'days_of_week': self.days_of_week,
             'created_at': self.created_at.strftime('%d/%m/%Y às %H:%M') if self.created_at else ''
         }
 

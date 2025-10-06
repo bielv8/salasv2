@@ -111,6 +111,25 @@ with app.app_context():
                     # Final fallback: ignore if column already exists error
                     logging.warning(f"Column migration info: {col_error}")
                     pass
+                
+                # Add schedule columns to class_group table
+                try:
+                    conn.execute(text("ALTER TABLE class_group ADD COLUMN shift VARCHAR(20) DEFAULT ''"))
+                except:
+                    pass  # Column already exists
+                try:
+                    conn.execute(text("ALTER TABLE class_group ADD COLUMN start_time VARCHAR(10) DEFAULT ''"))
+                except:
+                    pass  # Column already exists
+                try:
+                    conn.execute(text("ALTER TABLE class_group ADD COLUMN end_time VARCHAR(10) DEFAULT ''"))
+                except:
+                    pass  # Column already exists
+                try:
+                    conn.execute(text("ALTER TABLE class_group ADD COLUMN days_of_week TEXT DEFAULT ''"))
+                except:
+                    pass  # Column already exists
+                
                 conn.commit()
         except Exception as migration_error:
             import logging
