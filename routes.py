@@ -4350,10 +4350,12 @@ def attendance_page(session_id):
     
     workstations_db = Workstation.query.filter_by(layout_id=layout.id).order_by(Workstation.number).all()
     workstations = [ws.to_dict() for ws in workstations_db]
-    records = AttendanceRecord.query.filter_by(attendance_session_id=session_id).all()
+    records_db = AttendanceRecord.query.filter_by(attendance_session_id=session_id).all()
     
-    records_by_student = {r.student_id: r for r in records}
-    records_by_workstation = {r.workstation_id: r for r in records if r.workstation_id}
+    # Convert records to dictionaries for JSON serialization
+    records = [r.to_dict() for r in records_db]
+    records_by_student = {r.student_id: r.to_dict() for r in records_db}
+    records_by_workstation = {r.workstation_id: r.to_dict() for r in records_db if r.workstation_id}
     
     return render_template('attendance.html',
                          session=session,
