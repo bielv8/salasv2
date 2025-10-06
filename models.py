@@ -1,5 +1,7 @@
 from app import db
 from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import UserMixin
 
 class Classroom(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -481,4 +483,53 @@ class AttendanceRecord(db.Model):
             'check_in_time': self.check_in_time.strftime('%H:%M:%S') if self.check_in_time else '',
             'check_out_time': self.check_out_time.strftime('%H:%M:%S') if self.check_out_time else '',
             'notes': self.notes
+        }
+
+class User(db.Model, UserMixin):
+    """User model for authentication with roles"""
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    role = db.Column(db.String(50), nullable=False, default='teacher')  # 'admin' or 'teacher'
+    email = db.Column(db.String(120), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    
+    def __init__(self, username='', name='', role='teacher', email=''):
+        self.username = username
+        self.name = name
+        self.role = role
+        self.email = email
+        self.is_active = True
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def is_admin(self):
+        return self.role == 'admin'
+    
+    def is_teacher(self):
+        return self.role == 'teacher'
+    
+    def get_id(self):
+        """Required method for Flask-Login"""
+        return str(self.id)
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'name': self.name,
+            'role': self.role,
+            'email': self.email,
+            'is_active': self.is_active,
+            'created_at': self.created_at.strftime('%d/%m/%Y às %H:%M') if self.created_at else ''
         }
