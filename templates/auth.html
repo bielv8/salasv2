@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Login Admin - SENAI Morvan Figueiredo{% endblock %}
+{% block title %}Login - SENAI Morvan Figueiredo{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -10,31 +10,55 @@
                 <div class="card-header text-center">
                     <h4 class="mb-0">
                         <i class="fas fa-lock me-2 text-warning"></i>
-                        Acesso Administrativo
+                        Acesso ao Sistema
                     </h4>
                 </div>
                 <div class="card-body">
                     <div class="text-center mb-4">
-                        <i class="fas fa-shield-alt fa-3x text-primary mb-3"></i>
+                        <i class="fas fa-user-shield fa-3x text-primary mb-3"></i>
                         <p class="text-muted">
-                            Para editar informações das salas e gerenciar horários, 
-                            é necessário inserir a senha de administrador.
+                            Faça login para acessar o sistema
                         </p>
                     </div>
 
                     <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
                         <div class="mb-3">
-                            <label for="password" class="form-label">Senha de Administrador</label>
+                            <label for="username" class="form-label">Usuário</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-user"></i>
+                                </span>
+                                {{ form.username(class="form-control", placeholder="Digite seu usuário", autofocus=True) }}
+                            </div>
+                            {% if form.username.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.username.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Senha</label>
                             <div class="input-group">
                                 <span class="input-group-text">
                                     <i class="fas fa-key"></i>
                                 </span>
-                                <input type="password" class="form-control" id="password" name="password" 
-                                       placeholder="Digite a senha" required autofocus>
+                                {{ form.password(class="form-control", placeholder="Digite sua senha", id="password") }}
                                 <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                     <i class="fas fa-eye"></i>
                                 </button>
                             </div>
+                            {% if form.password.errors %}
+                                <div class="text-danger small mt-1">
+                                    {% for error in form.password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
                         </div>
 
                         <div class="d-grid gap-2">
@@ -50,7 +74,7 @@
                 <div class="card-footer text-center">
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        Acesso restrito apenas para administradores autorizados
+                        Acesso para usuários autorizados
                     </small>
                 </div>
             </div>
@@ -58,7 +82,7 @@
             <!-- Information Card -->
             <div class="card mt-4">
                 <div class="card-header">
-                    <h6 class="mb-0"><i class="fas fa-question-circle me-2"></i>O que você pode fazer como Admin?</h6>
+                    <h6 class="mb-0"><i class="fas fa-question-circle me-2"></i>O que você pode fazer?</h6>
                 </div>
                 <div class="card-body">
                     <ul class="list-unstyled mb-0">
@@ -75,12 +99,12 @@
                             Gerenciar horários e cronogramas
                         </li>
                         <li class="mb-2">
-                            <i class="fas fa-file-pdf text-danger me-2"></i>
-                            Gerar relatórios completos em PDF
+                            <i class="fas fa-clipboard-check text-success me-2"></i>
+                            Fazer chamada e gestão de patrimônio (Docentes)
                         </li>
                         <li class="mb-0">
-                            <i class="fas fa-trash text-danger me-2"></i>
-                            Remover horários cadastrados
+                            <i class="fas fa-users text-primary me-2"></i>
+                            Gerenciar usuários do sistema (Administradores)
                         </li>
                     </ul>
                 </div>
@@ -108,14 +132,10 @@ document.getElementById('togglePassword').addEventListener('click', function() {
     }
 });
 
-// Focus on password field
-document.getElementById('password').focus();
-
-// Auto-submit on Enter
-document.getElementById('password').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        this.form.submit();
-    }
-});
+// Focus on username field
+const usernameField = document.getElementById('username');
+if (usernameField) {
+    usernameField.focus();
+}
 </script>
 {% endblock %}

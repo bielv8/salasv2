@@ -506,12 +506,22 @@ def add_incident(classroom_id):
     classroom = Classroom.query.get_or_404(classroom_id)
     
     try:
-        reporter_name = request.form.get('reporter_name', '').strip()
-        reporter_email = request.form.get('reporter_email', '').strip()
+        # Use logged in user data if available
+        if current_user.is_authenticated:
+            reporter_name = current_user.name
+            reporter_email = current_user.email or f"{current_user.username}@senai.br"
+        else:
+            reporter_name = request.form.get('reporter_name', '').strip()
+            reporter_email = request.form.get('reporter_email', '').strip()
+            
+            if not reporter_name or not reporter_email:
+                flash('Nome e email são obrigatórios para registrar uma ocorrência.', 'error')
+                return redirect(url_for('classroom_detail', classroom_id=classroom_id))
+        
         description = request.form.get('description', '').strip()
         
-        if not reporter_name or not reporter_email or not description:
-            flash('Todos os campos são obrigatórios para registrar uma ocorrência.', 'error')
+        if not description:
+            flash('A descrição da ocorrência é obrigatória.', 'error')
             return redirect(url_for('classroom_detail', classroom_id=classroom_id))
         
         # Simple incident creation using SQLAlchemy model
@@ -2175,8 +2185,19 @@ def submit_schedule_request():
     try:
         # Get form data
         classroom_id = request.form.get('classroom_id')
-        requester_name = request.form.get('requester_name', '').strip()
-        requester_email = request.form.get('requester_email', '').strip()
+        
+        # Use logged in user data if available
+        if current_user.is_authenticated:
+            requester_name = current_user.name
+            requester_email = current_user.email or f"{current_user.username}@senai.br"
+        else:
+            requester_name = request.form.get('requester_name', '').strip()
+            requester_email = request.form.get('requester_email', '').strip()
+            
+            if not requester_name or not requester_email:
+                flash('Erro: Nome e email são obrigatórios.', 'error')
+                return redirect(url_for('request_schedule', classroom_id=classroom_id))
+        
         event_name = request.form.get('event_name', '').strip()
         description = request.form.get('description', '').strip()
         
