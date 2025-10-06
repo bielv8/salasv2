@@ -175,9 +175,13 @@ def classroom_detail(classroom_id):
     # Check if current user (if teacher) has any class groups in this classroom
     user_has_groups_in_classroom = False
     if current_user.is_authenticated and current_user.is_teacher():
-        user_has_groups_in_classroom = ClassGroup.query.filter_by(
-            classroom_id=classroom_id,
-            teacher_id=current_user.id
+        user_has_groups_in_classroom = ClassGroup.query.filter(
+            ClassGroup.classroom_id == classroom_id
+        ).filter(
+            db.or_(
+                ClassGroup.teacher_id == current_user.id,
+                ClassGroup.teachers.any(User.id == current_user.id)
+            )
         ).count() > 0
     
     return render_template('classroom.html', 
