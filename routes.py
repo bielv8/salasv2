@@ -172,7 +172,19 @@ def classroom_detail(classroom_id):
         logging.error(f"Incident query error: {e}")
         incidents = []
     
-    return render_template('classroom.html', classroom=classroom, schedules=schedules, incidents=incidents)
+    # Check if current user (if teacher) has any class groups in this classroom
+    user_has_groups_in_classroom = False
+    if current_user.is_authenticated and current_user.is_teacher():
+        user_has_groups_in_classroom = ClassGroup.query.filter_by(
+            classroom_id=classroom_id,
+            teacher_id=current_user.id
+        ).count() > 0
+    
+    return render_template('classroom.html', 
+                         classroom=classroom, 
+                         schedules=schedules, 
+                         incidents=incidents,
+                         user_has_groups_in_classroom=user_has_groups_in_classroom)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
