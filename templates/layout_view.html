@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Planta da Sala - {{ classroom.name }} - SENAI{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h2><i class="fas fa-map me-2"></i>Planta da Sala - {{ classroom.name }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Início</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}">{{ classroom.name }}</a></li>
+                    <li class="breadcrumb-item active">Planta da Sala</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    {% if class_groups %}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtrar por Turma</h5>
+                </div>
+                <div class="card-body">
+                    <select class="form-select" id="class-group-select" onchange="filterByGroup()">
+                        <option value="">Todas as turmas</option>
+                        {% for group in class_groups %}
+                        <option value="{{ group.id }}" {% if selected_group and selected_group.id == group.id %}selected{% endif %}>
+                            {{ group.name }} ({{ group.students|length }} alunos)
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Legenda</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-3 flex-wrap">
+                        <div>
+                            <span class="badge" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">
+                                <i class="fas fa-desktop me-1"></i>Com Aluno
+                            </span>
+                        </div>
+                        <div>
+                            <span class="badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
+                                <i class="fas fa-desktop me-1"></i>Disponível
+                            </span>
+                        </div>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="fas fa-mouse-pointer me-1"></i>Passe o mouse sobre um PC para ver detalhes
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-map-marked-alt me-2"></i>
+                        {% if selected_group %}
+                            Layout - {{ selected_group.name }}
+                        {% else %}
+                            Layout da Sala
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="layout-view-grid" class="layout-view-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.layout-view-grid {
+    display: grid;
+    gap: 15px;
+    background: #1a1a1a;
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    min-height: 500px;
+}
+
+.workstation-view {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 2px solid #fff;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    position: relative;
+    cursor: pointer;
+}
+
+.workstation-view:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+}
+
+.workstation-view.assigned {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+}
+
+.workstation-view-icon {
+    font-size: 1.5rem;
+    color: white;
+}
+
+.workstation-view-number {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: white;
+}
+
+.workstation-view-student {
+    font-size: 0.9rem;
+    color: white;
+    text-align: center;
+    font-weight: 500;
+}
+
+.workstation-view-notes {
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.8);
+    text-align: center;
+    font-style: italic;
+}
+
+@media (max-width: 768px) {
+    .layout-view-grid {
+        gap: 10px;
+        padding: 10px;
+    }
+    .workstation-view {
+        padding: 10px;
+    }
+    .workstation-view-icon {
+        font-size: 1.2rem;
+    }
+    .workstation-view-number {
+        font-size: 1rem;
+    }
+    .workstation-view-student {
+        font-size: 0.75rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .layout-view-grid {
+        gap: 5px;
+        padding: 5px;
+    }
+    .workstation-view {
+        padding: 8px;
+        gap: 4px;
+    }
+    .workstation-view-icon {
+        font-size: 1rem;
+    }
+    .workstation-view-number {
+        font-size: 0.9rem;
+    }
+    .workstation-view-student {
+        font-size: 0.7rem;
+    }
+}
+</style>
+
+<script>
+const workstations = {{ workstations|tojson if workstations else '[]' }};
+const layoutData = {{ layout_data|tojson if layout_data else '{}' }};
+const assignmentsMap = {{ assignments_map|tojson if assignments_map else '{}' }};
+
+function initializeGrid() {
+    if (!layoutData || !layoutData.grid_width) {
+        document.getElementById('layout-view-grid').innerHTML = `
+            <div class="alert alert-warning m-3">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Layout não configurado para esta sala.
+            </div>
+        `;
+        return;
+    }
+    
+    const grid = document.getElementById('layout-view-grid');
+    grid.style.gridTemplateColumns = `repeat(${layoutData.grid_width}, 1fr)`;
+    grid.style.gridTemplateRows = `repeat(${layoutData.grid_height}, 1fr)`;
+    grid.innerHTML = '';
+    
+    workstations.forEach(ws => {
+        const div = document.createElement('div');
+        div.className = 'workstation-view';
+        div.style.gridColumn = (ws.position_x + 1);
+        div.style.gridRow = (ws.position_y + 1);
+        
+        const student = assignmentsMap[ws.id];
+        if (student) {
+            div.classList.add('assigned');
+        }
+        
+        let content = `
+            <div class="workstation-view-icon"><i class="fas fa-desktop"></i></div>
+            <div class="workstation-view-number">#${ws.number}</div>
+        `;
+        
+        if (student) {
+            content += `<div class="workstation-view-student">${student.name}</div>`;
+        }
+        
+        if (ws.notes) {
+            content += `<div class="workstation-view-notes">${ws.notes}</div>`;
+        }
+        
+        div.innerHTML = content;
+        
+        // Tooltip
+        let tooltipContent = `PC #${ws.number}`;
+        if (student) {
+            tooltipContent += `\nAluno: ${student.name}`;
+        }
+        if (ws.notes) {
+            tooltipContent += `\nObservações: ${ws.notes}`;
+        }
+        div.title = tooltipContent;
+        
+        grid.appendChild(div);
+    });
+}
+
+function filterByGroup() {
+    const select = document.getElementById('class-group-select');
+    const groupId = select.value;
+    const url = new URL(window.location);
+    if (groupId) {
+        url.searchParams.set('group_id', groupId);
+    } else {
+        url.searchParams.delete('group_id');
+    }
+    window.location.href = url.toString();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeGrid();
+    
+    // Initialize Bootstrap tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

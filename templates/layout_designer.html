@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Designer de Layout - {{ classroom.name }} - SENAI{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-3">
+        <div class="col">
+            <h2><i class="fas fa-map me-2"></i>Designer de Layout - {{ classroom.name }}</h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Início</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}">{{ classroom.name }}</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('asset_management', classroom_id=classroom.id) }}">Gestão de Patrimônio</a></li>
+                    <li class="breadcrumb-item active">Designer de Layout</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-9">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-pen-to-square me-2"></i>Área de Trabalho</h5>
+                    <div>
+                        <button type="button" class="btn btn-sm btn-light" onclick="addWorkstation()">
+                            <i class="fas fa-plus me-1"></i>Adicionar PC
+                        </button>
+                        <button type="button" class="btn btn-sm btn-success" onclick="saveLayout()">
+                            <i class="fas fa-save me-1"></i>Salvar Layout
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="layout-grid" class="layout-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-3">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cog me-2"></i>Configurações</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Largura da Grade</label>
+                        <input type="number" id="grid-width" class="form-control" value="{{ layout_data.grid_width or 12 }}" min="5" max="20">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Altura da Grade</label>
+                        <input type="number" id="grid-height" class="form-control" value="{{ layout_data.grid_height or 8 }}" min="5" max="15">
+                    </div>
+                    <button type="button" class="btn btn-secondary w-100" onclick="regenerateGrid()">
+                        <i class="fas fa-sync me-2"></i>Redimensionar Grade
+                    </button>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-desktop me-2"></i>Computadores</h5>
+                </div>
+                <div class="card-body">
+                    <div id="workstation-list" class="workstation-list"></div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Instruções</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="small mb-0 ps-3">
+                        <li>Clique em "Adicionar PC" para criar um novo computador</li>
+                        <li>Arraste os PCs para posicioná-los na grade</li>
+                        <li>Clique em um PC para editar suas observações</li>
+                        <li>Clique no X vermelho para remover um PC</li>
+                        <li>Salve o layout quando terminar</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="save-layout-form" method="POST" action="{{ url_for('save_layout', classroom_id=classroom.id) }}" style="display:none;">
+    <input type="hidden" id="form-grid-width" name="grid_width">
+    <input type="hidden" id="form-grid-height" name="grid_height">
+    <input type="hidden" id="form-workstations" name="workstations">
+</form>
+
+<div class="modal fade" id="editWorkstationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Computador #<span id="edit-ws-number"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Observações</label>
+                    <textarea id="edit-ws-notes" class="form-control" rows="3" 
+                              placeholder="Ex: Monitor com problema, teclado novo, etc."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveWorkstationEdit()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.layout-grid {
+    display: grid;
+    gap: 10px;
+    background: #1a1a1a;
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 20px;
+    min-height: 500px;
+    position: relative;
+}
+
+.workstation {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 2px solid #fff;
+    border-radius: 8px;
+    padding: 10px;
+    cursor: move;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    position: relative;
+    transition: all 0.3s;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.workstation:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+}
+
+.workstation-number {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+}
+
+.workstation-icon {
+    font-size: 1rem;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 5px;
+}
+
+.workstation-remove {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.workstation:hover .workstation-remove {
+    opacity: 1;
+}
+
+.workstation-list-item {
+    padding: 8px;
+    margin-bottom: 5px;
+    background: #2a2a2a;
+    border-radius: 4px;
+    border-left: 3px solid #667eea;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+    .layout-grid {
+        gap: 5px;
+        padding: 10px;
+    }
+    .workstation {
+        padding: 5px;
+    }
+    .workstation-number {
+        font-size: 1rem;
+    }
+}
+</style>
+
+<script>
+let workstations = {{ workstations|tojson if workstations else '[]' }};
+let nextNumber = 1;
+let editingWorkstation = null;
+
+if (workstations.length > 0) {
+    nextNumber = Math.max(...workstations.map(ws => ws.number)) + 1;
+}
+
+function initializeGrid() {
+    const width = parseInt(document.getElementById('grid-width').value);
+    const height = parseInt(document.getElementById('grid-height').value);
+    
+    const grid = document.getElementById('layout-grid');
+    grid.style.gridTemplateColumns = `repeat(${width}, 1fr)`;
+    grid.style.gridTemplateRows = `repeat(${height}, 1fr)`;
+    
+    grid.innerHTML = '';
+    
+    workstations.forEach(ws => {
+        createWorkstationElement(ws);
+    });
+    
+    updateWorkstationList();
+}
+
+function regenerateGrid() {
+    if (confirm('Redimensionar a grade? Os computadores serão mantidos, mas posições inválidas serão ajustadas.')) {
+        const width = parseInt(document.getElementById('grid-width').value);
+        const height = parseInt(document.getElementById('grid-height').value);
+        
+        workstations = workstations.filter(ws => ws.x < width && ws.y < height);
+        initializeGrid();
+    }
+}
+
+function addWorkstation() {
+    const width = parseInt(document.getElementById('grid-width').value);
+    const height = parseInt(document.getElementById('grid-height').value);
+    
+    let x = 0, y = 0;
+    let positionFound = false;
+    
+    for (let row = 0; row < height && !positionFound; row++) {
+        for (let col = 0; col < width && !positionFound; col++) {
+            const occupied = workstations.some(ws => ws.x === col && ws.y === row);
+            if (!occupied) {
+                x = col;
+                y = row;
+                positionFound = true;
+            }
+        }
+    }
+    
+    if (!positionFound) {
+        alert('Grade cheia! Remova alguns computadores ou aumente o tamanho da grade.');
+        return;
+    }
+    
+    const newWorkstation = {
+        number: nextNumber++,
+        x: x,
+        y: y,
+        notes: ''
+    };
+    
+    workstations.push(newWorkstation);
+    createWorkstationElement(newWorkstation);
+    updateWorkstationList();
+}
+
+function createWorkstationElement(ws) {
+    const grid = document.getElementById('layout-grid');
+    const div = document.createElement('div');
+    div.className = 'workstation';
+    div.style.gridColumn = (ws.x + 1);
+    div.style.gridRow = (ws.y + 1);
+    div.dataset.number = ws.number;
+    div.draggable = true;
+    
+    div.innerHTML = `
+        <div class="workstation-icon"><i class="fas fa-desktop"></i></div>
+        <div class="workstation-number">${ws.number}</div>
+        <button class="workstation-remove" onclick="removeWorkstation(${ws.number})">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    div.ondragstart = (e) => {
+        e.dataTransfer.setData('number', ws.number);
+    };
+    
+    div.onclick = (e) => {
+        if (!e.target.closest('.workstation-remove')) {
+            editWorkstation(ws.number);
+        }
+    };
+    
+    grid.appendChild(div);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const grid = document.getElementById('layout-grid');
+    
+    grid.ondragover = (e) => {
+        e.preventDefault();
+    };
+    
+    grid.ondrop = (e) => {
+        e.preventDefault();
+        const number = parseInt(e.dataTransfer.getData('number'));
+        const rect = grid.getBoundingClientRect();
+        const width = parseInt(document.getElementById('grid-width').value);
+        const height = parseInt(document.getElementById('grid-height').value);
+        
+        const cellWidth = rect.width / width;
+        const cellHeight = rect.height / height;
+        
+        const x = Math.floor((e.clientX - rect.left) / cellWidth);
+        const y = Math.floor((e.clientY - rect.top) / cellHeight);
+        
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            const occupied = workstations.some(ws => ws.x === x && ws.y === y && ws.number !== number);
+            if (!occupied) {
+                const ws = workstations.find(w => w.number === number);
+                if (ws) {
+                    ws.x = x;
+                    ws.y = y;
+                    initializeGrid();
+                }
+            }
+        }
+    };
+    
+    initializeGrid();
+});
+
+function removeWorkstation(number) {
+    if (confirm(`Remover computador #${number}?`)) {
+        workstations = workstations.filter(ws => ws.number !== number);
+        initializeGrid();
+    }
+}
+
+function editWorkstation(number) {
+    const ws = workstations.find(w => w.number === number);
+    if (ws) {
+        editingWorkstation = ws;
+        document.getElementById('edit-ws-number').textContent = ws.number;
+        document.getElementById('edit-ws-notes').value = ws.notes || '';
+        new bootstrap.Modal(document.getElementById('editWorkstationModal')).show();
+    }
+}
+
+function saveWorkstationEdit() {
+    if (editingWorkstation) {
+        editingWorkstation.notes = document.getElementById('edit-ws-notes').value;
+        bootstrap.Modal.getInstance(document.getElementById('editWorkstationModal')).hide();
+        updateWorkstationList();
+    }
+}
+
+function updateWorkstationList() {
+    const list = document.getElementById('workstation-list');
+    if (workstations.length === 0) {
+        list.innerHTML = '<div class="text-muted small">Nenhum computador ainda</div>';
+        return;
+    }
+    
+    const sorted = [...workstations].sort((a, b) => a.number - b.number);
+    list.innerHTML = sorted.map(ws => `
+        <div class="workstation-list-item">
+            <i class="fas fa-desktop me-2"></i>PC #${ws.number}
+            ${ws.notes ? '<br><small class="text-muted">' + ws.notes + '</small>' : ''}
+        </div>
+    `).join('');
+}
+
+function saveLayout() {
+    if (workstations.length === 0) {
+        alert('Adicione pelo menos um computador antes de salvar!');
+        return;
+    }
+    
+    document.getElementById('form-grid-width').value = document.getElementById('grid-width').value;
+    document.getElementById('form-grid-height').value = document.getElementById('grid-height').value;
+    document.getElementById('form-workstations').value = JSON.stringify(workstations);
+    
+    document.getElementById('save-layout-form').submit();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Gestão de Patrimônio - {{ classroom.name }} - SENAI{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>
+                <i class="fas fa-cogs me-2"></i>Gestão de Patrimônio - {{ classroom.name }}
+            </h2>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Início</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('classroom_detail', classroom_id=classroom.id) }}">{{ classroom.name }}</a></li>
+                    <li class="breadcrumb-item active">Gestão de Patrimônio</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-users me-2"></i>Turmas</h5>
+                </div>
+                <div class="card-body">
+                    {% if class_groups %}
+                    <div class="list-group mb-3">
+                        {% for group in class_groups %}
+                        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ group.name }}</h6>
+                                <small class="text-muted">
+                                    <i class="fas fa-user-graduate me-1"></i>
+                                    {{ group.students|length }} alunos
+                                    <span class="ms-2">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        {{ group.created_at.strftime('%d/%m/%Y') }}
+                                    </span>
+                                </small>
+                            </div>
+                            <div class="btn-group">
+                                <a href="{{ url_for('download_class_group_excel', group_id=group.id) }}" 
+                                   class="btn btn-sm btn-outline-info" title="Baixar Excel">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <form method="POST" action="{{ url_for('delete_class_group', classroom_id=classroom.id, group_id=group.id) }}" 
+                                      style="display:inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta turma? Todas as atribuições serão perdidas.');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir turma">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Nenhuma turma cadastrada ainda. Faça upload de um arquivo Excel para começar.
+                    </div>
+                    {% endif %}
+
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                        <i class="fas fa-upload me-2"></i>Nova Turma
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-map me-2"></i>Layout da Sala</h5>
+                </div>
+                <div class="card-body">
+                    {% if layout %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Layout configurado com {{ layout.workstations|length }} computadores
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a href="{{ url_for('layout_designer', classroom_id=classroom.id) }}" class="btn btn-primary">
+                            <i class="fas fa-edit me-2"></i>Editar Layout
+                        </a>
+                        {% if class_groups %}
+                        <a href="{{ url_for('assign_students_page', classroom_id=classroom.id) }}" class="btn btn-success">
+                            <i class="fas fa-user-check me-2"></i>Atribuir Alunos
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('layout_view', classroom_id=classroom.id) }}" class="btn btn-info">
+                            <i class="fas fa-eye me-2"></i>Visualizar
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Layout não configurado. Crie o layout da sala para começar.
+                    </div>
+                    <a href="{{ url_for('layout_designer', classroom_id=classroom.id) }}" class="btn btn-success">
+                        <i class="fas fa-plus me-2"></i>Criar Layout
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Como Usar</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li class="mb-2">
+                            <strong>Adicionar Turmas:</strong> Faça upload de um arquivo Excel com nomes de alunos (uma coluna).
+                        </li>
+                        <li class="mb-2">
+                            <strong>Criar Layout:</strong> Desenhe o layout da sala posicionando os computadores.
+                        </li>
+                        <li>
+                            <strong>Atribuir Alunos:</strong> Associe alunos de cada turma aos computadores específicos.
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-upload me-2"></i>Nova Turma</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('upload_class_group', classroom_id=classroom.id) }}" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="class_group_name" class="form-label">Nome da Turma</label>
+                        <input type="text" class="form-control" id="class_group_name" name="class_group_name" 
+                               placeholder="Ex: Turma A - 2025" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="excel_file" class="form-label">Arquivo Excel</label>
+                        <input type="file" class="form-control" id="excel_file" name="excel_file" 
+                               accept=".xlsx,.xls" required>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            O arquivo deve ter uma coluna com os nomes dos alunos.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload me-2"></i>Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -272,6 +272,19 @@
                             <i class="fas fa-file-excel me-2"></i>Sem Patrimônio
                         </button>
                         {% endif %}
+                        
+                        <!-- Asset Management Buttons -->
+                        {% if classroom.layout %}
+                        <a href="{{ url_for('layout_view', classroom_id=classroom.id) }}" class="btn btn-outline-info">
+                            <i class="fas fa-map me-2"></i>Ver Planta da Sala
+                        </a>
+                        {% endif %}
+                        
+                        {% if session.admin_authenticated %}
+                        <a href="{{ url_for('asset_management', classroom_id=classroom.id) }}" class="btn btn-warning text-dark">
+                            <i class="fas fa-cogs me-2"></i>Gestão de Patrimônio
+                        </a>
+                        {% endif %}
                         {% if session.admin_authenticated %}
                         <a href="{{ url_for('edit_classroom', classroom_id=classroom.id) }}" class="btn btn-outline-warning">
                             <i class="fas fa-edit me-2"></i>Editar Sala
